@@ -303,7 +303,7 @@ const user = await db.users.findUnique({
             </Link>
 
             <Link
-              href="/docs/core-concepts"
+              href="/docs/guide/core-concepts"
               className="bg-white rounded-lg p-6 border border-gray-200 hover:border-gray-900 hover:shadow-sm transition-all group"
             >
               <h3 className="font-semibold text-gray-900 mb-2 group-hover:underline">
@@ -315,7 +315,7 @@ const user = await db.users.findUnique({
             </Link>
 
             <Link
-              href="/docs/crud-operations"
+              href="/docs/guide/create"
               className="bg-white rounded-lg p-6 border border-gray-200 hover:border-gray-900 hover:shadow-sm transition-all group"
             >
               <h3 className="font-semibold text-gray-900 mb-2 group-hover:underline">
@@ -327,7 +327,7 @@ const user = await db.users.findUnique({
             </Link>
 
             <Link
-              href="/docs/common-patterns"
+              href="/docs/guide/common-patterns"
               className="bg-white rounded-lg p-6 border border-gray-200 hover:border-gray-900 hover:shadow-sm transition-all group"
             >
               <h3 className="font-semibold text-gray-900 mb-2 group-hover:underline">
@@ -339,7 +339,7 @@ const user = await db.users.findUnique({
             </Link>
 
             <Link
-              href="/docs/advanced-patterns"
+              href="/docs/guide/advanced-patterns"
               className="bg-white rounded-lg p-6 border border-gray-200 hover:border-gray-900 hover:shadow-sm transition-all group"
             >
               <h3 className="font-semibold text-gray-900 mb-2 group-hover:underline">
@@ -351,7 +351,7 @@ const user = await db.users.findUnique({
             </Link>
 
             <Link
-              href="/docs/performance"
+              href="/docs/advanced/performance"
               className="bg-white rounded-lg p-6 border border-gray-200 hover:border-gray-900 hover:shadow-sm transition-all group"
             >
               <h3 className="font-semibold text-gray-900 mb-2 group-hover:underline">

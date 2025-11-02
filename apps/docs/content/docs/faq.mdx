@@ -5,7 +5,7 @@ description: Frequently asked questions about CosmosQL
 
 # FAQ
 
-Quick answers to common questions. For detailed guides, see [Getting Started](/docs/getting-started) or [Common Patterns](/docs/common-patterns).
+Quick answers to common questions. For detailed guides, see [Getting Started](/docs/getting-started) or [Common Patterns](/docs/guide/common-patterns).
 
 ## Quick Decisions
 
@@ -31,7 +31,7 @@ Yes. CosmosQL and Azure SDK coexist—use CosmosQL for CRUD, Azure SDK for advan
 - ❌ Stored procedures
 - ❌ Graph/MongoDB APIs
 
-See [Limitations](/docs/limitations) for complete list.
+See [Limitations](/docs/advanced/limitations) for complete list.
 
 ## Language & Runtime
 
@@ -66,15 +66,15 @@ Update your schema. Existing documents work fine—new fields are optional.
 Treat as optional in schema. Can't truly remove from existing documents. Consider versioning.
 
 **Changing field types?**  
-Version documents or write migration scripts. See [Migration Guide](/docs/migration) for strategies.
+Version documents or write migration scripts. See [Migration Guide](/docs/advanced/migration) for strategies.
 
 ## Migration
 
 **From Azure SDK?**  
-Gradual migration recommended. Use CosmosQL for new features, keep SDK for advanced features. See [Migration Guide](/docs/migration).
+Gradual migration recommended. Use CosmosQL for new features, keep SDK for advanced features. See [Migration Guide](/docs/advanced/migration).
 
 **Schema design?**  
-Start with [Core Concepts](/docs/core-concepts) to understand partition keys. Then see [Common Patterns](/docs/common-patterns) for examples.
+Start with [Core Concepts](/docs/guide/core-concepts) to understand partition keys. Then see [Common Patterns](/docs/guide/common-patterns) for examples.
 
 ## Production
 
@@ -82,7 +82,7 @@ Start with [Core Concepts](/docs/core-concepts) to understand partition keys. Th
 Yes. Stable API, 249 tests, 100% coverage. Used in production by multiple teams.
 
 **Error handling?**  
-Standard try/catch with `CosmosError` class. See [Advanced Patterns](/docs/advanced-patterns) for examples.
+Standard try/catch with `CosmosError` class. See [Advanced Patterns](/docs/guide/advanced-patterns) for examples.
 
 **Support?**  
 GitHub issues, discussions, and documentation. Maintainers are responsive.
@@ -95,13 +95,13 @@ CosmosQL is CosmosDB-specific with partition key enforcement. Prisma supports ma
 **vs Mongoose?**  
 CosmosQL is TypeScript-native, compile-time validation. Mongoose is MongoDB with runtime validation.
 
-See [Limitations](/docs/limitations) for complete comparison table.
+See [Limitations](/docs/advanced/limitations) for complete comparison table.
 
 ## Need More Help?
 
 - **Getting started?** → [Getting Started](/docs/getting-started)
-- **Understanding basics?** → [Core Concepts](/docs/core-concepts)
-- **Real-world examples?** → [Common Patterns](/docs/common-patterns)
-- **Performance tips?** → [Performance Guide](/docs/performance)
-- **Edge cases?** → [Advanced Patterns](/docs/advanced-patterns)
-- **API reference?** → [API Reference](/docs/api-reference)
+- **Understanding basics?** → [Core Concepts](/docs/guide/core-concepts)
+- **Real-world examples?** → [Common Patterns](/docs/guide/common-patterns)
+- **Performance tips?** → [Performance Guide](/docs/advanced/performance)
+- **Edge cases?** → [Advanced Patterns](/docs/guide/advanced-patterns)
+- **API reference?** → [API Reference](/docs/reference/api-reference)

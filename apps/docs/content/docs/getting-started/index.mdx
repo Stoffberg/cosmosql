@@ -103,7 +103,7 @@ const users = container('users', {
 This defines your data structure. Three key points:
 
 - **Not runtime validation** - This is purely for TypeScript
-- **Partition key is required** - More on why in [Core Concepts](/docs/core-concepts)
+- **Partition key is required** - More on why in [Core Concepts](/docs/guide/core-concepts)
 - **Inference happens automatically** - TypeScript knows the shape
 
 ### 2. Client Creation
@@ -154,7 +154,7 @@ const posts = container('posts', {
 }).partitionKey('userId');
 ```
 
-**2. Change the partition key**: See [Choosing Partition Keys](/docs/core-concepts#choosing-a-good-partition-key) for guidance
+**2. Change the partition key**: See [Choosing Partition Keys](/docs/guide/core-concepts#choosing-a-good-partition-key) for guidance
 
 **3. Add your connection string**: Store in `.env` file
 
@@ -216,11 +216,11 @@ main().catch(console.error);
 
 ## Next Steps
 
-**New to CosmosDB?** → Read [Core Concepts](/docs/core-concepts) to understand partition keys and Request Units
+**New to CosmosDB?** → Read [Core Concepts](/docs/guide/core-concepts) to understand partition keys and Request Units
 
-**Ready to build?** → See [CRUD Operations](/docs/create) for all operations
+**Ready to build?** → See [Creating Documents](/docs/guide/create) for all operations
 
-**Need patterns?** → Check [Common Patterns](/docs/common-patterns) for real scenarios
+**Need patterns?** → Check [Common Patterns](/docs/guide/common-patterns) for real scenarios
 
 ## Getting Your Connection String
 
