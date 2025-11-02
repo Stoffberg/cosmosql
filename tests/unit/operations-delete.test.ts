@@ -2,9 +2,6 @@ import type { CosmosClient } from "../../src/client/cosmos-client";
 import { DeleteOperations } from "../../src/operations/delete";
 import { container, field } from "../../src/schema";
 
-// Mock fetch globally
-global.fetch = jest.fn();
-
 describe("DeleteOperations", () => {
 	let mockClient: jest.Mocked<CosmosClient>;
 	let schema: any;

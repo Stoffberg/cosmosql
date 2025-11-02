@@ -3,9 +3,6 @@ import { CosmosError } from "../../src/errors/cosmos-error";
 import { FindOperations } from "../../src/operations/find";
 import { container, field } from "../../src/schema";
 
-// Mock fetch globally
-global.fetch = jest.fn();
-
 describe("FindOperations", () => {
 	let mockClient: jest.Mocked<CosmosClient>;
 	let schema: any;

@@ -53,11 +53,12 @@ describe("Main Index Exports", () => {
 		);
 	});
 
-	test("withContainers creates container clients", () => {
+	test("withContainers creates container clients", async () => {
 		const config: CosmosClientConfig = {
 			endpoint: "https://test.documents.azure.com:443",
 			key: "test-key",
 			database: "testdb",
+			mode: "skip",
 		};
 
 		const client = createClient(config);
@@ -67,7 +68,7 @@ describe("Main Index Exports", () => {
 			email: field.string(),
 		}).partitionKey("email");
 
-		const containers = client.withContainers({
+		const containers = await client.withContainers({
 			users,
 		});
 
@@ -79,11 +80,12 @@ describe("Main Index Exports", () => {
 		expect(typeof containers.users.delete).toBe("function");
 	});
 
-	test("withContainers handles multiple containers", () => {
+	test("withContainers handles multiple containers", async () => {
 		const config: CosmosClientConfig = {
 			endpoint: "https://test.documents.azure.com:443",
 			key: "test-key",
 			database: "testdb",
+			mode: "skip",
 		};
 
 		const client = createClient(config);
@@ -98,7 +100,7 @@ describe("Main Index Exports", () => {
 			title: field.string(),
 		}).partitionKey("id");
 
-		const containers = client.withContainers({
+		const containers = await client.withContainers({
 			users,
 			posts,
 		});

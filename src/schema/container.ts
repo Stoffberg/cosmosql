@@ -12,6 +12,21 @@ type ExtractFieldConfig<
 			: never;
 };
 
+export interface IndexingPolicy {
+	automatic?: boolean;
+	includedPaths?: Array<{ path: string }>;
+	excludedPaths?: Array<{ path: string }>;
+	compositeIndexes?: Array<
+		Array<{ path: string; order?: "ascending" | "descending" }>
+	>;
+	spatialIndexes?: Array<{ path: string; types: string[] }>;
+}
+
+export interface ContainerConfig {
+	throughput?: number;
+	indexing?: IndexingPolicy;
+}
+
 export class ContainerSchema<
 	TName extends string,
 	TSchema extends Record<string, FieldConfig | FieldBuilder<any>>,
@@ -22,12 +37,29 @@ export class ContainerSchema<
 		// Runtime schema is FieldConfig, but type parameter preserves FieldBuilder for inference
 		public readonly schema: ExtractFieldConfig<TSchema> & TSchema,
 		public readonly partitionKeyField?: TPartitionKey,
+		public readonly config?: ContainerConfig,
 	) {}
 
 	partitionKey<K extends keyof InferSchema<TSchema>>(
 		key: K,
 	): ContainerSchema<TName, TSchema, K> {
-		return new ContainerSchema(this.name, this.schema, key);
+		return new ContainerSchema(this.name, this.schema, key, this.config);
+	}
+
+	throughput(ru: number): ContainerSchema<TName, TSchema, TPartitionKey> {
+		return new ContainerSchema(this.name, this.schema, this.partitionKeyField, {
+			...this.config,
+			throughput: ru,
+		});
+	}
+
+	indexing(
+		policy: IndexingPolicy,
+	): ContainerSchema<TName, TSchema, TPartitionKey> {
+		return new ContainerSchema(this.name, this.schema, this.partitionKeyField, {
+			...this.config,
+			indexing: policy,
+		});
 	}
 
 	get infer(): InferSchema<TSchema> {

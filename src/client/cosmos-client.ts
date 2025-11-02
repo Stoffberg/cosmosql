@@ -1,12 +1,15 @@
-import https from "node:https";
+import { fetch, Pool, type Response } from "undici";
 import { CosmosError } from "../errors/cosmos-error";
 import { CosmosAuth } from "./auth";
+
+export type ContainerMode = "auto-create" | "verify" | "skip";
 
 export interface CosmosClientConfig {
 	endpoint?: string;
 	key?: string;
 	connectionString?: string;
 	database: string;
+	mode?: ContainerMode;
 	retryOptions?: {
 		maxRetries?: number;
 		initialDelay?: number;
@@ -18,7 +21,7 @@ export class CosmosClient {
 	private auth: CosmosAuth;
 	private endpoint: string;
 	private database: string;
-	private agent: https.Agent;
+	private pool: Pool;
 	private retryOptions: Required<
 		NonNullable<CosmosClientConfig["retryOptions"]>
 	>;
@@ -44,12 +47,10 @@ export class CosmosClient {
 			maxDelay: config.retryOptions?.maxDelay ?? 5000,
 		};
 
-		// Connection pooling
-		this.agent = new https.Agent({
-			keepAlive: true,
-			keepAliveMsecs: 30000,
-			maxSockets: 50,
-			maxFreeSockets: 10,
+		// Connection pooling with undici
+		this.pool = new Pool(this.endpoint, {
+			connections: 50,
+			keepAliveTimeout: 30000,
 		});
 	}
 
@@ -89,22 +90,21 @@ export class CosmosClient {
 		);
 
 		const headers: Record<string, string> = {
-			Authorization: `${token}`,
+			Authorization: token,
 			"x-ms-date": date.toUTCString(),
 			"x-ms-version": "2018-12-31",
 			"Content-Type": "application/json",
 			Accept: "application/json",
 		};
 
-		if (partitionKey !== undefined) {
+		if (partitionKey !== undefined && partitionKey !== null) {
 			headers["x-ms-documentdb-partitionkey"] = JSON.stringify(
 				Array.isArray(partitionKey) ? partitionKey : [partitionKey],
 			);
 		}
 
 		if (enableCrossPartitionQuery === true) {
-			// Azure SDK uses boolean true - fetch will convert this to string "true"
-			headers["x-ms-documentdb-query-enablecrosspartition"] = true as any;
+			headers["x-ms-documentdb-query-enablecrosspartition"] = "true";
 		}
 
 		const url = `${this.endpoint}${path}`;
@@ -112,10 +112,9 @@ export class CosmosClient {
 		try {
 			const response = await fetch(url, {
 				method,
-				headers: headers as any,
+				headers,
 				body: body ? JSON.stringify(body) : undefined,
-				// @ts-expect-error - agent works in Node.js
-				agent: this.agent,
+				dispatcher: this.pool,
 			});
 
 			if (!response.ok) {
@@ -139,6 +138,14 @@ export class CosmosClient {
 				throw await this.handleErrorResponse(response);
 			}
 
+			// HEAD and DELETE requests may not have body
+			if (
+				method === "HEAD" ||
+				(method === "DELETE" && response.status === 204)
+			) {
+				return {} as T;
+			}
+
 			return (await response.json()) as T;
 		} catch (error) {
 			if (error instanceof CosmosError) {
@@ -146,6 +153,10 @@ export class CosmosClient {
 			}
 			throw new CosmosError(500, "NETWORK_ERROR", (error as Error).message);
 		}
+	}
+
+	private sleep(ms: number): Promise<void> {
+		return new Promise((resolve) => setTimeout(resolve, ms));
 	}
 
 	private parseResourcePath(path: string): [string, string] {
@@ -161,7 +172,7 @@ export class CosmosClient {
 	}
 
 	private async handleErrorResponse(response: Response): Promise<CosmosError> {
-		let message = response.statusText;
+		let message = response.statusText || "Unknown error";
 		let code = "UNKNOWN_ERROR";
 
 		try {
@@ -175,15 +186,121 @@ export class CosmosClient {
 		return new CosmosError(response.status, code, message);
 	}
 
-	private sleep(ms: number): Promise<void> {
-		return new Promise((resolve) => setTimeout(resolve, ms));
-	}
-
 	getDatabase(): string {
 		return this.database;
 	}
 
 	close(): void {
-		this.agent.destroy();
+		this.pool.close();
 	}
+
+	// Container management methods
+	async databaseExists(): Promise<boolean> {
+		try {
+			await this.request("HEAD", `/dbs/${this.database}`);
+			return true;
+		} catch (error) {
+			if (error instanceof CosmosError && error.statusCode === 404) {
+				return false;
+			}
+			throw error;
+		}
+	}
+
+	async createDatabase(): Promise<void> {
+		await this.request("POST", "/dbs", {
+			id: this.database,
+		});
+	}
+
+	async containerExists(name: string): Promise<boolean> {
+		try {
+			await this.request("HEAD", `/dbs/${this.database}/colls/${name}`);
+			return true;
+		} catch (error) {
+			if (error instanceof CosmosError && error.statusCode === 404) {
+				return false;
+			}
+			throw error;
+		}
+	}
+
+	async getContainer(name: string): Promise<ContainerInfo | null> {
+		try {
+			return await this.request<ContainerInfo>(
+				"GET",
+				`/dbs/${this.database}/colls/${name}`,
+			);
+		} catch (error) {
+			if (error instanceof CosmosError && error.statusCode === 404) {
+				return null;
+			}
+			throw error;
+		}
+	}
+
+	async createContainer(body: CreateContainerBody): Promise<void> {
+		await this.request("POST", `/dbs/${this.database}/colls`, body);
+	}
+
+	async updateContainer(
+		name: string,
+		body: UpdateContainerBody,
+	): Promise<void> {
+		await this.request("PUT", `/dbs/${this.database}/colls/${name}`, body);
+	}
+
+	async listContainers(): Promise<ContainerListItem[]> {
+		const response = await this.request<{
+			DocumentCollections: ContainerListItem[];
+		}>("GET", `/dbs/${this.database}/colls`);
+		return response.DocumentCollections || [];
+	}
+
+	async deleteContainer(name: string): Promise<void> {
+		await this.request("DELETE", `/dbs/${this.database}/colls/${name}`);
+	}
+}
+
+export interface ContainerInfo {
+	id: string;
+	partitionKey: {
+		paths: string[];
+		kind: string;
+	};
+	indexingPolicy?: {
+		automatic?: boolean;
+		includedPaths?: Array<{ path: string }>;
+		excludedPaths?: Array<{ path: string }>;
+		compositeIndexes?: Array<Array<{ path: string; order?: string }>>;
+		spatialIndexes?: Array<{ path: string; types: string[] }>;
+	};
+	_rid: string;
+	_ts: number;
+	_self: string;
+}
+
+export interface ContainerListItem {
+	id: string;
+}
+
+export interface CreateContainerBody {
+	id: string;
+	partitionKey: {
+		paths: string[];
+		kind: string;
+	};
+	indexingPolicy?: {
+		automatic?: boolean;
+		includedPaths?: Array<{ path: string }>;
+		excludedPaths?: Array<{ path: string }>;
+		compositeIndexes?: Array<Array<{ path: string; order?: string }>>;
+		spatialIndexes?: Array<{ path: string; types: string[] }>;
+	};
+}
+
+export interface UpdateContainerBody extends CreateContainerBody {
+	_rid: string;
+	_ts: number;
+	_self: string;
 }

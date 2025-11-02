@@ -48,9 +48,10 @@ describe("cosmosql Azure CosmosDB auth", () => {
 			return;
 		}
 
-		const client = createClient({
+		const client = await createClient({
 			connectionString: connectionString,
 			database: "testdb",
+			mode: "skip",
 		}).withContainers({ testContainer });
 
 		// This should work without auth errors
@@ -79,9 +80,10 @@ describe("cosmosql Azure CosmosDB auth", () => {
 			return;
 		}
 
-		const client = createClient({
+		const client = await createClient({
 			connectionString: connectionString,
 			database: "testdb",
+			mode: "skip",
 		}).withContainers({ testContainer });
 
 		// This should work with enableCrossPartitionQuery
@@ -110,9 +112,10 @@ describe("cosmosql Azure CosmosDB auth", () => {
 			return;
 		}
 
-		const client = createClient({
+		const client = await createClient({
 			connectionString: connectionString,
 			database: "testdb",
+			mode: "skip",
 		}).withContainers({ testContainer });
 
 		try {
@@ -143,9 +146,10 @@ describe("cosmosql Azure CosmosDB auth", () => {
 			return;
 		}
 
-		const client = createClient({
+		const client = await createClient({
 			connectionString: connectionString,
 			database: "testdb",
+			mode: "skip",
 		}).withContainers({ testContainer });
 
 		try {
@@ -174,9 +178,10 @@ describe("cosmosql Azure CosmosDB auth", () => {
 			return;
 		}
 
-		const client = createClient({
+		const client = await createClient({
 			connectionString: connectionString,
 			database: "testdb",
+			mode: "skip",
 		}).withContainers({ testContainer });
 
 		try {
