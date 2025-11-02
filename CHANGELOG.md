@@ -5,6 +5,26 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.4.0] - 2025-11-02
+
+### Added
+- **Container auto-creation and verification modes**: `auto-create`, `verify`, and `skip` modes for database and container management
+- **Database and container lifecycle management**: Automatic creation, verification, and validation of databases and containers
+- **Container configuration**: Support for `throughput()` and `indexing()` configuration on container schemas
+- **Partition key validation**: Automatic detection and validation of partition key mismatches
+- **Orphaned container detection**: `listOrphanedContainers()`, `deleteContainers()`, and `pruneContainers()` methods for cleanup
+- **Async client creation**: `withContainers()` now returns a Promise, allowing for eager validation during initialization
+
+### Changed
+- **BREAKING**: `withContainers()` is now async - must use `await` when calling
+- Replaced Node.js `https.Agent` with `undici` for improved performance and standards compliance
+- Single dependency on `undici` instead of Node.js native APIs
+
+### Technical
+- Migrated from Node.js `https` module to `undici` fetch with connection pooling
+- All 302 tests passing with updated HTTP client
+- Comprehensive tests for all three container modes
+
 ## [0.3.3] - 2025-11-02
 
 ### Fixed
