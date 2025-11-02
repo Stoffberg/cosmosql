@@ -1,0 +1,11 @@
+src/
+tests/
+examples/
+.github/
+coverage/
+*.test.ts
+tsconfig.json
+jest.config.js
+.eslintrc.js
+.prettierrc
+
