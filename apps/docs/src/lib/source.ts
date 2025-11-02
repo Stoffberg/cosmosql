@@ -23,7 +23,9 @@ export function getPageImage(page: InferPageType<typeof source>) {
 export async function getLLMText(page: InferPageType<typeof source>) {
   const processed = await page.data.getText("processed");
   const url = `${BASE_URL}/${page.slugs.join("/")}`;
-  const description = page.data.description ? `\n\n*${page.data.description}*` : "";
+  const description = page.data.description
+    ? `\n\n*${page.data.description}*`
+    : "";
 
   return `# ${page.data.title}
 
@@ -43,7 +45,8 @@ export async function getAllLLMText() {
   toc.push("# Table of Contents\n");
   for (const page of pages) {
     const url = `${BASE_URL}/${page.slugs.join("/")}`;
-    const indent = page.slugs.length > 1 ? "  ".repeat(page.slugs.length - 1) : "";
+    const indent =
+      page.slugs.length > 1 ? "  ".repeat(page.slugs.length - 1) : "";
     toc.push(`${indent}- [${page.data.title}](${url})`);
   }
   toc.push("");

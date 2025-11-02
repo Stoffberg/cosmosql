@@ -49,9 +49,10 @@ const users = container('users', {
   name: field.string()
 }).partitionKey('email');
 
-const db = createClient({
+const db = await createClient({
   connectionString: process.env.COSMOS_CONNECTION_STRING!,
-  database: 'myapp'
+  database: 'myapp',
+  mode: 'auto-create'
 }).withContainers({ users });
 
 // Point read (1 RU - cheapest possible)

@@ -203,9 +203,10 @@ class CosmosError extends Error {
 CosmosQL automatically retries rate-limited requests with exponential backoff:
 
 ```typescript
-const db = createClient({
+const db = await createClient({
   connectionString: '...',
   database: 'myapp',
+  mode: 'verify', // Production: fail-fast on misconfiguration
   retryOptions: {
     maxRetries: 3,        // Maximum retry attempts
     initialDelay: 100,    // Initial delay in ms

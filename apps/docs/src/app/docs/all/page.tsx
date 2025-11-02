@@ -25,7 +25,8 @@ export default async function AllDocsPage() {
           <nav className="space-y-2">
             {pages.map((page) => {
               const url = `/docs/${page.slugs.join("/")}`;
-              const indent = page.slugs.length > 1 ? (page.slugs.length - 1) * 20 : 0;
+              const indent =
+                page.slugs.length > 1 ? (page.slugs.length - 1) * 20 : 0;
 
               return (
                 <a
@@ -83,8 +84,6 @@ export default async function AllDocsPage() {
 export async function generateMetadata(): Promise<Metadata> {
   return {
     title: "Complete Documentation",
-    description:
-      "All CosmosQL documentation pages compiled into a single view",
+    description: "All CosmosQL documentation pages compiled into a single view",
   };
 }
-

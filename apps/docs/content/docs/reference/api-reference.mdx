@@ -345,7 +345,7 @@ enableCrossPartitionQuery: true // Must explicitly opt-in
 **Connection Options:**
 
 ```typescript
-createClient({
+const db = await createClient({
   // Option 1: Connection string (recommended)
   connectionString: process.env.COSMOS_CONNECTION_STRING!,
   
@@ -356,14 +356,19 @@ createClient({
   // Required: Database name
   database: 'myapp',
   
+  // Optional: Container validation mode
+  mode: 'auto-create', // 'auto-create' | 'verify' | 'skip'
+  
   // Optional: Retry configuration
   retryOptions: {
     maxRetries: 3,
     initialDelay: 100,    // ms
     maxDelay: 5000        // ms
   }
-})
+}).withContainers({ users, posts });
 ```
+
+**Note**: Client creation is async. It validates and optionally creates containers based on the `mode` parameter. See [Getting Started](/docs/getting-started) for mode details.
 
 **Container Registration:**
 

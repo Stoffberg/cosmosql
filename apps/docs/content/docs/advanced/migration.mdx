@@ -64,10 +64,11 @@ const users = container('users', {
   name: field.string()
 }).partitionKey('email');
 
-// Create typed client
-const db = createClient({
+// Create typed client (async - validates/creates containers)
+const db = await createClient({
   connectionString,
-  database: 'mydb'
+  database: 'mydb',
+  mode: 'auto-create'
 }).withContainers({ users });
 ```
 

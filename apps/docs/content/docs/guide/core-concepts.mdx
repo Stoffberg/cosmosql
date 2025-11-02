@@ -198,9 +198,10 @@ type Post = typeof posts.infer;
 ```typescript
 import { createClient } from 'cosmosql';
 
-const db = createClient({
+const db = await createClient({
   connectionString: process.env.COSMOS_CONNECTION_STRING!,
-  database: 'myapp'
+  database: 'myapp',
+  mode: 'auto-create' // Validates and creates containers
 }).withContainers({
   users,
   posts,
@@ -213,13 +214,21 @@ db.posts     // ContainerClient<Post>
 db.comments  // ContainerClient<Comment>
 ```
 
+**Client creation is async** because it validates and optionally creates your database and containers. Choose a mode based on your environment:
+
+- **`auto-create`** - Development: creates missing containers automatically
+- **`verify`** - Production: fails fast if containers don't exist
+- **`skip`** - Maximum performance: no validation
+
+See [Getting Started](/docs/getting-started) for detailed mode documentation.
+
 **Connection management**: HTTP/2 pooling with automatic retries. You don't manage connections.
 
 **Multiple databases**: Create separate clients:
 
 ```typescript
-const prodDb = createClient({...}).withContainers({users});
-const analyticsDb = createClient({...}).withContainers({events});
+const prodDb = await createClient({...}).withContainers({users});
+const analyticsDb = await createClient({...}).withContainers({events});
 ```
 
 ## Summary

@@ -45,10 +45,11 @@ const users = container('users', {
   createdAt: field.date()
 }).partitionKey('email');
 
-// Step 2: Create a client
-const db = createClient({
+// Step 2: Create a client (async - validates and creates containers)
+const db = await createClient({
   connectionString: process.env.COSMOS_CONNECTION_STRING!,
-  database: 'myapp'
+  database: 'myapp',
+  mode: 'auto-create' // Creates database/containers if missing (dev default)
 }).withContainers({ users });
 
 // Step 3: Create a user
@@ -109,11 +110,20 @@ This defines your data structure. Three key points:
 ### 2. Client Creation
 
 ```typescript
-const db = createClient({
+const db = await createClient({
   connectionString: process.env.COSMOS_CONNECTION_STRING!,
-  database: 'myapp'
+  database: 'myapp',
+  mode: 'auto-create' // 'auto-create' | 'verify' | 'skip'
 }).withContainers({ users });
 ```
+
+**What happens**: Client creation is async because it validates and optionally creates your database and containers.
+
+**Three modes**:
+
+- **`auto-create`** (development default) - Creates database/containers if missing, updates indexing policies. Slower startup (~500ms-2s) but zero friction.
+- **`verify`** (production default) - Checks everything exists, throws if misconfigured. Fast (~100-300ms), fail-fast on errors.
+- **`skip`** (maximum performance) - No checks, instant. Use when infrastructure is guaranteed (e.g., after CI/CD deploy).
 
 The client manages connections and provides typed access. After `withContainers`, `db.users` is fully typed.
 
@@ -178,9 +188,10 @@ const posts = container('posts', {
   publishedAt: field.date().optional()
 }).partitionKey('userId');
 
-const db = createClient({
+const db = await createClient({
   connectionString: process.env.COSMOS_CONNECTION_STRING!,
-  database: 'myapp'
+  database: 'myapp',
+  mode: process.env.NODE_ENV === 'production' ? 'verify' : 'auto-create'
 }).withContainers({ posts });
 
 async function main() {
@@ -206,6 +217,45 @@ async function main() {
 
 main().catch(console.error);
 ```
+
+## Schema Configuration
+
+You can configure container settings like throughput and indexing policies:
+
+```typescript
+const users = container('users', {
+  id: field.string(),
+  email: field.string(),
+  name: field.string()
+})
+  .partitionKey('email')
+  .throughput(400) // Optional: Set RU/s (auto-scale also available)
+  .indexing({       // Optional: Configure indexing policy
+    automatic: true,
+    excludePaths: ['/largeField/?'] // Exclude large fields from indexing
+  });
+
+const db = await createClient({
+  connectionString: process.env.COSMOS_CONNECTION_STRING!,
+  database: 'myapp',
+  mode: 'auto-create' // Updates indexing in auto-create mode
+}).withContainers({ users });
+```
+
+**Important**: In `auto-create` mode, indexing policies are updated to match your schema. In `verify` mode, mismatches trigger warnings but containers aren't modified (production safety).
+
+### Partition Key Mismatches
+
+If your schema defines a partition key that doesn't match an existing container, CosmosQL throws an error:
+
+```typescript
+// Schema says: partitionKey('email')
+// Existing container has: partitionKey('id')
+// Throws: "Partition key mismatch: expected '/email', found '/id'"
+//         "Cannot modify partition key. Delete container or use different name."
+```
+
+**Solution**: Delete the container manually (via Azure Portal/CLI) or use a different container name in your schema.
 
 ## What You Learned
 

@@ -85,35 +85,7 @@ const page2 = await db.posts.findMany({
 
 **Future Plans:** Cursor-based pagination and continuation token support are planned.
 
-#### 3. Database Management
-
-CosmosQL does not provide APIs for:
-
-- Creating or deleting databases
-- Creating or deleting containers
-- Managing indexing policies
-- Managing database-level settings
-
-**Workaround:** Use the Azure Portal, Azure CLI, or Azure SDK for infrastructure management:
-
-```bash
-# Azure CLI example
-az cosmosdb sql database create \
-  --account-name myaccount \
-  --resource-group mygroup \
-  --name mydb
-
-az cosmosdb sql container create \
-  --account-name myaccount \
-  --resource-group mygroup \
-  --database-name mydb \
-  --name users \
-  --partition-key-path "/email"
-```
-
-**Future Plans:** Database and container management APIs may be added in future versions.
-
-#### 4. Transaction Support
+#### 3. Transaction Support
 
 CosmosQL does not support:
 
@@ -235,14 +207,16 @@ CosmosQL works with a single database per client instance. Cross-database operat
 **Workaround:** Create multiple client instances:
 
 ```typescript
-const productionDb = createClient({
+const productionDb = await createClient({
   connectionString: process.env.COSMOS_CONNECTION_STRING!,
-  database: 'production'
+  database: 'production',
+  mode: 'verify'
 }).withContainers({ users, posts });
 
-const analyticsDb = createClient({
+const analyticsDb = await createClient({
   connectionString: process.env.COSMOS_CONNECTION_STRING!,
-  database: 'analytics'
+  database: 'analytics',
+  mode: 'verify'
 }).withContainers({ events, metrics });
 ```
 
@@ -255,7 +229,7 @@ const analyticsDb = createClient({
 | Aggregations | ⚠️ Raw SQL only | ✅ Native | SDK advantage |
 | Transactions | ⚠️ Single partition | ✅ Full support | SDK advantage |
 | Change Feed | ❌ Not supported | ✅ Supported | SDK advantage |
-| Database Management | ❌ Not supported | ✅ Supported | SDK advantage |
+| Database Management | ✅ Container management | ✅ Full management | Equivalent |
 | Zero Dependencies | ✅ Yes | ❌ 50+ packages | CosmosQL advantage |
 | Query Builder | ✅ Type-safe | ❌ SQL strings | CosmosQL advantage |
 
@@ -272,7 +246,7 @@ const analyticsDb = createClient({
 **Use Azure SDK when:**
 
 - ✅ You need advanced features (change feed, stored procedures)
-- ✅ You require database/container management APIs
+- ✅ You require database-level management APIs (database creation/deletion)
 - ✅ You need cross-partition transactions
 - ✅ You're working with JavaScript (not TypeScript)
 - ✅ You need geospatial queries or full-text search
@@ -293,7 +267,7 @@ You can use CosmosQL alongside the Azure SDK for different use cases within the 
 
 **Medium Priority:**
 
-1. ⏳ Database management APIs (Future)
+1. ✅ Container management APIs (Completed)
 2. ⏳ Advanced querying (Geospatial, full-text) (Future)
 3. ⏳ Performance monitoring (Future)
 4. ⏳ Migration support (Future)

@@ -22,6 +22,7 @@ pre[class*="language-"] {
 }
 
 /* Smooth transitions */
-a, button {
+a,
+button {
   transition: all 0.15s ease;
 }

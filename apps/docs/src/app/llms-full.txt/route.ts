@@ -18,7 +18,8 @@ export async function GET(request: Request) {
     body = full;
   }
 
-  const extension = contentType === "md" || contentType === "markdown" ? "md" : "txt";
+  const extension =
+    contentType === "md" || contentType === "markdown" ? "md" : "txt";
   const mimeType =
     contentType === "md" || contentType === "markdown"
       ? "text/markdown"
