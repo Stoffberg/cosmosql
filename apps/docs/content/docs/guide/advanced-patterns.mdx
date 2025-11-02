@@ -134,45 +134,91 @@ const result = await db.users.query<{ name: string; age: number }>({
 
 ### Error Handling
 
+CosmosQL provides comprehensive error handling through the `CosmosError` class:
+
 ```typescript
-import { CosmosError } from 'cosmosql';
+import { CosmosError, isCosmosError } from 'cosmosql';
 
 try {
   await db.users.create({ data: user });
 } catch (error) {
-  if (error instanceof CosmosError) {
-    switch (error.code) {
-      case 409: // Conflict (duplicate ID)
-        console.error('User already exists');
+  if (isCosmosError(error)) {
+    // Type-safe error handling
+    switch (error.statusCode) {
+      case 400: // Bad Request
+        console.error('Invalid request:', error.message);
         break;
-      case 429: // Too Many Requests (rate limit)
-        console.error('Rate limited, retry after:', error.retryAfter);
+      case 401: // Unauthorized
+        console.error('Authentication failed - check your connection string');
+        break;
+      case 403: // Forbidden
+        console.error('Access denied - check permissions');
         break;
       case 404: // Not Found
         console.error('Container or database not found');
         break;
+      case 409: // Conflict (duplicate ID)
+        console.error('Document already exists with this ID');
+        break;
+      case 429: // Too Many Requests (rate limit)
+        console.error('Rate limited, retry after:', error.retryAfter, 'seconds');
+        // CosmosError includes retryAfter property
+        break;
+      case 500: // Internal Server Error
+        console.error('CosmosDB service error:', error.message);
+        break;
       default:
-        console.error('CosmosDB error:', error.message);
+        console.error('CosmosDB error:', error.code, error.message);
     }
   } else {
+    // Not a CosmosDB error, rethrow
     throw error;
   }
 }
 ```
 
+**CosmosError Class:**
+
+```typescript
+class CosmosError extends Error {
+  statusCode: number;      // HTTP status code (400, 404, 429, etc.)
+  code: string;            // CosmosDB error code
+  message: string;       // Error message
+  retryAfter?: number;     // Seconds to wait before retry (for 429 errors)
+}
+```
+
+**Common Error Scenarios:**
+
+- **404**: Document not found (returns `null` for find operations, throws for updates/deletes)
+- **429**: Rate limited (automatic retry with backoff if configured)
+- **401/403**: Authentication/authorization failures (check connection string and keys)
+- **400**: Bad request (validation errors, invalid query syntax)
+- **409**: Conflict (duplicate ID on create)
+
 **Auto-Retry on 429:**
+
+CosmosQL automatically retries rate-limited requests with exponential backoff:
 
 ```typescript
 const db = createClient({
   connectionString: '...',
   database: 'myapp',
   retryOptions: {
-    maxRetries: 3,
-    initialDelay: 100, // ms
-    maxDelay: 5000 // ms
+    maxRetries: 3,        // Maximum retry attempts
+    initialDelay: 100,    // Initial delay in ms
+    maxDelay: 5000        // Maximum delay in ms
   }
 }).withContainers({ users });
 
 // Automatically retries with exponential backoff on 429 errors
+// Uses retryAfter from CosmosDB response when available
 ```
+
+**Error Handling Best Practices:**
+
+1. **Always check error types** - Use `isCosmosError()` for type-safe error handling
+2. **Handle rate limits gracefully** - Implement your own retry logic or use built-in retry options
+3. **Log error details** - Include `statusCode`, `code`, and `message` in error logs
+4. **Don't ignore conflicts** - 409 errors indicate business logic issues (duplicate IDs)
 

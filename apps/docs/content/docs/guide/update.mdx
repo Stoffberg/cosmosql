@@ -1,0 +1,328 @@
+---
+title: Updating Documents
+description: Learn how to update existing documents in CosmosDB
+---
+
+## Updating Documents
+
+CosmosQL provides flexible and type-safe ways to update documents in CosmosDB. This guide covers single updates, partial updates, nested field modifications, and upsert operations.
+
+### Update Single Document
+
+The basic `update` operation modifies an existing document:
+
+```typescript
+await db.users.update({
+  where: {
+    id: 'user_123',
+    email: 'john@example.com' // Partition key required
+  },
+  data: {
+    age: 31,
+    name: 'John Updated'
+  }
+});
+```
+
+**Important:** The partition key must be included in the `where` clause. This is enforced at compile time for type safety.
+
+### Partial Updates
+
+You can update only the fields you need—other fields remain unchanged:
+
+```typescript
+await db.users.update({
+  where: { id: 'user_123', email: 'john@example.com' },
+  data: {
+    age: 31
+    // Other fields remain unchanged
+  }
+});
+```
+
+This is efficient as CosmosDB only updates the specified fields, not the entire document.
+
+### Update Nested Fields
+
+Update fields within nested objects using dot notation:
+
+```typescript
+await db.posts.update({
+  where: { id: 'post_1', userId: 'user_123' },
+  data: {
+    'metadata.version': 2, // Path-based update
+    title: 'Updated Title'
+  }
+});
+```
+
+### Increment/Decrement Numeric Fields
+
+Perform atomic increment/decrement operations:
+
+```typescript
+await db.posts.update({
+  where: { id: 'post_1', userId: 'user_123' },
+  data: {
+    viewCount: { increment: 1 },
+    likeCount: { increment: 5 },
+    dislikeCount: { decrement: 2 }
+  }
+});
+```
+
+This is an atomic operation performed server-side, making it safe for concurrent updates.
+
+### Upsert Operations
+
+The `upsert` operation inserts if the document doesn't exist, or updates if it does:
+
+```typescript
+await db.users.upsert({
+  where: {
+    id: 'user_123',
+    email: 'john@example.com'
+  },
+  create: {
+    // Full user object for creation
+    id: 'user_123',
+    email: 'john@example.com',
+    name: 'John Doe',
+    age: 30,
+    isActive: true,
+    createdAt: new Date()
+  },
+  update: {
+    // Partial update
+    age: 31,
+    name: 'John Updated'
+  }
+});
+```
+
+**Why Upsert?** This pattern is common in distributed systems where you want idempotent operations—operations that can be safely retried without unintended side effects.
+
+### Conditional Updates
+
+CosmosDB supports conditional updates using ETags for optimistic concurrency control. While CosmosQL doesn't expose this directly yet, you can handle it at the application level:
+
+```typescript
+// Example: Update only if user is active
+const user = await db.users.findUnique({
+  where: { id: 'user_123', email: 'john@example.com' }
+});
+
+if (user && user.isActive) {
+  await db.users.update({
+    where: { id: 'user_123', email: 'john@example.com' },
+    data: { lastLoginAt: new Date() }
+  });
+}
+```
+
+### Update Patterns
+
+**Pattern: Touch Pattern (Update Timestamp)**
+
+```typescript
+// Update the updatedAt timestamp on any change
+await db.posts.update({
+  where: { id: 'post_1', userId: 'user_123' },
+  data: {
+    title: 'New Title',
+    updatedAt: new Date()
+  }
+});
+```
+
+**Pattern: Flag-Based Updates**
+
+```typescript
+// Toggle a boolean flag
+await db.users.update({
+  where: { id: 'user_123', email: 'john@example.com' },
+  data: {
+    isActive: !user.isActive
+  }
+});
+```
+
+**Pattern: Array Operations**
+
+While CosmosQL doesn't provide built-in array manipulation helpers, you can update entire arrays:
+
+```typescript
+// Replace the entire tags array
+await db.posts.update({
+  where: { id: 'post_1', userId: 'user_123' },
+  data: {
+    tags: ['javascript', 'react', 'tutorial']
+  }
+});
+
+// For append operations, fetch, modify, and update
+const post = await db.posts.findUnique({
+  where: { id: 'post_1', userId: 'user_123' }
+});
+
+await db.posts.update({
+  where: { id: 'post_1', userId: 'user_123' },
+  data: {
+    tags: [...post.tags, 'new-tag']
+  }
+});
+```
+
+**Pattern: Status Transitions**
+
+```typescript
+// Update status with validation
+const validTransitions = {
+  draft: ['published', 'archived'],
+  published: ['archived'],
+  archived: [] // terminal state
+};
+
+function canTransition(from: string, to: string): boolean {
+  return validTransitions[from]?.includes(to) ?? false;
+}
+
+async function updatePostStatus(postId: string, userId: string, newStatus: string) {
+  const post = await db.posts.findUnique({
+    where: { id: postId, userId }
+  });
+
+  if (!post || !canTransition(post.status, newStatus)) {
+    throw new Error('Invalid status transition');
+  }
+
+  await db.posts.update({
+    where: { id: postId, userId },
+    data: {
+      status: newStatus,
+      updatedAt: new Date()
+    }
+  });
+}
+```
+
+### Error Handling
+
+```typescript
+try {
+  await db.users.update({
+    where: { id: 'user_123', email: 'john@example.com' },
+    data: { age: 31 }
+  });
+} catch (error) {
+  if (error.code === 404) {
+    // Document not found
+    console.error('User not found');
+  } else if (error.code === 429) {
+    // Rate limit exceeded
+    console.error('Rate limit exceeded, please retry');
+  } else if (error.code === 412) {
+    // Precondition failed (e.g., ETag mismatch)
+    console.error('Document was modified, please retry');
+  } else {
+    console.error('Failed to update user:', error);
+  }
+}
+```
+
+### Performance Considerations
+
+**1. Use Partial Updates**
+
+```typescript
+// ✅ Good: Only update what changed
+await db.posts.update({
+  where: { id: 'post_1', userId: 'user_123' },
+  data: { title: 'New Title' }
+});
+
+// ❌ Bad: Updating everything unnecessarily
+await db.posts.update({
+  where: { id: 'post_1', userId: 'user_123' },
+  data: {
+    title: 'New Title',
+    // ... all other fields unchanged
+  }
+});
+```
+
+**2. Batch Related Updates**
+
+```typescript
+// ✅ Good: Single atomic operation
+await db.posts.update({
+  where: { id: 'post_1', userId: 'user_123' },
+  data: {
+    viewCount: { increment: 1 },
+    lastViewedAt: new Date()
+  }
+});
+```
+
+**3. Avoid Nested Deep Updates**
+
+```typescript
+// ✅ Good: Shallow updates
+await db.users.update({
+  where: { id: 'user_123', email: 'john@example.com' },
+  data: {
+    'profile.name': 'New Name'
+  }
+});
+
+// ⚠️ Be cautious with very deep paths
+await db.users.update({
+  where: { id: 'user_123', email: 'john@example.com' },
+  data: {
+    'metadata.settings.theme.preferences.color': 'dark'
+  }
+});
+```
+
+### Best Practices
+
+**1. Always Update Timestamps**
+
+```typescript
+await db.posts.update({
+  where: { id: 'post_1', userId: 'user_123' },
+  data: {
+    title: 'Updated Title',
+    updatedAt: new Date()
+  }
+});
+```
+
+**2. Use Upsert for Idempotent Operations**
+
+```typescript
+// Good for APIs that can be retried
+async function createOrUpdatePost(data: PostData) {
+  return await db.posts.upsert({
+    where: { id: data.id, userId: data.userId },
+    create: data,
+    update: { ...data, updatedAt: new Date() }
+  });
+}
+```
+
+**3. Validate Before Updating**
+
+```typescript
+async function updateUserAge(userId: string, email: string, newAge: number) {
+  if (newAge < 0 || newAge > 150) {
+    throw new Error('Invalid age');
+  }
+
+  return await db.users.update({
+    where: { id: userId, email },
+    data: { age: newAge }
+  });
+}
+```
+

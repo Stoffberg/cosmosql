@@ -65,6 +65,30 @@ Partitioning by `tenantId` ensures complete data isolation between tenants. All 
 </Callout>
 
 ```typescript
+// Organization-level container
+const organizations = container('organizations', {
+  id: field.string(),
+  name: field.string(),
+  plan: field.string(),
+  settings: field.object({
+    theme: field.string().default('light'),
+    features: field.array(field.string())
+  })
+}).partitionKey('id'); // Partition by organization ID
+
+// User container partitioned by organization
+const users = container('users', {
+  id: field.string(),
+  organizationId: field.string(),
+  email: field.string(),
+  role: field.string(),
+  profile: field.object({
+    name: field.string(),
+    department: field.string().optional()
+  })
+}).partitionKey('organizationId'); // Partition by organization for isolation
+
+// Documents container partitioned by organization
 const documents = container('documents', {
   id: field.string(),
   tenantId: field.string(),
@@ -89,6 +113,21 @@ async function createDocument(tenantId: string, data: DocumentInput) {
       tenantId, // Ensures correct partition
       ...data,
       createdAt: new Date()
+    }
+  });
+}
+
+// Cross-tenant isolation via partition keys
+async function getOrgUsers(organizationId: string) {
+  return await db.users.findMany({
+    partitionKey: organizationId,
+    where: {
+      role: 'admin'
+    },
+    select: {
+      id: true,
+      email: true,
+      profile: { name: true }
     }
   });
 }
@@ -125,6 +164,92 @@ const recent = await db.metrics.findMany({
     timestamp: { gte: new Date(Date.now() - 24 * 60 * 60 * 1000) }
   },
   orderBy: { timestamp: 'desc' }
+});
+```
+
+### E-commerce Application
+
+<Callout type="info" title="Product Catalog Pattern">
+Partition by category for efficient product queries within categories. This enables fast category browsing while maintaining good distribution.
+</Callout>
+
+```typescript
+const products = container('products', {
+  id: field.string(),
+  category: field.string(),
+  name: field.string(),
+  price: field.number(),
+  inventory: field.number(),
+  tags: field.array(field.string()),
+  metadata: field.object({
+    brand: field.string(),
+    weight: field.number().optional(),
+    dimensions: field.object({
+      length: field.number(),
+      width: field.number(),
+      height: field.number()
+    }).optional()
+  })
+}).partitionKey('category');
+
+// Query products by category with filtering
+const electronics = await db.products.findMany({
+  where: {
+    category: 'electronics',
+    price: { lte: 999 },
+    inventory: { gt: 0 },
+    tags: { contains: 'wireless' }
+  },
+  select: {
+    id: true,
+    name: true,
+    price: true,
+    metadata: {
+      brand: true
+    }
+  },
+  orderBy: { price: 'asc' },
+  take: 20
+});
+```
+
+### Social Media Platform
+
+<Callout type="info" title="User Content Pattern">
+Partition by userId to keep all user content in the same partition. This enables fast queries for a user's posts, comments, and activity.
+</Callout>
+
+```typescript
+const posts = container('posts', {
+  id: field.string(),
+  userId: field.string(),
+  content: field.string(),
+  likes: field.number().default(0),
+  createdAt: field.date(),
+  tags: field.array(field.string()),
+  author: field.object({
+    name: field.string(),
+    avatar: field.string().optional()
+  })
+}).partitionKey('userId');
+
+// Find user's recent posts with engagement
+const userPosts = await db.posts.findMany({
+  where: {
+    userId: 'user_123',
+    createdAt: { gte: new Date('2024-01-01') },
+    likes: { gt: 10 }
+  },
+  select: {
+    id: true,
+    content: true,
+    likes: true,
+    author: {
+      name: true
+    }
+  },
+  orderBy: { createdAt: 'desc' },
+  take: 50
 });
 ```
 

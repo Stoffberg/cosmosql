@@ -4,7 +4,10 @@
   "pages": [
     "core-concepts",
     "type-system",
-    "crud-operations",
+    "create",
+    "read",
+    "update",
+    "delete",
     "common-patterns",
     "advanced-patterns"
   ]

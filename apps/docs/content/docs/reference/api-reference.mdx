@@ -5,60 +5,384 @@ description: Complete API reference for CosmosQL field types, container methods,
 
 ## API Reference
 
+Complete reference for CosmosQL's API, including field types, container methods, query operators, and configuration options.
+
 ### Field Types
 
+CosmosQL provides a fluent API for defining field types in your schema:
+
 ```typescript
+// Primitive types
 field.string()           // String type
 field.number()           // Number type
 field.boolean()          // Boolean type
-field.date()             // Date type
-field.array(type)        // Array of type
-field.object(schema)     // Nested object
+field.date()             // Date type (stored as ISO strings)
+
+// Complex types
+field.array(type)        // Array of any field type
+field.object(schema)     // Nested object with its own schema
 
 // Modifiers
-.optional()              // Makes field optional
-.default(value)          // Sets default value
+.optional()              // Makes field optional (can be undefined)
+.default(value)          // Provides default value for optional fields
+```
+
+**Example Schema with All Field Types:**
+
+```typescript
+const users = container('users', {
+  // Required fields
+  id: field.string(),
+  email: field.string(),
+  name: field.string(),
+  age: field.number(),
+  isActive: field.boolean(),
+  createdAt: field.date(),
+  
+  // Optional fields
+  bio: field.string().optional(),
+  lastLoginAt: field.date().optional(),
+  
+  // Fields with defaults
+  viewCount: field.number().default(0),
+  settings: field.object({
+    theme: field.string().default('light'),
+    notifications: field.boolean().default(true)
+  }).optional(),
+  
+  // Arrays
+  tags: field.array(field.string()),
+  scores: field.array(field.number()),
+  
+  // Nested objects
+  profile: field.object({
+    website: field.string().optional(),
+    location: field.string().optional()
+  }).optional()
+}).partitionKey('email');
 ```
 
 ### Container Methods
 
-```typescript
-// Query operations
-findUnique(args)         // Get single document (requires partition key)
-findMany(args)           // Get multiple documents
-query(args)              // Raw SQL query
+#### Query Operations
 
-// Write operations
-create(args)             // Create single document
-createMany(args)         // Create multiple documents (same partition)
-update(args)             // Update single document
-upsert(args)             // Insert or update
-delete(args)             // Delete single document
+**`findUnique(options)`**
+
+Retrieves a single document by ID and partition key. This is the most efficient operation (point read).
+
+```typescript
+const user = await db.users.findUnique({
+  where: {
+    id: 'user_123',
+    email: 'john@example.com' // Partition key required
+  },
+  select: {
+    name: true,
+    email: true
+  }
+});
+// Returns: { name: string; email: string } | null
+```
+
+**`findMany(options)`**
+
+Queries multiple documents with filtering, sorting, and pagination.
+
+```typescript
+const users = await db.users.findMany({
+  partitionKey: 'john@example.com', // Required for partition-scoped queries
+  where: {
+    isActive: true,
+    age: { gte: 18 }
+  },
+  select: { id: true, name: true },
+  orderBy: { age: 'desc' },
+  take: 10,
+  skip: 0
+});
+// Returns: Array<{ id: string; name: string }>
+```
+
+**`query<T>(options)`**
+
+Execute raw SQL queries for advanced use cases.
+
+```typescript
+const result = await db.users.query<{ count: number }>({
+  sql: 'SELECT COUNT(1) as count FROM c WHERE c.isActive = true',
+  parameters: [
+    { name: '@active', value: true }
+  ],
+  partitionKey: 'john@example.com' // Optional: for partition-scoped queries
+});
+// Returns: Array<T>
+```
+
+#### Write Operations
+
+**`create(options)`**
+
+Creates a single document.
+
+```typescript
+const user = await db.users.create({
+  data: {
+    id: 'user_123',
+    email: 'john@example.com',
+    name: 'John Doe',
+    age: 30,
+    createdAt: new Date()
+    // isActive will use default value if defined
+  }
+});
+// Returns: Full user object (fully typed)
+```
+
+**`createMany(options)`**
+
+Creates multiple documents in a single operation. All documents must share the same partition key.
+
+```typescript
+await db.users.createMany({
+  data: [
+    { id: 'user_1', email: 'user1@test.com', name: 'User 1', age: 25 },
+    { id: 'user_2', email: 'user2@test.com', name: 'User 2', age: 30 }
+  ],
+  partitionKey: 'shared@email.com' // All must share partition key
+});
+```
+
+**`update(options)`**
+
+Updates a single document by ID and partition key.
+
+```typescript
+await db.users.update({
+  where: {
+    id: 'user_123',
+    email: 'john@example.com' // Partition key required
+  },
+  data: {
+    age: 31,
+    name: 'John Smith'
+  }
+});
+// Returns: Updated user object
+```
+
+**`upsert(options)`**
+
+Updates a document if it exists, creates it if it doesn't.
+
+```typescript
+await db.users.upsert({
+  where: {
+    id: 'user_123',
+    email: 'john@example.com'
+  },
+  create: {
+    id: 'user_123',
+    email: 'john@example.com',
+    name: 'New User',
+    age: 25
+  },
+  update: {
+    age: 26,
+    name: 'Updated Name'
+  }
+});
+```
+
+**`delete(options)`**
+
+Deletes a single document by ID and partition key.
+
+```typescript
+await db.users.delete({
+  where: {
+    id: 'user_123',
+    email: 'john@example.com' // Partition key required
+  }
+});
+```
+
+### Query Operators
+
+#### String Operators
+
+```typescript
+where: {
+  name: { contains: 'John' },      // CONTAINS(c.name, 'John')
+  email: { startsWith: 'user' },   // STARTSWITH(c.email, 'user')
+  bio: { endsWith: 'developer' }    // ENDSWITH(c.bio, 'developer')
+}
+```
+
+#### Number Operators
+
+```typescript
+where: {
+  age: { gt: 21 },     // c.age > 21
+  score: { gte: 85 },  // c.age >= 85
+  rating: { lt: 5 },   // c.age < 5
+  count: { lte: 100 }  // c.age <= 100
+}
+```
+
+#### Array Operators
+
+```typescript
+where: {
+  tags: { contains: 'javascript' },              // CONTAINS array element
+  skills: { containsAny: ['react', 'node'] },    // Any match in array
+  permissions: { containsAll: ['read', 'write'] } // All must match
+}
+```
+
+#### Nested Object Queries
+
+```typescript
+where: {
+  profile: {
+    settings: {
+      theme: 'dark',
+      notifications: true
+    }
+  }
+}
+```
+
+#### Combining Operators
+
+```typescript
+where: {
+  // Multiple conditions (AND logic)
+  isActive: true,
+  age: { gte: 18, lte: 65 },
+  name: { startsWith: 'John' },
+  tags: { contains: 'developer' }
+}
 ```
 
 ### Query Options
 
+**`where`** - Filter conditions
+
 ```typescript
-{
-  where: WhereClause,           // Filter conditions
-  select: SelectClause,         // Choose fields to return
-  orderBy: OrderByClause,       // Sort results
-  take: number,                 // Limit results (max)
-  skip: number,                 // Offset results
-  partitionKey: string | any[], // Scope to partition
-  enableCrossPartitionQuery: boolean // Allow expensive cross-partition
+where: {
+  // Exact match
+  isActive: true,
+  
+  // Comparisons
+  age: { gte: 18, lte: 65 },
+  
+  // String operations
+  name: { startsWith: 'John' },
+  bio: { contains: 'developer' },
+  
+  // Array operations
+  tags: { contains: 'javascript' },
+  
+  // Nested objects
+  profile: {
+    settings: { theme: 'dark' }
+  }
 }
+```
+
+**`select`** - Choose fields to return
+
+```typescript
+select: {
+  id: true,
+  name: true,
+  email: true,
+  profile: {
+    website: true
+  }
+}
+// Returns only selected fields
+```
+
+**`orderBy`** - Sort results
+
+```typescript
+orderBy: {
+  age: 'desc',      // Sort by age descending
+  name: 'asc'       // Then by name ascending
+}
+```
+
+**`take`** - Limit results (maximum number)
+
+```typescript
+take: 10 // Return maximum 10 documents
+```
+
+**`skip`** - Offset results
+
+```typescript
+skip: 20 // Skip first 20 documents (for pagination)
+```
+
+**`partitionKey`** - Scope query to partition
+
+```typescript
+partitionKey: 'john@example.com'        // Single value
+partitionKey: ['tenant_1', 'org_a']      // Composite partition key (array)
+```
+
+**`enableCrossPartitionQuery`** - Allow expensive cross-partition queries
+
+```typescript
+enableCrossPartitionQuery: true // Must explicitly opt-in
+```
+
+### Client Configuration
+
+**Connection Options:**
+
+```typescript
+createClient({
+  // Option 1: Connection string (recommended)
+  connectionString: process.env.COSMOS_CONNECTION_STRING!,
+  
+  // Option 2: Explicit endpoint + key
+  endpoint: 'https://myaccount.documents.azure.com:443/',
+  key: process.env.COSMOS_KEY!,
+  
+  // Required: Database name
+  database: 'myapp',
+  
+  // Optional: Retry configuration
+  retryOptions: {
+    maxRetries: 3,
+    initialDelay: 100,    // ms
+    maxDelay: 5000        // ms
+  }
+})
+```
+
+**Container Registration:**
+
+```typescript
+.withContainers({
+  users,
+  posts,
+  comments
+  // Add all your container schemas here
+})
 ```
 
 ---
 
-This documentation gives you everything you need to start building with CosmosQL. The library enforces CosmosDB best practices at the type level, preventing costly mistakes before they reach production.
+This documentation provides comprehensive coverage of CosmosQL's API. The library enforces CosmosDB best practices at the type level, preventing costly mistakes before they reach production.
 
 **Next Steps:**
 
 1. Install CosmosQL: `npm install cosmosql`
 
-2. Define your schema
+2. Define your schema using the field types above
 
 3. Start querying with full type safety
 

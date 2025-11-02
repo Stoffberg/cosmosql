@@ -1,0 +1,322 @@
+---
+title: Limitations
+description: Current limitations of CosmosQL and planned features
+---
+
+## Limitations & Missing Features
+
+CosmosQL focuses on core CRUD operations and common query patterns that cover the majority of application use cases. This document outlines what's currently supported, what's missing, and workarounds for common scenarios.
+
+### Current Version Status
+
+**Version:** 0.3.0
+
+**Production Ready:** ✅ Yes - Core operations are stable and well-tested
+
+**Test Coverage:** 249 unit tests with 100% code coverage for core modules
+
+### Missing Features
+
+#### 1. Aggregation Operations
+
+CosmosQL does not currently provide built-in aggregation methods like `count()`, `sum()`, `avg()`, `min()`, or `max()`.
+
+**Workaround:** Use raw SQL queries for aggregations:
+
+```typescript
+// Count documents
+const result = await db.users.query<{ total: number }>({
+  sql: 'SELECT COUNT(1) as total FROM c WHERE c.isActive = @active',
+  parameters: [{ name: '@active', value: true }],
+  partitionKey: 'john@example.com'
+});
+
+// Sum values
+const result = await db.orders.query<{ total: number }>({
+  sql: 'SELECT SUM(c.amount) as total FROM c WHERE c.status = @status',
+  parameters: [{ name: '@status', value: 'completed' }],
+  partitionKey: 'user_123'
+});
+
+// Average
+const result = await db.scores.query<{ avg: number }>({
+  sql: 'SELECT AVG(c.score) as avg FROM c WHERE c.subject = @subject',
+  parameters: [{ name: '@subject', value: 'math' }],
+  partitionKey: 'student_123'
+});
+```
+
+**Future Plans:** Native aggregation methods are planned for future releases.
+
+#### 2. Advanced Pagination
+
+CosmosQL currently only supports offset-based pagination using `take` and `skip`. Cursor-based pagination and continuation tokens are not yet supported.
+
+**Current Support:**
+
+```typescript
+// Offset pagination (LIMIT/OFFSET)
+const page1 = await db.posts.findMany({
+  partitionKey: 'user_123',
+  take: 20,
+  skip: 0
+});
+
+const page2 = await db.posts.findMany({
+  partitionKey: 'user_123',
+  take: 20,
+  skip: 20
+});
+```
+
+**Limitations:**
+
+- No cursor-based pagination
+- No continuation token support
+- Cross-partition queries with large offsets can be expensive
+
+**Workaround:** For large datasets, consider:
+
+1. **Partition-scoped queries** - Stay within partitions to minimize costs
+2. **Date/time-based filtering** - Use timestamp filters instead of large offsets
+3. **Manual continuation tokens** - Use raw SQL queries with continuation tokens (advanced)
+
+**Future Plans:** Cursor-based pagination and continuation token support are planned.
+
+#### 3. Database Management
+
+CosmosQL does not provide APIs for:
+
+- Creating or deleting databases
+- Creating or deleting containers
+- Managing indexing policies
+- Managing database-level settings
+
+**Workaround:** Use the Azure Portal, Azure CLI, or Azure SDK for infrastructure management:
+
+```bash
+# Azure CLI example
+az cosmosdb sql database create \
+  --account-name myaccount \
+  --resource-group mygroup \
+  --name mydb
+
+az cosmosdb sql container create \
+  --account-name myaccount \
+  --resource-group mygroup \
+  --database-name mydb \
+  --name users \
+  --partition-key-path "/email"
+```
+
+**Future Plans:** Database and container management APIs may be added in future versions.
+
+#### 4. Transaction Support
+
+CosmosQL does not support:
+
+- Multi-document transactions
+- Batch operations beyond `createMany` (which requires same partition key)
+- Transaction rollback capabilities
+- Cross-partition transactions
+
+**Current Support:**
+
+```typescript
+// Single-partition batch operations only
+await db.posts.createMany({
+  data: [
+    { id: 'post_1', userId: 'user_123', title: 'Post 1' },
+    { id: 'post_2', userId: 'user_123', title: 'Post 2' }
+  ],
+  partitionKey: 'user_123' // All documents must share partition key
+});
+```
+
+**Limitations:**
+
+- Cannot atomically update multiple documents across partitions
+- No rollback support
+- Limited to operations within a single partition
+
+**Workaround:** For multi-document operations:
+
+1. **Design for single-partition operations** - Structure data so related documents share partition keys
+2. **Use application-level transactions** - Implement compensating actions for failures
+3. **Use Azure SDK for transactions** - For complex scenarios, use the official SDK alongside CosmosQL
+
+**Future Plans:** Transaction support is under consideration for future releases.
+
+#### 5. Advanced Query Features
+
+The following CosmosDB features are not yet supported:
+
+- **Geospatial queries** - Spatial indexing and distance queries
+- **Full-text search** - Integration with Azure Cognitive Search
+- **JOIN operations** - Not applicable to document databases, but no support for array joins
+- **Stored procedures** - Cannot execute stored procedures
+- **User-defined functions (UDFs)** - Cannot use UDFs in queries
+
+**Workaround:** Use raw SQL queries for features not supported by the query builder:
+
+```typescript
+// Geospatial example (when supported via raw SQL)
+const result = await db.locations.query({
+  sql: `
+    SELECT * FROM c 
+    WHERE ST_DISTANCE(c.location, {
+      'type': 'Point',
+      'coordinates': [@lng, @lat]
+    }) < @distance
+  `,
+  parameters: [
+    { name: '@lng', value: -122.4194 },
+    { name: '@lat', value: 37.7749 },
+    { name: '@distance', value: 5000 }
+  ]
+});
+```
+
+**Future Plans:** Advanced query features may be added based on community demand.
+
+#### 6. Performance Optimizations
+
+Missing performance-related features:
+
+- **Query result caching** - No built-in caching layer
+- **Query plan analysis** - No automatic query optimization suggestions
+- **Automatic indexing suggestions** - No recommendations for index optimization
+- **Connection pool management** - Basic pooling exists, but limited configuration
+
+**Workaround:**
+
+1. **Implement caching at application level** - Use Redis or in-memory caching for frequently accessed data
+2. **Monitor RU usage** - Track Request Unit consumption in Azure Portal
+3. **Optimize partition keys** - Ensure good partition key selection (documented in [Performance Guide](/docs/performance))
+4. **Use point reads** - Prefer `findUnique` over `findMany` when querying single documents
+
+**Future Plans:** Performance monitoring and optimization tools may be added.
+
+#### 7. Change Feed
+
+CosmosQL does not support:
+
+- Change feed processors
+- Real-time change notifications
+- Document change tracking
+
+**Workaround:** Use the official Azure SDK for change feed processing:
+
+```typescript
+// Using Azure SDK for change feed
+import { CosmosClient } from '@azure/cosmos';
+
+const client = new CosmosClient(connectionString);
+const container = client.database('mydb').container('users');
+
+// Use SDK for change feed
+const changeFeedProcessor = container.items
+  .changeFeed({
+    startFromBeginning: false
+  })
+  .on('change', (changes) => {
+    // Handle changes
+  });
+```
+
+**Future Plans:** Change feed support is being considered for future releases.
+
+#### 8. Multi-Database Operations
+
+CosmosQL works with a single database per client instance. Cross-database operations are not supported.
+
+**Workaround:** Create multiple client instances:
+
+```typescript
+const productionDb = createClient({
+  connectionString: process.env.COSMOS_CONNECTION_STRING!,
+  database: 'production'
+}).withContainers({ users, posts });
+
+const analyticsDb = createClient({
+  connectionString: process.env.COSMOS_CONNECTION_STRING!,
+  database: 'analytics'
+}).withContainers({ events, metrics });
+```
+
+### Feature Comparison
+
+| Feature | CosmosQL | Azure SDK | Status |
+|---------|----------|-----------|--------|
+| Type Safety | ✅ Full | ❌ Limited | CosmosQL advantage |
+| CRUD Operations | ✅ Complete | ✅ Complete | Equivalent |
+| Aggregations | ⚠️ Raw SQL only | ✅ Native | SDK advantage |
+| Transactions | ⚠️ Single partition | ✅ Full support | SDK advantage |
+| Change Feed | ❌ Not supported | ✅ Supported | SDK advantage |
+| Database Management | ❌ Not supported | ✅ Supported | SDK advantage |
+| Zero Dependencies | ✅ Yes | ❌ 50+ packages | CosmosQL advantage |
+| Query Builder | ✅ Type-safe | ❌ SQL strings | CosmosQL advantage |
+
+### When to Use CosmosQL vs Azure SDK
+
+**Use CosmosQL when:**
+
+- ✅ You prioritize type safety and developer experience
+- ✅ You need zero dependencies for serverless/microservices
+- ✅ Your use cases fit core CRUD operations
+- ✅ You want compile-time guarantees for partition keys
+- ✅ You're building new TypeScript applications
+
+**Use Azure SDK when:**
+
+- ✅ You need advanced features (change feed, stored procedures)
+- ✅ You require database/container management APIs
+- ✅ You need cross-partition transactions
+- ✅ You're working with JavaScript (not TypeScript)
+- ✅ You need geospatial queries or full-text search
+
+**Use Both:**
+
+You can use CosmosQL alongside the Azure SDK for different use cases within the same project. They don't interfere with each other and work with the same database.
+
+### Roadmap
+
+**High Priority:**
+
+1. ✅ Core CRUD operations (Completed)
+2. ✅ Type-safe query builder (Completed)
+3. 🔄 Aggregation functions (Planned)
+4. 🔄 Cursor pagination (Planned)
+5. 🔄 Batch operations (Planned)
+
+**Medium Priority:**
+
+1. ⏳ Database management APIs (Future)
+2. ⏳ Advanced querying (Geospatial, full-text) (Future)
+3. ⏳ Performance monitoring (Future)
+4. ⏳ Migration support (Future)
+
+**Lower Priority:**
+
+1. ⏳ Multiple database support (Future)
+2. ⏳ Advanced connection pooling (Future)
+3. ⏳ Circuit breaker patterns (Future)
+
+### Reporting Issues
+
+If you encounter limitations that impact your use case:
+
+1. **Check existing issues** on GitHub
+2. **Create a feature request** with use case details
+3. **Contribute** - Pull requests welcome!
+4. **Use workarounds** - Many limitations have documented workarounds
+
+### Getting Help
+
+For questions about limitations or missing features:
+
+- Check the [FAQ](/docs/faq) for common questions
+- Review [Common Patterns](/docs/common-patterns) for workarounds
+- Open a GitHub issue for specific feature requests
+- Join the community Discord for discussions
+

@@ -5,6 +5,42 @@ description: Understand CosmosDB fundamentals, schema definition, and client set
 
 ## Core Concepts
 
+### CosmosQL Architecture Overview
+
+CosmosQL is built with a layered architecture designed for type safety, performance, and developer experience:
+
+**1. Client Layer**
+
+- **`CosmosClient`**: Core HTTP client with authentication, retry logic, and connection pooling
+- **`ContainerClient<TSchema, TPartitionKey>`**: Type-safe container operations
+- **`CosmosAuth`**: Handles Azure CosmosDB authentication tokens (HMAC-SHA256 signatures)
+
+**2. Schema System**
+
+- **`ContainerSchema`**: Defines container structure and partition keys
+- **`FieldBuilder`**: Fluent API for defining field types and constraints
+- **Runtime vs Type-level**: Dual representation for validation (type-level) and inference
+
+**3. Operations Layer**
+
+- **`FindOperations`**: Query and retrieval operations (findUnique, findMany, query)
+- **`CreateOperations`**: Document creation with bulk support (create, createMany)
+- **`UpdateOperations`**: Document updates and upserts (update, upsert)
+- **`DeleteOperations`**: Document deletion
+
+**4. Type System**
+
+- **Field-level type inference**: Preserves literal types from schema definitions
+- **Operation type safety**: Create/Update/Find operations are fully typed
+- **Advanced type utilities**: Required/optional field detection, select result typing
+
+**Key Design Principles:**
+
+- **Zero Runtime Overhead**: All validation happens at compile time
+- **Direct REST API**: No SDK abstraction layers, just HTTP requests
+- **Partition Key Enforcement**: Type-level guarantees prevent expensive queries
+- **TypeScript-First**: Built for TypeScript from the ground up
+
 ### Understanding CosmosDB Fundamentals
 
 Before diving into CosmosQL, it's crucial to understand how CosmosDB works. CosmosDB is fundamentally different from traditional SQL databases, and these differences shape how CosmosQL works.
@@ -206,7 +242,21 @@ The `withContainers` call registers your schemas with the client. This is where 
 
 **Connection Management:**
 
-CosmosQL uses connection pooling internally. Connections are reused efficiently, and you don't need to manage connection lifecycle manually. The client handles reconnection and error recovery automatically.
+CosmosQL uses HTTP/2 connection pooling internally with:
+- Maximum 50 concurrent sockets
+- 10 free sockets maintained for reuse
+- Automatic connection reuse for better performance
+- You don't need to manage connection lifecycle manually
+- The client handles reconnection and error recovery automatically
+
+**Authentication:**
+
+CosmosQL supports two authentication methods:
+
+1. **Master Key Authentication** (recommended for development): Uses Azure CosmosDB shared secrets
+2. **Connection String** (recommended for production): Encapsulates endpoint and key
+
+Both methods use HMAC-SHA256 based signatures to authenticate each request. Tokens are generated automatically and include request method, resource path, and timestamp.
 
 **Multiple Databases:**
 

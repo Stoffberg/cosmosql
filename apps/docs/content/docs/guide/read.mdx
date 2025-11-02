@@ -1,0 +1,371 @@
+---
+title: Reading Documents
+description: Learn how to query and read documents from CosmosDB efficiently
+---
+
+## Reading Documents
+
+Reading documents in CosmosDB with CosmosQL provides multiple strategies from highly efficient point reads to complex cross-partition queries. Understanding when to use each approach is crucial for performance and cost optimization.
+
+### Find Unique (Point Reads)
+
+The most efficient way to retrieve a single document is using `findUnique`:
+
+```typescript
+// Most efficient query: Direct document lookup with partition key
+const user = await db.users.findUnique({
+  where: {
+    id: 'user_123',
+    email: 'john@example.com' // Partition key REQUIRED
+  }
+});
+
+// Type: User | null
+```
+
+**Cost:** ~1-2 RU (Request Units)
+**Speed:** Millisecond latency
+**Use when:** You know the exact document ID and partition key
+
+<Callout type="error" title="TypeScript Prevents Missing Partition Keys">
+
+```typescript
+const user = await db.users.findUnique({
+  where: {
+    id: 'user_123'
+    // Missing email (partition key)
+  }
+});
+
+// ❌ TypeScript Error:
+// Property 'email' is missing in type '{ id: string; }'
+// but required in type '{ email: string; }'
+```
+
+CosmosQL enforces partition key requirements at compile time, preventing costly mistakes at runtime.
+
+</Callout>
+
+### Find Many (Partition-Scoped Queries)
+
+When you need to query within a single partition:
+
+```typescript
+// Query within a single partition (efficient: ~5 RU)
+const userPosts = await db.posts.findMany({
+  partitionKey: 'user_123', // Limits search to one partition
+  where: {
+    isPublished: true
+  },
+  orderBy: {
+    publishedAt: 'desc'
+  },
+  take: 10
+});
+
+// Type: Post[]
+```
+
+**Cost:** ~5-10 RU
+**Speed:** Fast (< 100ms)
+**Use when:** All results are in the same partition
+
+### Find Many (Cross-Partition Queries)
+
+For queries spanning multiple partitions:
+
+```typescript
+// Query across all partitions (expensive: ~50-100+ RU)
+const recentPosts = await db.posts.findMany({
+  where: {
+    isPublished: true,
+    publishedAt: { gte: new Date('2024-01-01') }
+  },
+  enableCrossPartitionQuery: true, // Explicit opt-in required
+  orderBy: {
+    publishedAt: 'desc'
+  },
+  take: 20
+});
+```
+
+**Cost:** ~50-100+ RU
+**Speed:** Slower (100-500ms depending on data size)
+**Use when:** You need data from multiple partitions
+
+<Callout type="error" title="Why Explicit Opt-In?">
+
+Cross-partition queries are **significantly more expensive** (50-100+ RU vs 1-5 RU). Making them explicit prevents accidental high costs and encourages better data modeling.
+
+**Performance Impact:**
+- Partition-scoped: 1-5 RU, < 100ms
+- Cross-partition: 50-100+ RU, 100-500ms+
+
+Always prefer partition-scoped queries when possible.
+
+</Callout>
+
+### Selecting Specific Fields
+
+Reduce data transfer and improve performance by selecting only needed fields:
+
+```typescript
+const user = await db.users.findUnique({
+  where: { id: 'user_123', email: 'john@example.com' },
+  select: {
+    name: true,
+    age: true,
+    email: true
+  }
+});
+
+// Type: { name: string; age: number; email: string } | null
+```
+
+### Selecting Nested Fields
+
+Select specific fields from nested objects:
+
+```typescript
+const post = await db.posts.findUnique({
+  where: { id: 'post_1', userId: 'user_123' },
+  select: {
+    title: true,
+    metadata: {
+      source: true
+      // version excluded
+    }
+  }
+});
+
+// Type: { title: string; metadata?: { source: string } } | null
+```
+
+### Where Clause Operators
+
+CosmosQL provides comprehensive filtering options:
+
+```typescript
+await db.users.findMany({
+  partitionKey: 'john@example.com',
+  where: {
+    // Exact match
+    isActive: true,
+    
+    // Number comparisons
+    age: { gt: 21 },        // Greater than
+    score: { gte: 85 },     // Greater than or equal
+    rating: { lt: 5 },      // Less than
+    count: { lte: 100 },    // Less than or equal
+    age: { gte: 18, lte: 65 }, // Range (both conditions)
+    
+    // String operations
+    name: { startsWith: 'John' },    // STARTSWITH(c.name, 'John')
+    email: { contains: 'gmail' },    // CONTAINS(c.email, 'gmail')
+    bio: { endsWith: 'developer' },  // ENDSWITH(c.bio, 'developer')
+    
+    // Array operations
+    tags: { contains: 'premium' },                    // CONTAINS array element
+    skills: { containsAny: ['react', 'node'] },      // Any element matches
+    permissions: { containsAll: ['read', 'write'] },  // All elements must match
+    
+    // Nested object queries
+    profile: {
+      settings: {
+        theme: 'dark',
+        notifications: true
+      }
+    },
+    
+    // Date comparisons
+    createdAt: { gte: new Date('2024-01-01') },
+    lastLoginAt: { lt: new Date() }
+  }
+});
+```
+
+### Pagination
+
+Implement pagination with `take` and `skip`:
+
+```typescript
+const ITEMS_PER_PAGE = 20;
+
+// Page 1
+const page1 = await db.posts.findMany({
+  enableCrossPartitionQuery: true,
+  take: ITEMS_PER_PAGE,
+  skip: 0
+});
+
+// Page 2
+const page2 = await db.posts.findMany({
+  enableCrossPartitionQuery: true,
+  take: ITEMS_PER_PAGE,
+  skip: ITEMS_PER_PAGE
+});
+```
+
+### Ordering Results
+
+Sort results using `orderBy`:
+
+```typescript
+// Single field ordering
+await db.posts.findMany({
+  partitionKey: 'user_123',
+  orderBy: {
+    publishedAt: 'desc' // or 'asc'
+  }
+});
+
+// Multiple field ordering
+await db.posts.findMany({
+  partitionKey: 'user_123',
+  orderBy: [
+    { publishedAt: 'desc' },
+    { title: 'asc' }
+  ]
+});
+```
+
+### Raw SQL Queries
+
+For advanced queries beyond the query builder:
+
+```typescript
+const result = await db.users.query<{ count: number }>({
+  sql: `
+    SELECT COUNT(1) as count 
+    FROM c 
+    WHERE c.isActive = @active 
+    AND c.age > @minAge
+  `,
+  parameters: [
+    { name: '@active', value: true },
+    { name: '@minAge', value: 18 }
+  ],
+  partitionKey: 'john@example.com' // Optional: for partition-scoped queries
+});
+
+// Returns: Array<{ count: number }>
+```
+
+### Performance Best Practices
+
+**1. Always Prefer Point Reads**
+
+```typescript
+// ✅ Good: Point read (~1 RU)
+const user = await db.users.findUnique({
+  where: { id: 'user_123', email: 'john@example.com' }
+});
+
+// ⚠️ Slower: Query even with unique result (~5 RU)
+const user = await db.users.findMany({
+  partitionKey: 'john@example.com',
+  where: { id: 'user_123' },
+  take: 1
+});
+```
+
+**2. Use Partition Keys Efficiently**
+
+```typescript
+// ✅ Good: All queries scoped to partition
+await db.posts.findMany({
+  partitionKey: 'user_123',
+  where: { isPublished: true }
+});
+
+// ❌ Bad: Cross-partition query when not needed
+await db.posts.findMany({
+  where: { userId: 'user_123', isPublished: true },
+  enableCrossPartitionQuery: true
+});
+```
+
+**3. Limit Result Sets**
+
+```typescript
+// ✅ Good: Limit to what you need
+await db.posts.findMany({
+  partitionKey: 'user_123',
+  take: 10 // Only fetch 10 results
+});
+
+// ❌ Bad: Fetching everything
+await db.posts.findMany({
+  partitionKey: 'user_123'
+  // Could return thousands of documents
+});
+```
+
+**4. Use Select to Reduce Data Transfer**
+
+```typescript
+// ✅ Good: Only fetch needed fields
+await db.users.findMany({
+  partitionKey: 'tenant_123',
+  select: { id: true, name: true }
+});
+
+// ❌ Bad: Fetching everything
+await db.users.findMany({
+  partitionKey: 'tenant_123'
+});
+```
+
+### Common Query Patterns
+
+**Pattern: Getting a Count**
+
+```typescript
+// Count documents matching criteria
+const count = await db.posts.query<{ count: number }>({
+  sql: `
+    SELECT VALUE COUNT(1)
+    FROM c
+    WHERE c.isPublished = true
+    AND c.publishedAt > @date
+  `,
+  parameters: [{ name: '@date', value: new Date('2024-01-01') }],
+  enableCrossPartitionQuery: true
+});
+```
+
+**Pattern: Conditional Queries**
+
+```typescript
+// Build query conditionally
+const where: any = {
+  isPublished: true
+};
+
+if (minDate) {
+  where.publishedAt = { gte: minDate };
+}
+
+if (category) {
+  where.category = category;
+}
+
+const posts = await db.posts.findMany({
+  partitionKey: tenantId,
+  where
+});
+```
+
+**Pattern: Search Within Partition**
+
+```typescript
+// Search for posts containing specific text
+const matchingPosts = await db.posts.findMany({
+  partitionKey: 'user_123',
+  where: {
+    title: { contains: searchTerm },
+    isPublished: true
+  }
+});
+```
+

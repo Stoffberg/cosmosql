@@ -190,3 +190,82 @@ A: Yes! You can get help through:
 
 The CosmosQL community is growing, and maintainers are responsive to issues and questions.
 
+### Comparison to Alternatives
+
+#### How does CosmosQL compare to the Azure CosmosDB SDK?
+
+**CosmosQL Advantages:**
+
+- ✅ **Zero dependencies** - No SDK bloat (50+ packages → zero dependencies)
+- ✅ **Better type safety** - Compile-time guarantees vs runtime errors
+- ✅ **Smaller bundle** - Perfect for serverless and edge computing
+- ✅ **Better DX** - Type-safe API with autocomplete vs dynamic JavaScript
+- ✅ **Performance** - Direct REST calls vs SDK abstraction layers
+- ✅ **Partition key enforcement** - Type system prevents expensive queries
+
+**Azure SDK Advantages:**
+
+- ✅ **More features** - Change feed, stored procedures, database management
+- ✅ **Mature ecosystem** - Better community support and documentation
+- ✅ **Advanced capabilities** - Geospatial queries, transactions, etc.
+
+**When to Choose:**
+
+- Choose **CosmosQL** for new TypeScript projects prioritizing type safety and minimal dependencies
+- Choose **Azure SDK** when you need advanced features like change feed or are heavily invested in the Azure ecosystem
+
+#### How does CosmosQL compare to Prisma?
+
+**Similarities:**
+
+- Both provide type-safe query builders
+- Both emphasize developer experience
+- Both support TypeScript from the ground up
+
+**Differences:**
+
+- **Database support**: Prisma supports many databases (PostgreSQL, MySQL, SQLite, etc.), CosmosQL is CosmosDB-specific
+- **Focus**: CosmosQL is optimized for CosmosDB patterns (partition keys, RU optimization)
+- **Dependencies**: CosmosQL has zero dependencies, Prisma includes runtime dependencies
+- **Query API**: CosmosQL uses CosmosDB SQL, Prisma uses its own query language
+
+**When to Choose:**
+
+- Choose **CosmosQL** for CosmosDB-specific applications needing partition key safety
+- Choose **Prisma** for multi-database applications or when using traditional SQL databases
+
+#### How does CosmosQL compare to Mongoose?
+
+**CosmosQL Advantages:**
+
+- ✅ **TypeScript native** - Built for TypeScript from ground up
+- ✅ **No schema drift** - Strict schema enforcement at compile time
+- ✅ **Modern API** - Async/await vs callback patterns
+- ✅ **Type safety** - Compile-time validation vs runtime validation
+- ✅ **Zero dependencies** - Minimal footprint
+
+**Mongoose Advantages:**
+
+- ✅ **Mature ecosystem** - Large community and extensive documentation
+- ✅ **JavaScript support** - Works with JavaScript (no TypeScript required)
+- ✅ **Rich middleware** - Hooks, validators, plugins
+
+**Note:** Mongoose is designed for MongoDB, while CosmosQL is for Azure CosmosDB SQL API. They serve different databases.
+
+### Development Status
+
+**Current Version:** 0.3.0
+
+**Production Ready:** ✅ Yes - Core operations are stable and well-tested
+
+**Test Coverage:** 249 unit tests with 100% code coverage for core modules
+
+**Quality Assurance:**
+
+- ✅ Biome linting with strict TypeScript/JavaScript rules
+- ✅ Prepublish checks (build + test before npm publish)
+- ✅ Full TypeScript compilation validation
+- ✅ Comprehensive type inference testing
+
+**Active Development:** The library is actively maintained with regular updates and improvements.
+
