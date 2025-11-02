@@ -1,167 +1,174 @@
-import https from 'https';
-import { CosmosAuth } from './auth';
-import { CosmosError } from '../errors/cosmos-error';
+import https from "node:https";
+import { CosmosError } from "../errors/cosmos-error";
+import { CosmosAuth } from "./auth";
 
 export interface CosmosClientConfig {
-  endpoint?: string;
-  key?: string;
-  connectionString?: string;
-  database: string;
-  retryOptions?: {
-    maxRetries?: number;
-    initialDelay?: number;
-    maxDelay?: number;
-  };
+	endpoint?: string;
+	key?: string;
+	connectionString?: string;
+	database: string;
+	retryOptions?: {
+		maxRetries?: number;
+		initialDelay?: number;
+		maxDelay?: number;
+	};
 }
 
 export class CosmosClient {
-  private auth: CosmosAuth;
-  private endpoint: string;
-  private database: string;
-  private agent: https.Agent;
-  private retryOptions: Required<NonNullable<CosmosClientConfig['retryOptions']>>;
+	private auth: CosmosAuth;
+	private endpoint: string;
+	private database: string;
+	private agent: https.Agent;
+	private retryOptions: Required<
+		NonNullable<CosmosClientConfig["retryOptions"]>
+	>;
 
-  constructor(config: CosmosClientConfig) {
-    if (config.connectionString) {
-      const parsed = new CosmosAuth('').parseConnectionString(
-        config.connectionString
-      );
-      this.endpoint = parsed.endpoint;
-      this.auth = new CosmosAuth(parsed.key);
-    } else if (config.endpoint && config.key) {
-      this.endpoint = config.endpoint;
-      this.auth = new CosmosAuth(config.key);
-    } else {
-      throw new Error(
-        'Must provide either connectionString or endpoint + key'
-      );
-    }
+	constructor(config: CosmosClientConfig) {
+		if (config.connectionString) {
+			const parsed = new CosmosAuth("").parseConnectionString(
+				config.connectionString,
+			);
+			this.endpoint = parsed.endpoint;
+			this.auth = new CosmosAuth(parsed.key);
+		} else if (config.endpoint && config.key) {
+			this.endpoint = config.endpoint;
+			this.auth = new CosmosAuth(config.key);
+		} else {
+			throw new Error("Must provide either connectionString or endpoint + key");
+		}
 
-    this.database = config.database;
-    this.retryOptions = {
-      maxRetries: config.retryOptions?.maxRetries ?? 3,
-      initialDelay: config.retryOptions?.initialDelay ?? 100,
-      maxDelay: config.retryOptions?.maxDelay ?? 5000
-    };
+		this.database = config.database;
+		this.retryOptions = {
+			maxRetries: config.retryOptions?.maxRetries ?? 3,
+			initialDelay: config.retryOptions?.initialDelay ?? 100,
+			maxDelay: config.retryOptions?.maxDelay ?? 5000,
+		};
 
-    // Connection pooling
-    this.agent = new https.Agent({
-      keepAlive: true,
-      keepAliveMsecs: 30000,
-      maxSockets: 50,
-      maxFreeSockets: 10
-    });
-  }
+		// Connection pooling
+		this.agent = new https.Agent({
+			keepAlive: true,
+			keepAliveMsecs: 30000,
+			maxSockets: 50,
+			maxFreeSockets: 10,
+		});
+	}
 
-  async request<T = any>(
-    method: string,
-    path: string,
-    body?: any,
-    partitionKey?: any
-  ): Promise<T> {
-    return this.requestWithRetry<T>(method, path, body, partitionKey, 0);
-  }
+	async request<T = any>(
+		method: string,
+		path: string,
+		body?: any,
+		partitionKey?: any,
+	): Promise<T> {
+		return this.requestWithRetry<T>(method, path, body, partitionKey, 0);
+	}
 
-  private async requestWithRetry<T>(
-    method: string,
-    path: string,
-    body: any,
-    partitionKey: any,
-    attempt: number
-  ): Promise<T> {
-    const date = new Date().toUTCString();
-    const [resourceType, resourceId] = this.parseResourcePath(path);
-    
-    const token = this.auth.generateAuthToken(
-      method,
-      resourceType,
-      resourceId,
-      date
-    );
+	private async requestWithRetry<T>(
+		method: string,
+		path: string,
+		body: any,
+		partitionKey: any,
+		attempt: number,
+	): Promise<T> {
+		const date = new Date();
+		const [resourceType, resourceId] = this.parseResourcePath(path);
 
-    const headers: Record<string, string> = {
-      'Authorization': `${token}`,
-      'x-ms-date': date,
-      'x-ms-version': '2018-12-31',
-      'Content-Type': 'application/json',
-      'Accept': 'application/json'
-    };
+		const token = this.auth.generateAuthToken(
+			method,
+			resourceType,
+			resourceId,
+			date,
+		);
 
-    if (partitionKey !== undefined) {
-      headers['x-ms-documentdb-partitionkey'] = JSON.stringify(
-        Array.isArray(partitionKey) ? partitionKey : [partitionKey]
-      );
-    }
+		const headers: Record<string, string> = {
+			Authorization: `${token}`,
+			"x-ms-date": date.toUTCString(),
+			"x-ms-version": "2018-12-31",
+			"Content-Type": "application/json",
+			Accept: "application/json",
+		};
 
-    const url = `${this.endpoint}${path}`;
-    
-    try {
-      const response = await fetch(url, {
-        method,
-        headers,
-        body: body ? JSON.stringify(body) : undefined,
-        // @ts-ignore - agent works in Node.js
-        agent: this.agent
-      });
+		if (partitionKey !== undefined) {
+			headers["x-ms-documentdb-partitionkey"] = JSON.stringify(
+				Array.isArray(partitionKey) ? partitionKey : [partitionKey],
+			);
+		}
 
-      if (!response.ok) {
-        if (response.status === 429 && attempt < this.retryOptions.maxRetries) {
-          // Rate limited, retry with backoff
-          const delay = Math.min(
-            this.retryOptions.initialDelay * Math.pow(2, attempt),
-            this.retryOptions.maxDelay
-          );
-          await this.sleep(delay);
-          return this.requestWithRetry<T>(method, path, body, partitionKey, attempt + 1);
-        }
+		const url = `${this.endpoint}${path}`;
 
-        throw await this.handleErrorResponse(response);
-      }
+		try {
+			const response = await fetch(url, {
+				method,
+				headers,
+				body: body ? JSON.stringify(body) : undefined,
+				// @ts-expect-error - agent works in Node.js
+				agent: this.agent,
+			});
 
-      return await response.json() as T;
-    } catch (error) {
-      if (error instanceof CosmosError) {
-        throw error;
-      }
-      throw new CosmosError(500, 'NETWORK_ERROR', (error as Error).message);
-    }
-  }
+			if (!response.ok) {
+				if (response.status === 429 && attempt < this.retryOptions.maxRetries) {
+					// Rate limited, retry with backoff
+					const delay = Math.min(
+						this.retryOptions.initialDelay * 2 ** attempt,
+						this.retryOptions.maxDelay,
+					);
+					await this.sleep(delay);
+					return this.requestWithRetry<T>(
+						method,
+						path,
+						body,
+						partitionKey,
+						attempt + 1,
+					);
+				}
 
-  private parseResourcePath(path: string): [string, string] {
-    const parts = path.split('/').filter(Boolean);
-    
-    if (parts.length >= 2) {
-      return [parts[parts.length - 2], parts[parts.length - 1]];
-    }
-    
-    return ['', ''];
-  }
+				throw await this.handleErrorResponse(response);
+			}
 
-  private async handleErrorResponse(response: Response): Promise<CosmosError> {
-    let message = response.statusText;
-    let code = 'UNKNOWN_ERROR';
+			return (await response.json()) as T;
+		} catch (error) {
+			if (error instanceof CosmosError) {
+				throw error;
+			}
+			throw new CosmosError(500, "NETWORK_ERROR", (error as Error).message);
+		}
+	}
 
-    try {
-      const body: any = await response.json();
-      message = body.message || message;
-      code = body.code || code;
-    } catch {
-      // Ignore JSON parse errors
-    }
+	private parseResourcePath(path: string): [string, string] {
+		const parts = path.split("/").filter(Boolean);
 
-    return new CosmosError(response.status, code, message);
-  }
+		if (parts.length >= 1) {
+			const resourceType = parts[parts.length - 1];
+			const resourceId = parts.length > 1 ? parts.slice(0, -1).join("/") : "";
+			return [resourceType, resourceId];
+		}
 
-  private sleep(ms: number): Promise<void> {
-    return new Promise(resolve => setTimeout(resolve, ms));
-  }
+		return ["", ""];
+	}
 
-  getDatabase(): string {
-    return this.database;
-  }
+	private async handleErrorResponse(response: Response): Promise<CosmosError> {
+		let message = response.statusText;
+		let code = "UNKNOWN_ERROR";
 
-  close(): void {
-    this.agent.destroy();
-  }
+		try {
+			const body: any = await response.json();
+			message = body.message || message;
+			code = body.code || code;
+		} catch {
+			// Ignore JSON parse errors
+		}
+
+		return new CosmosError(response.status, code, message);
+	}
+
+	private sleep(ms: number): Promise<void> {
+		return new Promise((resolve) => setTimeout(resolve, ms));
+	}
+
+	getDatabase(): string {
+		return this.database;
+	}
+
+	close(): void {
+		this.agent.destroy();
+	}
 }
-

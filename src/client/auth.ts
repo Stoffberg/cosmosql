@@ -1,4 +1,4 @@
-import { createHmac } from "crypto";
+import { createHmac } from "node:crypto";
 
 export class CosmosAuth {
 	constructor(private masterKey: string) {}
@@ -7,9 +7,9 @@ export class CosmosAuth {
 		method: string,
 		resourceType: string,
 		resourceId: string,
-		date: string,
+		date: Date,
 	): string {
-		const text = `${method.toLowerCase()}\n${resourceType.toLowerCase()}\n${resourceId}\n${date.toLowerCase()}\n\n`;
+		const text = `${method.toLowerCase()}\n${resourceType.toLowerCase()}\n${resourceId}\n${date.toUTCString().toLowerCase()}\n\n\n`;
 
 		const key = Buffer.from(this.masterKey, "base64");
 		const signature = createHmac("sha256", key).update(text).digest("base64");
@@ -22,7 +22,6 @@ export class CosmosAuth {
 		key: string;
 	} {
 		const parts = connectionString.split(";");
-		// biome-ignore lint/suspicious/noExplicitAny: This is a dynamic object
 		const config: any = {};
 
 		for (const part of parts) {

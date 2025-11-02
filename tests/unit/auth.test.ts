@@ -178,7 +178,7 @@ describe("CosmosAuth", () => {
 				"GET",
 				"docs",
 				"dbs/mydb/colls/mycoll",
-				"Thu, 01 Jan 2020 00:00:00 GMT",
+				new Date("Thu, 01 Jan 2020 00:00:00 GMT"),
 			);
 
 			// Token should be URL-encoded and contain the expected parts
@@ -190,24 +190,10 @@ describe("CosmosAuth", () => {
 		test("generates different tokens for different inputs", () => {
 			const auth = new CosmosAuth("dGVzdEtleQ==");
 
-			const token1 = auth.generateAuthToken(
-				"GET",
-				"docs",
-				"resource1",
-				"date1",
-			);
-			const token2 = auth.generateAuthToken(
-				"POST",
-				"docs",
-				"resource1",
-				"date1",
-			);
-			const token3 = auth.generateAuthToken(
-				"GET",
-				"colls",
-				"resource1",
-				"date1",
-			);
+			const date1 = new Date("2020-01-01T00:00:00Z");
+			const token1 = auth.generateAuthToken("GET", "docs", "resource1", date1);
+			const token2 = auth.generateAuthToken("POST", "docs", "resource1", date1);
+			const token3 = auth.generateAuthToken("GET", "colls", "resource1", date1);
 
 			expect(token1).not.toBe(token2);
 			expect(token1).not.toBe(token3);
@@ -217,8 +203,9 @@ describe("CosmosAuth", () => {
 		test("generates same token for same inputs", () => {
 			const auth = new CosmosAuth("dGVzdEtleQ==");
 
-			const token1 = auth.generateAuthToken("GET", "docs", "resource", "date");
-			const token2 = auth.generateAuthToken("GET", "docs", "resource", "date");
+			const date = new Date("2020-01-01T00:00:00Z");
+			const token1 = auth.generateAuthToken("GET", "docs", "resource", date);
+			const token2 = auth.generateAuthToken("GET", "docs", "resource", date);
 
 			expect(token1).toBe(token2);
 		});
@@ -227,7 +214,7 @@ describe("CosmosAuth", () => {
 			const auth = new CosmosAuth("key");
 
 			expect(() => {
-				auth.generateAuthToken("GET", "dbs", "", "date");
+				auth.generateAuthToken("GET", "dbs", "", new Date());
 			}).not.toThrow();
 		});
 
@@ -239,7 +226,7 @@ describe("CosmosAuth", () => {
 					"GET",
 					"docs",
 					"dbs/test-db/colls/test-coll",
-					"date",
+					new Date(),
 				);
 			}).not.toThrow();
 		});
@@ -258,7 +245,7 @@ describe("CosmosAuth", () => {
 				"GET",
 				"docs",
 				"resource",
-				"date",
+				new Date(),
 			);
 
 			expect(token).toBeTruthy();
@@ -270,8 +257,9 @@ describe("CosmosAuth", () => {
 			const auth1 = new CosmosAuth("key1");
 			const auth2 = new CosmosAuth("key2");
 
-			const token1 = auth1.generateAuthToken("GET", "docs", "res1", "date");
-			const token2 = auth2.generateAuthToken("POST", "colls", "res2", "date");
+			const date = new Date();
+			const token1 = auth1.generateAuthToken("GET", "docs", "res1", date);
+			const token2 = auth2.generateAuthToken("POST", "colls", "res2", date);
 
 			expect(token1).toBeTruthy();
 			expect(token2).toBeTruthy();
@@ -281,9 +269,12 @@ describe("CosmosAuth", () => {
 		test("same auth instance can generate multiple tokens", () => {
 			const auth = new CosmosAuth("key");
 
-			const token1 = auth.generateAuthToken("GET", "docs", "res1", "date1");
-			const token2 = auth.generateAuthToken("POST", "colls", "res2", "date2");
-			const token3 = auth.generateAuthToken("PUT", "sprocs", "res3", "date3");
+			const date1 = new Date("2020-01-01T00:00:00Z");
+			const date2 = new Date("2020-01-02T00:00:00Z");
+			const date3 = new Date("2020-01-03T00:00:00Z");
+			const token1 = auth.generateAuthToken("GET", "docs", "res1", date1);
+			const token2 = auth.generateAuthToken("POST", "colls", "res2", date2);
+			const token3 = auth.generateAuthToken("PUT", "sprocs", "res3", date3);
 
 			expect(token1).toBeTruthy();
 			expect(token2).toBeTruthy();

@@ -402,6 +402,101 @@ describe("CosmosClient", () => {
 		});
 	});
 
+	describe("parseResourcePath", () => {
+		let client: CosmosClient;
+
+		beforeEach(() => {
+			const config: CosmosClientConfig = {
+				endpoint: "https://test.documents.azure.com:443",
+				key: "dGVzdC1rZXk=",
+				database: "testdb",
+			};
+			client = new CosmosClient(config);
+		});
+
+		test("parses document path correctly", () => {
+			// biome-ignore lint/complexity/useLiteralKeys: test private method
+			const result = client["parseResourcePath"](
+				"/dbs/chatapi/colls/conversations/docs",
+			);
+
+			expect(result).toEqual(["docs", "dbs/chatapi/colls/conversations"]);
+		});
+
+		test("parses collection path correctly", () => {
+			// biome-ignore lint/complexity/useLiteralKeys: test private method
+			const result = client["parseResourcePath"](
+				"/dbs/chatapi/colls/conversations",
+			);
+
+			expect(result).toEqual(["conversations", "dbs/chatapi/colls"]);
+		});
+
+		test("parses database path correctly", () => {
+			// biome-ignore lint/complexity/useLiteralKeys: test private method
+			const result = client["parseResourcePath"]("/dbs/chatapi");
+
+			expect(result).toEqual(["chatapi", "dbs"]);
+		});
+
+		test("parses single segment path", () => {
+			// biome-ignore lint/complexity/useLiteralKeys: test private method
+			const result = client["parseResourcePath"]("/dbs");
+
+			expect(result).toEqual(["dbs", ""]);
+		});
+
+		test("handles empty path", () => {
+			// biome-ignore lint/complexity/useLiteralKeys: test private method
+			const result = client["parseResourcePath"]("");
+
+			expect(result).toEqual(["", ""]);
+		});
+
+		test("handles path with leading slash", () => {
+			// biome-ignore lint/complexity/useLiteralKeys: test private method
+			const result = client["parseResourcePath"]("/dbs/test");
+
+			expect(result).toEqual(["test", "dbs"]);
+		});
+
+		test("handles complex document path", () => {
+			// biome-ignore lint/complexity/useLiteralKeys: test private method
+			const result = client["parseResourcePath"](
+				"/dbs/my-db/colls/my-collection/docs/my-doc",
+			);
+
+			expect(result).toEqual(["my-doc", "dbs/my-db/colls/my-collection/docs"]);
+		});
+
+		test("handles stored procedure path", () => {
+			// biome-ignore lint/complexity/useLiteralKeys: test private method
+			const result = client["parseResourcePath"](
+				"/dbs/db/colls/coll/sprocs/proc",
+			);
+
+			expect(result).toEqual(["proc", "dbs/db/colls/coll/sprocs"]);
+		});
+
+		test("handles user defined function path", () => {
+			// biome-ignore lint/complexity/useLiteralKeys: test private method
+			const result = client["parseResourcePath"](
+				"/dbs/db/colls/coll/udfs/func",
+			);
+
+			expect(result).toEqual(["func", "dbs/db/colls/coll/udfs"]);
+		});
+
+		test("handles trigger path", () => {
+			// biome-ignore lint/complexity/useLiteralKeys: test private method
+			const result = client["parseResourcePath"](
+				"/dbs/db/colls/coll/triggers/trig",
+			);
+
+			expect(result).toEqual(["trig", "dbs/db/colls/coll/triggers"]);
+		});
+	});
+
 	describe("close", () => {
 		test("destroys agent", () => {
 			const config: CosmosClientConfig = {
