@@ -9,32 +9,72 @@ description: Understand CosmosDB fundamentals, schema definition, and client set
 
 Before diving into CosmosQL, it's crucial to understand how CosmosDB works. CosmosDB is fundamentally different from traditional SQL databases, and these differences shape how CosmosQL works.
 
-**Partition Keys:**
+<Callout type="info" title="Important">
 
-CosmosDB is a distributed, globally scalable database that achieves its performance by sharding data across multiple physical partitions. The partition key is a property of your document that determines which partition stores it. This design choice has major performance and cost implications:
+CosmosDB is a distributed, globally scalable database. Understanding its core concepts—especially partition keys and Request Units—is essential for writing efficient, cost-effective queries with CosmosQL.
 
-**Within-Partition Queries:** When you query data within a single partition (by providing the partition key), CosmosDB can quickly locate and retrieve the data. These queries are fast (~1-5 Request Units) and cost-effective.
+</Callout>
 
-**Cross-Partition Queries:** When you query across partitions (without specifying a partition key), CosmosDB must scan every partition in your container. This is expensive (~50-100+ Request Units) and slow, especially as your data grows.
+#### Partition Keys
 
-**Transactions:** CosmosDB supports transactions, but all documents in a transaction must share the same partition key. This is a hard limitation of distributed systems—you can't atomically modify data across partitions.
+CosmosDB achieves its performance by sharding data across multiple physical partitions. The **partition key** is a property of your document that determines which partition stores it. This design choice has major performance and cost implications:
 
-**Partition Key Selection:** Choosing the right partition key is critical. Good partition keys have high cardinality (many unique values), even distribution, and align with your query patterns. Poor choices lead to "hot partitions" (uneven load) and high costs.
+**Within-Partition Queries**
 
-**Why CosmosQL Enforces Partition Keys:** Because partition keys are so critical, CosmosQL requires them at the type level. You cannot accidentally write a cross-partition query without explicitly opting in, preventing costly mistakes before they reach production.
+When you query data within a single partition (by providing the partition key), CosmosDB can quickly locate and retrieve the data. These queries are:
 
-**Request Units (RU):**
+- **Fast**: Typically 1-5 Request Units
+- **Cost-effective**: Minimal resource consumption
+- **Scalable**: Performance stays consistent as data grows
 
-CosmosDB uses a performance metric called Request Units (RUs) to measure and charge for operations. Understanding RUs helps you optimize costs:
+**Cross-Partition Queries**
 
-- **Point Read:** Reading a 1KB document by ID and partition key costs ~1 RU
-- **Query:** Queries cost more based on complexity, document size, and whether they're cross-partition
-- **Write Operations:** Creating, updating, or deleting documents costs ~5-10 RU depending on size
-- **Cross-Partition Queries:** Can cost 10-100x more than partition-scoped queries
+When you query across partitions (without specifying a partition key), CosmosDB must scan every partition in your container. These queries are:
 
-**Why This Matters:**
+- **Expensive**: Typically 50-100+ Request Units (10-100x more expensive)
+- **Slow**: Must scan all partitions sequentially
+- **Costly at scale**: Costs grow dramatically as your data grows
 
-The cost difference between partition-scoped and cross-partition queries is dramatic. A simple mistake like forgetting a partition key can turn a 1 RU query into a 100 RU query, increasing costs by 100x. For applications processing thousands of requests per second, this difference can mean hundreds or thousands of dollars in additional costs per month.
+**Transactions**
+
+CosmosDB supports transactions, but **all documents in a transaction must share the same partition key**. This is a hard limitation of distributed systems—you can't atomically modify data across partitions.
+
+**Partition Key Selection**
+
+Choosing the right partition key is critical. Good partition keys have:
+
+- **High cardinality**: Many unique values
+- **Even distribution**: Data spread evenly across partitions
+- **Query alignment**: Matches your most common query patterns
+
+Poor choices lead to "hot partitions" (uneven load) and high costs.
+
+<Callout type="warning" title="Why CosmosQL Enforces Partition Keys">
+
+Because partition keys are so critical, CosmosQL requires them at the type level. You **cannot** accidentally write a cross-partition query without explicitly opting in, preventing costly mistakes before they reach production.
+
+</Callout>
+
+#### Request Units (RU)
+
+CosmosDB uses **Request Units (RUs)** to measure and charge for operations. Understanding RUs helps you optimize costs:
+
+| Operation | Typical Cost | Notes |
+|-----------|-------------|-------|
+| **Point Read** | ~1 RU | Reading a 1KB document by ID and partition key |
+| **Query** | Varies | Based on complexity, document size, and partition scope |
+| **Write Operations** | ~5-10 RU | Creating, updating, or deleting documents |
+| **Cross-Partition Queries** | 10-100x more | Can cost 10-100x more than partition-scoped queries |
+
+<Callout type="error" title="The Cost of Mistakes">
+
+The cost difference between partition-scoped and cross-partition queries is dramatic. A simple mistake like forgetting a partition key can turn a **1 RU query into a 100 RU query**, increasing costs by 100x.
+
+For applications processing thousands of requests per second, this difference can mean **hundreds or thousands of dollars** in additional costs per month.
+
+</Callout>
+
+**How CosmosQL Prevents This**
 
 CosmosQL is designed to prevent these mistakes at compile time. By requiring partition keys in the type system, you're forced to think about query efficiency before your code runs, catching expensive mistakes during development rather than in production.
 
