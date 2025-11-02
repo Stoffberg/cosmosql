@@ -96,7 +96,7 @@ describe("CosmosClient", () => {
 			const url = callArgs[0];
 
 			expect(url).toBe(
-				"https://test.documents.azure.com:443/dbs/testdb/colls/test/docs/doc1"
+				"https://test.documents.azure.com:443/dbs/testdb/colls/test/docs/doc1",
 			);
 			// Should not contain double slash in the path (after :443/)
 			expect(url).not.toContain(":443//");
@@ -122,7 +122,7 @@ describe("CosmosClient", () => {
 			const url = callArgs[0];
 
 			expect(url).toBe(
-				"https://test.documents.azure.com:443/dbs/testdb/colls/test/docs/doc1"
+				"https://test.documents.azure.com:443/dbs/testdb/colls/test/docs/doc1",
 			);
 			// Should not contain double slash in the path (after :443/)
 			expect(url).not.toContain(":443//");
@@ -148,7 +148,7 @@ describe("CosmosClient", () => {
 			const url = callArgs[0];
 
 			expect(url).toBe(
-				"https://test.documents.azure.com:443/dbs/testdb/colls/test/docs/doc1"
+				"https://test.documents.azure.com:443/dbs/testdb/colls/test/docs/doc1",
 			);
 		});
 	});
