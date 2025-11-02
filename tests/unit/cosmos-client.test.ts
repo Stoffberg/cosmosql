@@ -303,7 +303,7 @@ describe("CosmosClient", () => {
 				expect.any(String),
 				expect.objectContaining({
 					headers: expect.objectContaining({
-						"x-ms-documentdb-query-enablecrosspartition": "true",
+						"x-ms-documentdb-query-enablecrosspartition": true,
 					}),
 				}),
 			);

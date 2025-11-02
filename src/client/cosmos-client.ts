@@ -60,7 +60,14 @@ export class CosmosClient {
 		partitionKey?: any,
 		enableCrossPartitionQuery?: boolean,
 	): Promise<T> {
-		return this.requestWithRetry<T>(method, path, body, partitionKey, enableCrossPartitionQuery, 0);
+		return this.requestWithRetry<T>(
+			method,
+			path,
+			body,
+			partitionKey,
+			enableCrossPartitionQuery,
+			0,
+		);
 	}
 
 	private async requestWithRetry<T>(
@@ -96,7 +103,8 @@ export class CosmosClient {
 		}
 
 		if (enableCrossPartitionQuery === true) {
-			headers["x-ms-documentdb-query-enablecrosspartition"] = "true";
+			// Azure SDK uses boolean true - fetch will convert this to string "true"
+			headers["x-ms-documentdb-query-enablecrosspartition"] = true as any;
 		}
 
 		const url = `${this.endpoint}${path}`;
@@ -104,7 +112,7 @@ export class CosmosClient {
 		try {
 			const response = await fetch(url, {
 				method,
-				headers,
+				headers: headers as any,
 				body: body ? JSON.stringify(body) : undefined,
 				// @ts-expect-error - agent works in Node.js
 				agent: this.agent,
