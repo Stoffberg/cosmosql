@@ -80,7 +80,7 @@ describe("cosmosql Azure CosmosDB auth", () => {
 		}
 
 		const client = createClient({
-			connectionString: connectionString!,
+			connectionString: connectionString,
 			database: "testdb",
 		}).withContainers({ testContainer });
 
