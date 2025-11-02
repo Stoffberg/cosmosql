@@ -5,41 +5,166 @@ description: Install CosmosQL and create your first queries
 
 ## Getting Started
 
+This guide will help you install CosmosQL and write your first type-safe queries. By the end, you'll have a working setup and understand the basics of working with CosmosQL.
+
+### Prerequisites
+
+Before you begin, make sure you have:
+
+- **Node.js 18+** installed on your system
+- **TypeScript 5.0+** configured in your project
+- **An Azure CosmosDB account** with a connection string
+- Basic familiarity with TypeScript and async/await
+
+If you don't have a CosmosDB account yet, you can create one through the [Azure Portal](https://portal.azure.com) or use the [Azure CosmosDB Emulator](https://learn.microsoft.com/azure/cosmos-db/local-emulator) for local development.
+
 ### Installation
 
+Install CosmosQL using your preferred package manager:
+
 ```bash
+# npm
 npm install cosmosql
+
+# yarn
+yarn add cosmosql
+
+# pnpm
+pnpm add cosmosql
+
+# bun
+bun add cosmosql
 ```
 
+That's it! CosmosQL has zero runtime dependencies beyond what Node.js provides. The package only includes TypeScript type definitions and the query builder logic.
+
+### Getting Your Connection String
+
+To connect to CosmosDB, you'll need a connection string. Here's how to find it:
+
+1. In the Azure Portal, navigate to your CosmosDB account
+2. Go to **Keys** in the left sidebar
+3. Copy the **Primary Connection String**
+
+The connection string format looks like:
+```
+AccountEndpoint=https://your-account.documents.azure.com:443/;AccountKey=your-key==;...
+```
+
+**Important:** Never commit your connection string to version control. Always use environment variables or a secrets manager.
+
 ### Quick Start
+
+Let's create a simple example that demonstrates CosmosQL's core concepts. This example creates a user container and performs basic operations.
 
 ```typescript
 import { createClient, container, field } from 'cosmosql';
 
-// 1. Define your schema
+// Step 1: Define your schema
+// The container function defines a collection with typed fields
+// This schema is used for type inference, not runtime validation
 const users = container('users', {
-  id: field.string(),
-  email: field.string(),
-  name: field.string(),
-  age: field.number(),
-  isActive: field.boolean().default(true),
-  createdAt: field.date()
-}).partitionKey('email');
+  id: field.string(),                    // Required string field
+  email: field.string(),                  // Required string field
+  name: field.string(),                   // Required string field
+  age: field.number(),                    // Required number field
+  isActive: field.boolean().default(true), // Boolean with default value
+  createdAt: field.date()                 // Date field
+}).partitionKey('email');                 // Define partition key (required)
 
-// 2. Create a client
+// Step 2: Create a client
+// The client manages connections and provides typed access to containers
 const db = createClient({
   connectionString: process.env.COSMOS_CONNECTION_STRING!,
-  database: 'myapp'
+  database: 'myapp' // Your CosmosDB database name
 }).withContainers({
-  users
+  users // Register the container schema
 });
 
-// 3. Start querying with full type safety
+// Step 3: Start querying with full type safety
+// Notice that both 'id' and 'email' are required in the where clause
+// This is because 'email' is the partition key - CosmosQL enforces this at compile time
 const user = await db.users.findUnique({
   where: {
     id: 'user_123',
     email: 'john@example.com' // Partition key required!
   }
 });
+
+// TypeScript knows the exact type of 'user'
+// Type: { id: string; email: string; name: string; age: number; isActive: boolean; createdAt: Date } | null
+console.log(user?.name); // ✅ TypeScript knows 'name' exists
 ```
+
+### Understanding the Code
+
+Let's break down what's happening in this example:
+
+**Schema Definition:** The `container` function creates a schema definition. This isn't a runtime object—it's used by TypeScript to infer types. CosmosDB is schemaless, so this schema only exists in your TypeScript code.
+
+**Partition Key:** The `.partitionKey('email')` call tells CosmosQL that this container uses `email` as its partition key. This is critical for CosmosDB performance and CosmosQL uses it to enforce type safety—you must provide the partition key in queries.
+
+**Client Creation:** `createClient` establishes a connection to your CosmosDB account. The `withContainers` call registers your schemas and returns a typed database client.
+
+**Type Safety:** When you call `db.users.findUnique`, TypeScript knows:
+- Which fields exist (`id`, `email`, `name`, etc.)
+- Which fields are required in the `where` clause (including the partition key)
+- The exact return type based on your schema
+
+### Your First Create Operation
+
+Let's create a new user document:
+
+```typescript
+// Create a new user
+const newUser = await db.users.create({
+  data: {
+    id: 'user_123',
+    email: 'john@example.com',
+    name: 'John Doe',
+    age: 30,
+    createdAt: new Date()
+    // isActive will use the default value (true)
+  }
+});
+
+// TypeScript infers the exact type
+// newUser has type: { id: string; email: string; name: string; age: number; isActive: boolean; createdAt: Date }
+```
+
+Notice that you don't need to provide `isActive` because it has a default value. CosmosQL handles this automatically based on your schema definition.
+
+### Your First Query Operation
+
+Let's query for users within a partition:
+
+```typescript
+// Find all active users in a specific partition
+const activeUsers = await db.users.findMany({
+  partitionKey: 'john@example.com', // Scope query to single partition
+  where: {
+    isActive: true
+  }
+});
+
+// TypeScript knows this is an array of user objects
+// activeUsers has type: Array<{ id: string; email: string; ... }>
+console.log(`Found ${activeUsers.length} active users`);
+```
+
+The `partitionKey` parameter is required for `findMany` operations. This ensures your query is efficient and cost-effective by limiting the search to a single partition.
+
+### What's Next?
+
+You now have the basics working! Here's what to explore next:
+
+1. **[Core Concepts](/docs/core-concepts)** - Learn about CosmosDB fundamentals, partition keys, and how CosmosQL works under the hood
+
+2. **[CRUD Operations](/docs/crud-operations)** - Deep dive into create, read, update, and delete operations with detailed examples
+
+3. **[Type System](/docs/type-system)** - Understand how CosmosQL's type inference works and leverage it effectively
+
+4. **[Common Patterns](/docs/common-patterns)** - See real-world usage patterns for authentication, multi-tenant apps, and more
+
+If you run into issues or have questions, check the [FAQ](/docs/faq) or refer to the [API Reference](/docs/api-reference) for detailed method documentation.
 

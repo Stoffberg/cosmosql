@@ -7,27 +7,36 @@ description: Understand CosmosDB fundamentals, schema definition, and client set
 
 ### Understanding CosmosDB Fundamentals
 
-Before diving into CosmosQL, it's crucial to understand how CosmosDB works:
+Before diving into CosmosQL, it's crucial to understand how CosmosDB works. CosmosDB is fundamentally different from traditional SQL databases, and these differences shape how CosmosQL works.
 
 **Partition Keys:**
 
-CosmosDB is a distributed database that shards your data across multiple physical partitions. The partition key determines which partition stores each document. This design has major implications:
+CosmosDB is a distributed, globally scalable database that achieves its performance by sharding data across multiple physical partitions. The partition key is a property of your document that determines which partition stores it. This design choice has major performance and cost implications:
 
-- **Within-partition queries** are fast and cheap (~1-5 RU)
+**Within-Partition Queries:** When you query data within a single partition (by providing the partition key), CosmosDB can quickly locate and retrieve the data. These queries are fast (~1-5 Request Units) and cost-effective.
 
-- **Cross-partition queries** scan all partitions and are expensive (~50-100+ RU)
+**Cross-Partition Queries:** When you query across partitions (without specifying a partition key), CosmosDB must scan every partition in your container. This is expensive (~50-100+ Request Units) and slow, especially as your data grows.
 
-- All documents in a transaction must share the same partition key
+**Transactions:** CosmosDB supports transactions, but all documents in a transaction must share the same partition key. This is a hard limitation of distributed systems—you can't atomically modify data across partitions.
 
-- Choosing the right partition key is critical for performance and cost
+**Partition Key Selection:** Choosing the right partition key is critical. Good partition keys have high cardinality (many unique values), even distribution, and align with your query patterns. Poor choices lead to "hot partitions" (uneven load) and high costs.
+
+**Why CosmosQL Enforces Partition Keys:** Because partition keys are so critical, CosmosQL requires them at the type level. You cannot accidentally write a cross-partition query without explicitly opting in, preventing costly mistakes before they reach production.
 
 **Request Units (RU):**
 
-CosmosDB charges based on Request Units consumed. Reading a 1KB document costs ~1 RU. Cross-partition queries, writes, and complex operations cost more.
+CosmosDB uses a performance metric called Request Units (RUs) to measure and charge for operations. Understanding RUs helps you optimize costs:
+
+- **Point Read:** Reading a 1KB document by ID and partition key costs ~1 RU
+- **Query:** Queries cost more based on complexity, document size, and whether they're cross-partition
+- **Write Operations:** Creating, updating, or deleting documents costs ~5-10 RU depending on size
+- **Cross-Partition Queries:** Can cost 10-100x more than partition-scoped queries
 
 **Why This Matters:**
 
-Poor partition key strategy or accidental cross-partition queries can increase costs by 10-100x. CosmosQL is designed to prevent these mistakes at compile time.
+The cost difference between partition-scoped and cross-partition queries is dramatic. A simple mistake like forgetting a partition key can turn a 1 RU query into a 100 RU query, increasing costs by 100x. For applications processing thousands of requests per second, this difference can mean hundreds or thousands of dollars in additional costs per month.
+
+CosmosQL is designed to prevent these mistakes at compile time. By requiring partition keys in the type system, you're forced to think about query efficiency before your code runs, catching expensive mistakes during development rather than in production.
 
 ### Schema Definition
 
@@ -86,38 +95,92 @@ type Post = typeof posts.infer;
 
 This approach combines the best of both worlds:
 
-- **Drizzle-style**: Schemas are data, not decorators or classes
+- **Drizzle-style**: Schemas are plain data structures, not decorators or classes. This makes them easy to compose, extend, and test.
 
-- **Prisma-style**: Familiar, readable API
+- **Prisma-style**: The API feels familiar if you've used Prisma. The method names and patterns are intentionally similar to reduce cognitive load when learning.
 
-- **Type inference**: Full TypeScript support with zero boilerplate
+- **Type inference**: Full TypeScript support with zero boilerplate. TypeScript automatically infers types from your schema—you don't need to manually define interfaces.
 
-- **Composable**: Schemas can be reused and extended
+- **Composable**: Schemas can be reused and extended. You can define base schemas and extend them for different use cases.
+
+- **No Runtime Overhead**: These schemas exist only in TypeScript. They're not validated at runtime—all checks happen at compile time. This means zero performance impact in production.
+
+**Understanding Field Types:**
+
+Each field type in CosmosQL maps to a JavaScript/TypeScript type:
+
+- `field.string()` → `string`
+- `field.number()` → `number`
+- `field.boolean()` → `boolean`
+- `field.date()` → `Date`
+- `field.array(type)` → `Array<type>`
+- `field.object(schema)` → Nested object type
+
+The `.optional()` modifier makes fields nullable in TypeScript, while `.default(value)` provides a default value when creating documents. These modifiers only affect TypeScript types and default values—CosmosDB itself is schemaless, so the actual data can vary.
 
 ### Client Setup
+
+The client is your main interface to CosmosDB. It manages connections, handles authentication, and provides typed access to your containers.
 
 ```typescript
 import { createClient } from 'cosmosql';
 
+// Create the client with connection details
 const db = createClient({
-  // Option 1: Connection string
-  connectionString: 'AccountEndpoint=https://mydb.documents.azure.com:443/;AccountKey=...',
+  // Option 1: Connection string (recommended)
+  // Get this from Azure Portal → CosmosDB Account → Keys
+  connectionString: process.env.COSMOS_CONNECTION_STRING!,
   
-  // Option 2: Separate endpoint and key
-  endpoint: 'https://mydb.documents.azure.com:443/',
-  key: 'your-master-key',
+  // Option 2: Separate endpoint and key (alternative)
+  // endpoint: 'https://mydb.documents.azure.com:443/',
+  // key: 'your-master-key',
   
   // Required: Database name
+  // This must match a database in your CosmosDB account
   database: 'production'
 }).withContainers({
+  // Register your container schemas
   users,
   posts,
   comments
+  // Add more containers as needed
 });
 
-// Type-safe access to containers
-db.users     // ContainerClient<User>
-db.posts     // ContainerClient<Post>
-db.comments  // ContainerClient<Comment>
+// After registration, you get type-safe access to each container
+db.users     // ContainerClient<User> - fully typed!
+db.posts     // ContainerClient<Post> - fully typed!
+db.comments  // ContainerClient<Comment> - fully typed!
+```
+
+**Connection String vs. Endpoint/Key:**
+
+Both connection methods work identically. The connection string is more convenient (one value to manage), while endpoint/key gives you more control (useful if you need to construct the connection dynamically).
+
+**Database Names:**
+
+The `database` parameter must match an existing database in your CosmosDB account. CosmosQL doesn't create databases—you create them through the Azure Portal or Azure CLI. This keeps CosmosQL focused on query operations rather than infrastructure management.
+
+**Container Registration:**
+
+The `withContainers` call registers your schemas with the client. This is where TypeScript learns about your data structures. After registration, `db.users`, `db.posts`, etc. are fully typed with autocomplete and type checking.
+
+**Connection Management:**
+
+CosmosQL uses connection pooling internally. Connections are reused efficiently, and you don't need to manage connection lifecycle manually. The client handles reconnection and error recovery automatically.
+
+**Multiple Databases:**
+
+If you need to work with multiple databases, create separate clients:
+
+```typescript
+const productionDb = createClient({
+  connectionString: process.env.COSMOS_CONNECTION_STRING!,
+  database: 'production'
+}).withContainers({ users, posts });
+
+const analyticsDb = createClient({
+  connectionString: process.env.COSMOS_CONNECTION_STRING!,
+  database: 'analytics'
+}).withContainers({ events, metrics });
 ```
 

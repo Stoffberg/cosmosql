@@ -1,0 +1,15 @@
+{
+  "pages": [
+    "index",
+    "getting-started",
+    "core-concepts",
+    "crud-operations",
+    "type-system",
+    "common-patterns",
+    "advanced-patterns",
+    "performance",
+    "api-reference",
+    "migration",
+    "faq"
+  ]
+}

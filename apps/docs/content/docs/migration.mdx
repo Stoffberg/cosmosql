@@ -5,7 +5,32 @@ description: Learn how to migrate from the official Azure CosmosDB SDK to Cosmos
 
 ## Migration from Azure SDK
 
-If you're currently using the official Azure CosmosDB SDK:
+If you're currently using the official Azure CosmosDB SDK (`@azure/cosmos`), this guide will help you migrate to CosmosQL. The migration is straightforward—CosmosQL works with existing databases and data, so you can adopt it incrementally.
+
+### Why Migrate?
+
+The Azure SDK is powerful, but CosmosQL provides:
+
+- **Type Safety**: Compile-time guarantees instead of runtime errors
+- **Better Developer Experience**: Cleaner API, autocomplete, fewer mistakes
+- **Performance**: Zero runtime overhead, direct REST API calls
+- **Cost Prevention**: Type system prevents expensive cross-partition queries
+- **Minimal Dependencies**: No SDK bloat (50+ packages → zero dependencies)
+
+### Migration Strategy
+
+You don't need to migrate everything at once. Here's a recommended approach:
+
+1. **Start with New Code**: Use CosmosQL for new features and endpoints
+2. **Migrate High-Traffic Paths**: Convert frequently-used operations to CosmosQL
+3. **Gradual Replacement**: Migrate remaining code incrementally
+4. **Remove SDK**: Once everything is migrated, remove the Azure SDK dependency
+
+CosmosQL and the Azure SDK can coexist in the same project—they use the same database and don't interfere.
+
+### Basic Migration Examples
+
+#### Creating a Client
 
 **Before (Azure SDK):**
 
@@ -15,15 +40,6 @@ import { CosmosClient } from '@azure/cosmos';
 const client = new CosmosClient(connectionString);
 const database = client.database('mydb');
 const container = database.container('users');
-
-const { resource: user } = await container.items
-  .query({
-    query: 'SELECT * FROM c WHERE c.id = @id',
-    parameters: [{ name: '@id', value: 'user_123' }]
-  })
-  .fetchAll();
-
-// No type safety, easy to make mistakes
 ```
 
 **After (CosmosQL):**
@@ -31,21 +47,282 @@ const { resource: user } = await container.items
 ```typescript
 import { createClient, container, field } from 'cosmosql';
 
+// Define your schema
 const users = container('users', {
   id: field.string(),
   email: field.string(),
   name: field.string()
 }).partitionKey('email');
 
+// Create typed client
 const db = createClient({
   connectionString,
   database: 'mydb'
 }).withContainers({ users });
+```
 
+**Key Differences:**
+
+- CosmosQL requires schema definitions (for type safety)
+- Client creation is a one-time setup per database
+- `db.users` is fully typed, `container` is not
+
+#### Querying Documents
+
+**Before (Azure SDK):**
+
+```typescript
+const { resources } = await container.items
+  .query({
+    query: 'SELECT * FROM c WHERE c.id = @id AND c.email = @email',
+    parameters: [
+      { name: '@id', value: 'user_123' },
+      { name: '@email', value: 'john@example.com' }
+    ]
+  })
+  .fetchAll();
+
+const user = resources[0]; // No type safety
+// Type: any - could be undefined, wrong shape, etc.
+```
+
+**After (CosmosQL):**
+
+```typescript
+// Point read (most efficient)
 const user = await db.users.findUnique({
-  where: { id: 'user_123', email: 'john@example.com' }
+  where: {
+    id: 'user_123',
+    email: 'john@example.com' // Partition key required
+  }
 });
 
-// Full type safety, cleaner API, enforced best practices
+// Type: { id: string; email: string; name: string } | null
+// TypeScript knows the exact shape and nullability
 ```
+
+**Benefits:**
+
+- Type-safe: TypeScript knows the exact return type
+- Simpler: No SQL strings, no parameter arrays
+- Safer: Can't forget partition key (required by types)
+- More efficient: `findUnique` uses point reads (faster than queries)
+
+#### Querying Multiple Documents
+
+**Before (Azure SDK):**
+
+```typescript
+const { resources } = await container.items
+  .query({
+    query: 'SELECT * FROM c WHERE c.isActive = @active ORDER BY c.createdAt DESC',
+    parameters: [{ name: '@active', value: true }]
+  })
+  .fetchAll();
+
+// No type safety, no partition key enforcement
+```
+
+**After (CosmosQL):**
+
+```typescript
+// Partition-scoped query (efficient)
+const activeUsers = await db.users.findMany({
+  partitionKey: 'john@example.com', // Required!
+  where: {
+    isActive: true
+  },
+  orderBy: {
+    createdAt: 'desc'
+  }
+});
+
+// Type: Array<{ id: string; email: string; ... }>
+// Partition key is enforced at compile time
+```
+
+#### Creating Documents
+
+**Before (Azure SDK):**
+
+```typescript
+const { resource: newUser } = await container.items.create({
+  id: 'user_123',
+  email: 'john@example.com',
+  name: 'John Doe'
+});
+
+// No type checking - could have typos, missing fields, etc.
+```
+
+**After (CosmosQL):**
+
+```typescript
+const newUser = await db.users.create({
+  data: {
+    id: 'user_123',
+    email: 'john@example.com',
+    name: 'John Doe'
+    // TypeScript ensures all required fields are present
+    // Autocomplete helps you discover available fields
+  }
+});
+
+// Type: { id: string; email: string; name: string }
+// Fully typed result
+```
+
+#### Updating Documents
+
+**Before (Azure SDK):**
+
+```typescript
+const { resource: updated } = await container
+  .item('user_123', 'john@example.com') // ID and partition key
+  .replace({
+    id: 'user_123',
+    email: 'john@example.com',
+    name: 'John Updated',
+    age: 30 // Could forget fields, wrong types, etc.
+  });
+```
+
+**After (CosmosQL):**
+
+```typescript
+// Update specific fields (partial update)
+const updated = await db.users.update({
+  where: {
+    id: 'user_123',
+    email: 'john@example.com'
+  },
+  data: {
+    name: 'John Updated',
+    age: 30
+    // Only include fields you want to update
+    // TypeScript ensures types match schema
+  }
+});
+
+// Type: { id: string; email: string; name: string; age: number }
+```
+
+#### Deleting Documents
+
+**Before (Azure SDK):**
+
+```typescript
+await container
+  .item('user_123', 'john@example.com')
+  .delete();
+```
+
+**After (CosmosQL):**
+
+```typescript
+await db.users.delete({
+  where: {
+    id: 'user_123',
+    email: 'john@example.com' // Partition key required
+  }
+});
+
+// Type-safe: can't delete without partition key
+```
+
+### Handling Common Patterns
+
+#### Error Handling
+
+**Before (Azure SDK):**
+
+```typescript
+try {
+  await container.items.create(user);
+} catch (error: any) {
+  if (error.code === 409) {
+    // Conflict
+  } else if (error.code === 429) {
+    // Rate limited
+  }
+  // Error types are loose, easy to miss cases
+}
+```
+
+**After (CosmosQL):**
+
+```typescript
+import { CosmosError } from 'cosmosql';
+
+try {
+  await db.users.create({ data: user });
+} catch (error) {
+  if (error instanceof CosmosError) {
+    switch (error.code) {
+      case 409: // Conflict
+      case 429: // Rate limited
+      // Type-safe error handling
+    }
+  }
+}
+```
+
+#### Cross-Partition Queries
+
+**Before (Azure SDK):**
+
+```typescript
+// Easy to accidentally do expensive cross-partition query
+const { resources } = await container.items
+  .query('SELECT * FROM c WHERE c.isActive = true')
+  .fetchAll();
+// This scans ALL partitions - expensive!
+```
+
+**After (CosmosQL):**
+
+```typescript
+// Type system prevents accidental cross-partition queries
+const users = await db.users.findMany({
+  enableCrossPartitionQuery: true, // Must explicitly opt in
+  where: { isActive: true }
+});
+
+// You're forced to think about the cost
+```
+
+### Migration Checklist
+
+When migrating code from Azure SDK to CosmosQL:
+
+- [ ] **Define schemas** for all containers you use
+- [ ] **Identify partition keys** for each container
+- [ ] **Replace client creation** with CosmosQL client
+- [ ] **Convert queries** from SQL strings to query builder
+- [ ] **Update error handling** to use CosmosError
+- [ ] **Test thoroughly** in staging before production
+- [ ] **Monitor RU usage** to ensure queries are efficient
+- [ ] **Update types** throughout your codebase
+- [ ] **Remove Azure SDK** once migration is complete
+
+### Common Pitfalls
+
+**Forgetting Partition Keys:** CosmosQL requires partition keys in `where` clauses. This is intentional—it prevents expensive cross-partition queries. Make sure you always provide partition keys.
+
+**Schema Mismatches:** Your CosmosQL schema must match your actual document structure. Review existing documents to ensure field names and types align.
+
+**Type Assertions:** Avoid using `as any` to bypass type checking. If you need to, it's often a sign your schema needs adjustment.
+
+**Gradual Migration:** Don't try to migrate everything at once. Start small, test thoroughly, then expand.
+
+### Getting Help
+
+If you run into issues during migration:
+
+1. Check the [FAQ](/docs/faq) for common questions
+2. Review the [API Reference](/docs/api-reference) for method details
+3. Look at [Common Patterns](/docs/common-patterns) for real-world examples
+4. Open a GitHub issue if you find bugs or need clarification
+
+The migration process is straightforward, and you'll quickly see the benefits of type safety and better developer experience.
 
