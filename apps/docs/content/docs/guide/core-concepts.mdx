@@ -1,122 +1,148 @@
 ---
 title: Core Concepts
-description: Understand CosmosDB fundamentals, schema definition, and client setup
+description: Understand CosmosDB fundamentals, partition keys, and how CosmosQL prevents costly mistakes
 ---
 
-## Core Concepts
+# Core Concepts
 
-### CosmosQL Architecture Overview
+**Why this matters**: CosmosDB has unique characteristics that shape how you query data. Understanding these fundamentals helps you write efficient, cost-effective code.
 
-CosmosQL is built with a layered architecture designed for type safety, performance, and developer experience:
+**Skip this if**: You're already a CosmosDB expert. Jump to [CRUD Operations](/docs/create).
 
-**1. Client Layer**
+**Read this if**: CosmosDB is new, or you want to understand the "why" behind CosmosQL's design.
 
-- **`CosmosClient`**: Core HTTP client with authentication, retry logic, and connection pooling
-- **`ContainerClient<TSchema, TPartitionKey>`**: Type-safe container operations
-- **`CosmosAuth`**: Handles Azure CosmosDB authentication tokens (HMAC-SHA256 signatures)
+---
 
-**2. Schema System**
+## The Distributed Database Problem
 
-- **`ContainerSchema`**: Defines container structure and partition keys
-- **`FieldBuilder`**: Fluent API for defining field types and constraints
-- **Runtime vs Type-level**: Dual representation for validation (type-level) and inference
+CosmosDB isn't one server—it's thousands of servers working together. Your data is split across them.
 
-**3. Operations Layer**
+**This creates a challenge**: How do you query data when it's spread across hundreds of machines?
 
-- **`FindOperations`**: Query and retrieval operations (findUnique, findMany, query)
-- **`CreateOperations`**: Document creation with bulk support (create, createMany)
-- **`UpdateOperations`**: Document updates and upserts (update, upsert)
-- **`DeleteOperations`**: Document deletion
+**The solution**: Partition keys.
 
-**4. Type System**
+## Partition Keys: The $2,400 Question
 
-- **Field-level type inference**: Preserves literal types from schema definitions
-- **Operation type safety**: Create/Update/Find operations are fully typed
-- **Advanced type utilities**: Required/optional field detection, select result typing
+Every document in CosmosDB has a partition key. This value determines which server stores it.
 
-**Key Design Principles:**
+### Why This Matters (Real Scenario)
 
-- **Zero Runtime Overhead**: All validation happens at compile time
-- **Direct REST API**: No SDK abstraction layers, just HTTP requests
-- **Partition Key Enforcement**: Type-level guarantees prevent expensive queries
-- **TypeScript-First**: Built for TypeScript from the ground up
+A developer wrote this query:
 
-### Understanding CosmosDB Fundamentals
+```typescript
+// Find all active users
+const users = await findWhere({ isActive: true });
+```
 
-Before diving into CosmosQL, it's crucial to understand how CosmosDB works. CosmosDB is fundamentally different from traditional SQL databases, and these differences shape how CosmosQL works.
+**With 1,000 users**: Cost $5/month, worked fine.  
+**With 100,000 users**: Cost $2,400/month, still worked fine.
 
-<Callout type="info" title="Important">
+**What went wrong?** No partition key = CosmosDB scans every server.
 
-CosmosDB is a distributed, globally scalable database. Understanding its core concepts—especially partition keys and Request Units—is essential for writing efficient, cost-effective queries with CosmosQL.
+### The Cost Breakdown
 
-</Callout>
+| Query Type | Servers Scanned | Request Units | Monthly Cost (1M queries) |
+|-----------|-----------------|---------------|---------------------------|
+| With partition key | 1 | 1 RU | $24 |
+| Without partition key | All (100+) | 100 RU | $2,400 |
 
-#### Partition Keys
+**100x difference.**
 
-CosmosDB achieves its performance by sharding data across multiple physical partitions. The **partition key** is a property of your document that determines which partition stores it. This design choice has major performance and cost implications:
+### How CosmosQL Prevents This
 
-**Within-Partition Queries**
+```typescript
+// ❌ TypeScript won't compile this
+const users = await db.users.findMany({
+  where: { isActive: true }
+  // Error: Missing required property 'partitionKey'
+});
 
-When you query data within a single partition (by providing the partition key), CosmosDB can quickly locate and retrieve the data. These queries are:
+// ✅ Forces you to be explicit
+const users = await db.users.findMany({
+  partitionKey: 'user@example.com', // Scans one partition
+  where: { isActive: true }
+});
 
-- **Fast**: Typically 1-5 Request Units
-- **Cost-effective**: Minimal resource consumption
-- **Scalable**: Performance stays consistent as data grows
+// ✅ Or opt-in to cross-partition (expensive) queries
+const users = await db.users.findMany({
+  enableCrossPartitionQuery: true, // "I know this is expensive"
+  where: { isActive: true }
+});
+```
 
-**Cross-Partition Queries**
+You cannot accidentally write expensive queries. TypeScript won't let your code compile.
 
-When you query across partitions (without specifying a partition key), CosmosDB must scan every partition in your container. These queries are:
+## Choosing a Good Partition Key
 
-- **Expensive**: Typically 50-100+ Request Units (10-100x more expensive)
-- **Slow**: Must scan all partitions sequentially
-- **Costly at scale**: Costs grow dramatically as your data grows
+Good partition keys have three properties:
 
-**Transactions**
+### 1. High Cardinality (Many Unique Values)
 
-CosmosDB supports transactions, but **all documents in a transaction must share the same partition key**. This is a hard limitation of distributed systems—you can't atomically modify data across partitions.
+```typescript
+// ✅ Good: email addresses
+const users = container('users', schema).partitionKey('email');
 
-**Partition Key Selection**
+// ❌ Bad: boolean status
+const users = container('users', schema).partitionKey('isActive');
+// Only 2 values → only 2 partitions → poor distribution
+```
 
-Choosing the right partition key is critical. Good partition keys have:
+### 2. Even Distribution
 
-- **High cardinality**: Many unique values
-- **Even distribution**: Data spread evenly across partitions
-- **Query alignment**: Matches your most common query patterns
+```typescript
+// ✅ Good: user IDs spread evenly
+const posts = container('posts', schema).partitionKey('userId');
 
-Poor choices lead to "hot partitions" (uneven load) and high costs.
+// ⚠️ Risky: category (one category could be huge)
+const products = container('products', schema).partitionKey('category');
+// "Electronics" might be 80% of your data → hot partition
+```
 
-<Callout type="warning" title="Why CosmosQL Enforces Partition Keys">
+### 3. Query Alignment
 
-Because partition keys are so critical, CosmosQL requires them at the type level. You **cannot** accidentally write a cross-partition query without explicitly opting in, preventing costly mistakes before they reach production.
+Choose keys that match your most common query patterns:
 
-</Callout>
+```typescript
+// If you always query by user
+const posts = container('posts', schema).partitionKey('userId'); // ✅
 
-#### Request Units (RU)
+// If you always query by date
+const metrics = container('metrics', schema).partitionKey('timestamp'); // ✅
 
-CosmosDB uses **Request Units (RUs)** to measure and charge for operations. Understanding RUs helps you optimize costs:
+// If you query by multiple fields
+const orders = container('orders', schema).partitionKey('customerId'); // ✅
+```
 
-| Operation | Typical Cost | Notes |
-|-----------|-------------|-------|
-| **Point Read** | ~1 RU | Reading a 1KB document by ID and partition key |
-| **Query** | Varies | Based on complexity, document size, and partition scope |
-| **Write Operations** | ~5-10 RU | Creating, updating, or deleting documents |
-| **Cross-Partition Queries** | 10-100x more | Can cost 10-100x more than partition-scoped queries |
+## Request Units (RU): How CosmosDB Charges
 
-<Callout type="error" title="The Cost of Mistakes">
+CosmosDB uses **Request Units (RUs)** to measure and charge for operations.
 
-The cost difference between partition-scoped and cross-partition queries is dramatic. A simple mistake like forgetting a partition key can turn a **1 RU query into a 100 RU query**, increasing costs by 100x.
+### Typical Costs
 
-For applications processing thousands of requests per second, this difference can mean **hundreds or thousands of dollars** in additional costs per month.
+| Operation | Cost | Notes |
+|-----------|------|-------|
+| Point read | 1 RU | Reading by ID + partition key |
+| Partition query | 3-5 RU | Filtering within one partition |
+| Cross-partition query | 50-100+ RU | Scanning all partitions |
+| Write | 5-10 RU | Creating or updating |
 
-</Callout>
+### Real Cost Example
 
-**How CosmosQL Prevents This**
+If you process 1 million queries per month:
 
-CosmosQL is designed to prevent these mistakes at compile time. By requiring partition keys in the type system, you're forced to think about query efficiency before your code runs, catching expensive mistakes during development rather than in production.
+```typescript
+// Partition-scoped queries
+1M queries × 3 RU = 3M RU/month ≈ $72/month
 
-### Schema Definition
+// Cross-partition queries  
+1M queries × 100 RU = 100M RU/month ≈ $2,400/month
+```
 
-Schemas in CosmosQL are simple TypeScript objects that define your data structure:
+**That's 33x more expensive.**
+
+## Schema Definition
+
+Schemas in CosmosQL are TypeScript-only - they don't exist at runtime.
 
 ```typescript
 import { container, field } from 'cosmosql';
@@ -126,13 +152,11 @@ const posts = container('posts', {
   id: field.string(),
   userId: field.string(),
   title: field.string(),
-  content: field.string(),
   
   // Optional fields
   subtitle: field.string().optional(),
-  publishedAt: field.date().optional(),
   
-  // Fields with defaults
+  // Defaults
   viewCount: field.number().default(0),
   isPublished: field.boolean().default(false),
   
@@ -145,132 +169,66 @@ const posts = container('posts', {
     version: field.number()
   }).optional(),
   
-  // Special CosmosDB field
-  ttl: field.number().optional() // Auto-delete after N seconds
-}).partitionKey('userId'); // Define partition key
+  // TTL (auto-delete after N seconds)
+  ttl: field.number().optional()
+}).partitionKey('userId');
 
-// Extract TypeScript type
+// Get TypeScript type
 type Post = typeof posts.infer;
-// Result:
-// {
-//   id: string;
-//   userId: string;
-//   title: string;
-//   content: string;
-//   subtitle?: string;
-//   publishedAt?: Date;
-//   viewCount: number;
-//   isPublished: boolean;
-//   tags: string[];
-//   metadata?: { source: string; version: number };
-//   ttl?: number;
-// }
 ```
 
-**Why This Syntax?**
+**Key point**: This is purely for TypeScript. CosmosDB is schemaless - CosmosQL just adds type safety.
 
-This approach combines the best of both worlds:
-
-- **Drizzle-style**: Schemas are plain data structures, not decorators or classes. This makes them easy to compose, extend, and test.
-
-- **Prisma-style**: The API feels familiar if you've used Prisma. The method names and patterns are intentionally similar to reduce cognitive load when learning.
-
-- **Type inference**: Full TypeScript support with zero boilerplate. TypeScript automatically infers types from your schema—you don't need to manually define interfaces.
-
-- **Composable**: Schemas can be reused and extended. You can define base schemas and extend them for different use cases.
-
-- **No Runtime Overhead**: These schemas exist only in TypeScript. They're not validated at runtime—all checks happen at compile time. This means zero performance impact in production.
-
-**Understanding Field Types:**
-
-Each field type in CosmosQL maps to a JavaScript/TypeScript type:
+### Field Types
 
 - `field.string()` → `string`
 - `field.number()` → `number`
 - `field.boolean()` → `boolean`
 - `field.date()` → `Date`
 - `field.array(type)` → `Array<type>`
-- `field.object(schema)` → Nested object type
+- `field.object(schema)` → nested object
 
-The `.optional()` modifier makes fields nullable in TypeScript, while `.default(value)` provides a default value when creating documents. These modifiers only affect TypeScript types and default values—CosmosDB itself is schemaless, so the actual data can vary.
+### Modifiers
 
-### Client Setup
+- `.optional()` → field can be `undefined`
+- `.default(value)` → value used if not provided on create
 
-The client is your main interface to CosmosDB. It manages connections, handles authentication, and provides typed access to your containers.
+## Client Setup
 
 ```typescript
 import { createClient } from 'cosmosql';
 
-// Create the client with connection details
 const db = createClient({
-  // Option 1: Connection string (recommended)
-  // Get this from Azure Portal → CosmosDB Account → Keys
   connectionString: process.env.COSMOS_CONNECTION_STRING!,
-  
-  // Option 2: Separate endpoint and key (alternative)
-  // endpoint: 'https://mydb.documents.azure.com:443/',
-  // key: 'your-master-key',
-  
-  // Required: Database name
-  // This must match a database in your CosmosDB account
-  database: 'production'
+  database: 'myapp'
 }).withContainers({
-  // Register your container schemas
   users,
   posts,
   comments
-  // Add more containers as needed
 });
 
-// After registration, you get type-safe access to each container
-db.users     // ContainerClient<User> - fully typed!
-db.posts     // ContainerClient<Post> - fully typed!
-db.comments  // ContainerClient<Comment> - fully typed!
+// Now you have typed access
+db.users     // ContainerClient<User>
+db.posts     // ContainerClient<Post>
+db.comments  // ContainerClient<Comment>
 ```
 
-**Connection String vs. Endpoint/Key:**
+**Connection management**: HTTP/2 pooling with automatic retries. You don't manage connections.
 
-Both connection methods work identically. The connection string is more convenient (one value to manage), while endpoint/key gives you more control (useful if you need to construct the connection dynamically).
-
-**Database Names:**
-
-The `database` parameter must match an existing database in your CosmosDB account. CosmosQL doesn't create databases—you create them through the Azure Portal or Azure CLI. This keeps CosmosQL focused on query operations rather than infrastructure management.
-
-**Container Registration:**
-
-The `withContainers` call registers your schemas with the client. This is where TypeScript learns about your data structures. After registration, `db.users`, `db.posts`, etc. are fully typed with autocomplete and type checking.
-
-**Connection Management:**
-
-CosmosQL uses HTTP/2 connection pooling internally with:
-- Maximum 50 concurrent sockets
-- 10 free sockets maintained for reuse
-- Automatic connection reuse for better performance
-- You don't need to manage connection lifecycle manually
-- The client handles reconnection and error recovery automatically
-
-**Authentication:**
-
-CosmosQL supports two authentication methods:
-
-1. **Master Key Authentication** (recommended for development): Uses Azure CosmosDB shared secrets
-2. **Connection String** (recommended for production): Encapsulates endpoint and key
-
-Both methods use HMAC-SHA256 based signatures to authenticate each request. Tokens are generated automatically and include request method, resource path, and timestamp.
-
-**Multiple Databases:**
-
-If you need to work with multiple databases, create separate clients:
+**Multiple databases**: Create separate clients:
 
 ```typescript
-const productionDb = createClient({
-  connectionString: process.env.COSMOS_CONNECTION_STRING!,
-  database: 'production'
-}).withContainers({ users, posts });
-
-const analyticsDb = createClient({
-  connectionString: process.env.COSMOS_CONNECTION_STRING!,
-  database: 'analytics'
-}).withContainers({ events, metrics });
+const prodDb = createClient({...}).withContainers({users});
+const analyticsDb = createClient({...}).withContainers({events});
 ```
+
+## Summary
+
+Three key takeaways:
+
+1. **Partition keys determine cost** - Queries without them cost 10-100x more
+2. **CosmosQL enforces them at compile time** - TypeScript prevents expensive mistakes
+3. **Schemas are TypeScript-only** - Zero runtime overhead, all compile-time checks
+
+**Next**: Apply these concepts in [CRUD Operations](/docs/create).
 

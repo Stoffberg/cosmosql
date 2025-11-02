@@ -3,13 +3,22 @@ title: Creating Documents
 description: Learn how to create and insert documents into CosmosDB with CosmosQL
 ---
 
-## Creating Documents
+# Creating Documents
 
-Creating documents in CosmosDB with CosmosQL is straightforward and fully type-safe. This guide covers single document creation, bulk operations, and best practices.
+Complete guide to inserting documents into CosmosDB.
 
-### Single Document Creation
+**Navigation**:
+- [Single Document](#single-document) - Basic create operations
+- [Bulk Operations](#bulk-operations) - Creating multiple documents
+- [Default Values](#default-values) - Using schema defaults
 
-The basic `create` operation inserts a new document into your container:
+---
+
+## Single Document
+
+**Use when**: Creating one document at a time.
+
+**Example scenario**: User registration.
 
 ```typescript
 const newUser = await db.users.create({
@@ -18,60 +27,71 @@ const newUser = await db.users.create({
     email: 'john@example.com',
     name: 'John Doe',
     age: 30,
-    isActive: true,
     createdAt: new Date()
+    // Optional fields with defaults are automatically applied
   }
 });
-
-// Type: User (fully typed result)
+// Returns: Fully typed User object
 ```
 
-**Important:** All required fields from your schema must be provided. TypeScript will enforce this at compile time.
+**What happens**:
 
-### Using Default Values
+1. CosmosQL generates a POST request to CosmosDB REST API
+2. Document is stored in the partition determined by `email`
+3. Return value is fully typed based on your schema
 
-When your schema defines default values, you don't need to provide them explicitly:
+**Cost**: ~5 RU per document
+
+## Default Values
+
+**Use when**: Your schema defines defaults for optional fields.
 
 ```typescript
+const users = container('users', {
+  id: field.string(),
+  email: field.string(),
+  isActive: field.boolean().default(true), // Default value
+  createdAt: field.date()
+}).partitionKey('email');
+
+// No need to provide isActive
 const user = await db.users.create({
   data: {
-    id: 'user_124',
-    email: 'jane@example.com',
-    name: 'Jane Smith',
-    age: 28,
+    id: 'user_123',
+    email: 'john@example.com',
     createdAt: new Date()
-    // isActive uses default (true) - not required!
+    // isActive automatically true
   }
 });
 ```
 
-CosmosQL automatically applies default values based on your schema definition.
+## Bulk Operations
 
-### Bulk Create Operations
+**Use when**: Creating multiple documents in one request.
 
-For creating multiple documents efficiently, use `createMany`:
+**Requirement**: All documents MUST share the same partition key.
+
+**Why**: CosmosDB batch operations only work within a single partition.
+
+**Example scenario**: Importing user posts.
 
 ```typescript
-// All documents MUST share the same partition key
 await db.posts.createMany({
   data: [
-    { id: 'post_1', userId: 'user_123', title: 'First Post', content: '...' },
-    { id: 'post_2', userId: 'user_123', title: 'Second Post', content: '...' },
-    { id: 'post_3', userId: 'user_123', title: 'Third Post', content: '...' }
+    { id: 'post_1', userId: 'user_123', title: 'First', content: '...' },
+    { id: 'post_2', userId: 'user_123', title: 'Second', content: '...' },
+    { id: 'post_3', userId: 'user_123', title: 'Third', content: '...' }
   ],
-  partitionKey: 'user_123' // Required: ensures all docs are in same partition
+  partitionKey: 'user_123' // Must be same for all documents
 });
 ```
 
-<Callout type="warning" title="Same Partition Requirement">
+**Cost**: ~5 RU per document (same as single creates)  
+**Performance**: Single HTTP request vs multiple
 
-CosmosDB batch operations only work within a single partition. If you attempt to create documents with different partition keys, CosmosQL will prevent this at the type level.
+**Error handling**: If any document fails, none are created (atomic within partition).
 
-**Why?** CosmosDB's transactional batch API requires all operations to target the same partition key. This is a fundamental architectural constraint of CosmosDB, not a limitation of CosmosQL.
-
-</Callout>
-
-### Best Practices
+## Best Practices
 
 **1. Always Provide IDs Explicitly**
 
@@ -79,27 +99,21 @@ CosmosDB batch operations only work within a single partition. If you attempt to
 // ✅ Good: Explicit ID
 const user = await db.users.create({
   data: {
-    id: `user_${Date.now()}`, // Explicit and predictable
+    id: `user_${Date.now()}`, // Predictable
     email: 'user@example.com',
     // ...
   }
 });
-
-// ⚠️ Avoid: Relying on auto-generation
-// CosmosDB doesn't have built-in auto-increment IDs like traditional SQL databases
 ```
 
 **2. Use Meaningful IDs**
 
-Choose IDs that make sense for your application:
-
 ```typescript
-// ✅ Good: Human-readable IDs
+// ✅ Good: Human-readable
 'user_john@example.com'
 'order_2024-01-15-abc123'
-'post_user123_date456'
 
-// ❌ Bad: Random UUIDs (unless you specifically need them)
+// ❌ Bad: Random UUIDs (unless you need them)
 'a3f5b8c2-d4e6-7890-abcd-ef1234567890'
 ```
 
@@ -116,36 +130,36 @@ const user = await db.users.create({
 });
 ```
 
-**4. Validate Data Before Creating**
-
-While CosmosQL provides type safety, consider validating data at runtime:
+## Error Handling
 
 ```typescript
-// Basic validation example
-function validateUser(data: { email: string; age: number }) {
-  if (!data.email.includes('@')) {
-    throw new Error('Invalid email');
-  }
-  if (data.age < 0 || data.age > 150) {
-    throw new Error('Invalid age');
+try {
+  const user = await db.users.create({
+    data: {
+      id: 'user_123',
+      email: 'john@example.com',
+      // ...
+    }
+  });
+} catch (error) {
+  if (error.code === 409) {
+    // Document with this ID already exists
+    console.error('User already exists');
+  } else if (error.code === 429) {
+    // Rate limit exceeded
+    console.error('Rate limit exceeded, please retry');
+  } else {
+    console.error('Failed to create user:', error);
   }
 }
-
-const user = await db.users.create({
-  data: {
-    id: 'user_123',
-    ...validateUser(data), // Validate before creating
-    createdAt: new Date()
-  }
-});
 ```
 
-### Common Patterns
+## Common Patterns
 
 **Pattern: Multi-Tenant Applications**
 
 ```typescript
-// For multi-tenant apps, use tenant ID as partition key
+// Partition by tenant ID
 const posts = container('posts', {
   id: field.string(),
   tenantId: field.string(),
@@ -153,7 +167,7 @@ const posts = container('posts', {
   // ...
 }).partitionKey('tenantId');
 
-// Create posts scoped to a specific tenant
+// Create posts scoped to a tenant
 await db.posts.createMany({
   data: [
     { id: 'post_1', tenantId: 'tenant_abc', title: '...' },
@@ -180,33 +194,14 @@ const subcategory = await db.categories.create({
   data: {
     id: 'cat_tech_ai',
     name: 'Artificial Intelligence',
-    parentId: 'cat_tech', // Reference parent
+    parentId: 'cat_tech',
     createdAt: new Date()
   }
 });
 ```
 
-### Error Handling
+## Next Steps
 
-```typescript
-try {
-  const user = await db.users.create({
-    data: {
-      id: 'user_123',
-      email: 'john@example.com',
-      // ...
-    }
-  });
-} catch (error) {
-  if (error.code === 409) {
-    // Document with this ID already exists
-    console.error('User already exists');
-  } else if (error.code === 429) {
-    // Rate limit exceeded - too many requests
-    console.error('Rate limit exceeded, please retry');
-  } else {
-    console.error('Failed to create user:', error);
-  }
-}
-```
-
+- Read [Reading Documents](/docs/read) to learn efficient query patterns
+- See [Common Patterns](/docs/common-patterns) for real-world scenarios
+- Review [Update Operations](/docs/update) for modifying documents

@@ -3,11 +3,18 @@ title: Updating Documents
 description: Learn how to update existing documents in CosmosDB
 ---
 
-## Updating Documents
+# Updating Documents
 
-CosmosQL provides flexible and type-safe ways to update documents in CosmosDB. This guide covers single updates, partial updates, nested field modifications, and upsert operations.
+CosmosQL provides flexible and type-safe ways to update documents in CosmosDB.
 
-### Update Single Document
+**Navigation**:
+- [Single Update](#single-update) - Modify existing documents
+- [Upsert](#upsert) - Insert or update
+- [Atomic Operations](#atomic-operations) - Increment/decrement
+
+---
+
+## Single Update
 
 The basic `update` operation modifies an existing document:
 
@@ -26,7 +33,7 @@ await db.users.update({
 
 **Important:** The partition key must be included in the `where` clause. This is enforced at compile time for type safety.
 
-### Partial Updates
+## Partial Updates
 
 You can update only the fields you need—other fields remain unchanged:
 
@@ -42,38 +49,7 @@ await db.users.update({
 
 This is efficient as CosmosDB only updates the specified fields, not the entire document.
 
-### Update Nested Fields
-
-Update fields within nested objects using dot notation:
-
-```typescript
-await db.posts.update({
-  where: { id: 'post_1', userId: 'user_123' },
-  data: {
-    'metadata.version': 2, // Path-based update
-    title: 'Updated Title'
-  }
-});
-```
-
-### Increment/Decrement Numeric Fields
-
-Perform atomic increment/decrement operations:
-
-```typescript
-await db.posts.update({
-  where: { id: 'post_1', userId: 'user_123' },
-  data: {
-    viewCount: { increment: 1 },
-    likeCount: { increment: 5 },
-    dislikeCount: { decrement: 2 }
-  }
-});
-```
-
-This is an atomic operation performed server-side, making it safe for concurrent updates.
-
-### Upsert Operations
+## Upsert Operations
 
 The `upsert` operation inserts if the document doesn't exist, or updates if it does:
 
@@ -102,73 +78,33 @@ await db.users.upsert({
 
 **Why Upsert?** This pattern is common in distributed systems where you want idempotent operations—operations that can be safely retried without unintended side effects.
 
-### Conditional Updates
+## Atomic Operations
 
-CosmosDB supports conditional updates using ETags for optimistic concurrency control. While CosmosQL doesn't expose this directly yet, you can handle it at the application level:
+Perform atomic increment/decrement operations:
 
 ```typescript
-// Example: Update only if user is active
-const user = await db.users.findUnique({
-  where: { id: 'user_123', email: 'john@example.com' }
+await db.posts.update({
+  where: { id: 'post_1', userId: 'user_123' },
+  data: {
+    viewCount: { increment: 1 },
+    likeCount: { increment: 5 },
+    dislikeCount: { decrement: 2 }
+  }
 });
-
-if (user && user.isActive) {
-  await db.users.update({
-    where: { id: 'user_123', email: 'john@example.com' },
-    data: { lastLoginAt: new Date() }
-  });
-}
 ```
 
-### Update Patterns
+This is an atomic operation performed server-side, making it safe for concurrent updates.
+
+## Update Patterns
 
 **Pattern: Touch Pattern (Update Timestamp)**
 
 ```typescript
-// Update the updatedAt timestamp on any change
 await db.posts.update({
   where: { id: 'post_1', userId: 'user_123' },
   data: {
     title: 'New Title',
     updatedAt: new Date()
-  }
-});
-```
-
-**Pattern: Flag-Based Updates**
-
-```typescript
-// Toggle a boolean flag
-await db.users.update({
-  where: { id: 'user_123', email: 'john@example.com' },
-  data: {
-    isActive: !user.isActive
-  }
-});
-```
-
-**Pattern: Array Operations**
-
-While CosmosQL doesn't provide built-in array manipulation helpers, you can update entire arrays:
-
-```typescript
-// Replace the entire tags array
-await db.posts.update({
-  where: { id: 'post_1', userId: 'user_123' },
-  data: {
-    tags: ['javascript', 'react', 'tutorial']
-  }
-});
-
-// For append operations, fetch, modify, and update
-const post = await db.posts.findUnique({
-  where: { id: 'post_1', userId: 'user_123' }
-});
-
-await db.posts.update({
-  where: { id: 'post_1', userId: 'user_123' },
-  data: {
-    tags: [...post.tags, 'new-tag']
   }
 });
 ```
@@ -206,7 +142,33 @@ async function updatePostStatus(postId: string, userId: string, newStatus: strin
 }
 ```
 
-### Error Handling
+**Pattern: Array Operations**
+
+While CosmosQL doesn't provide built-in array manipulation helpers, you can update entire arrays:
+
+```typescript
+// Replace the entire tags array
+await db.posts.update({
+  where: { id: 'post_1', userId: 'user_123' },
+  data: {
+    tags: ['javascript', 'react', 'tutorial']
+  }
+});
+
+// For append operations, fetch, modify, and update
+const post = await db.posts.findUnique({
+  where: { id: 'post_1', userId: 'user_123' }
+});
+
+await db.posts.update({
+  where: { id: 'post_1', userId: 'user_123' },
+  data: {
+    tags: [...post.tags, 'new-tag']
+  }
+});
+```
+
+## Error Handling
 
 ```typescript
 try {
@@ -230,7 +192,7 @@ try {
 }
 ```
 
-### Performance Considerations
+## Performance Considerations
 
 **1. Use Partial Updates**
 
@@ -239,15 +201,6 @@ try {
 await db.posts.update({
   where: { id: 'post_1', userId: 'user_123' },
   data: { title: 'New Title' }
-});
-
-// ❌ Bad: Updating everything unnecessarily
-await db.posts.update({
-  where: { id: 'post_1', userId: 'user_123' },
-  data: {
-    title: 'New Title',
-    // ... all other fields unchanged
-  }
 });
 ```
 
@@ -264,65 +217,8 @@ await db.posts.update({
 });
 ```
 
-**3. Avoid Nested Deep Updates**
+## Next Steps
 
-```typescript
-// ✅ Good: Shallow updates
-await db.users.update({
-  where: { id: 'user_123', email: 'john@example.com' },
-  data: {
-    'profile.name': 'New Name'
-  }
-});
-
-// ⚠️ Be cautious with very deep paths
-await db.users.update({
-  where: { id: 'user_123', email: 'john@example.com' },
-  data: {
-    'metadata.settings.theme.preferences.color': 'dark'
-  }
-});
-```
-
-### Best Practices
-
-**1. Always Update Timestamps**
-
-```typescript
-await db.posts.update({
-  where: { id: 'post_1', userId: 'user_123' },
-  data: {
-    title: 'Updated Title',
-    updatedAt: new Date()
-  }
-});
-```
-
-**2. Use Upsert for Idempotent Operations**
-
-```typescript
-// Good for APIs that can be retried
-async function createOrUpdatePost(data: PostData) {
-  return await db.posts.upsert({
-    where: { id: data.id, userId: data.userId },
-    create: data,
-    update: { ...data, updatedAt: new Date() }
-  });
-}
-```
-
-**3. Validate Before Updating**
-
-```typescript
-async function updateUserAge(userId: string, email: string, newAge: number) {
-  if (newAge < 0 || newAge > 150) {
-    throw new Error('Invalid age');
-  }
-
-  return await db.users.update({
-    where: { id: userId, email },
-    data: { age: newAge }
-  });
-}
-```
-
+- Read [Deleting Documents](/docs/delete) to learn deletion patterns
+- See [Common Patterns](/docs/common-patterns) for real-world scenarios
+- Review [Performance Guide](/docs/performance) for optimization tips

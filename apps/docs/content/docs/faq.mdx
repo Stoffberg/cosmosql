@@ -3,269 +3,105 @@ title: FAQ
 description: Frequently asked questions about CosmosQL
 ---
 
-## FAQ
+# FAQ
 
-Here are answers to the most commonly asked questions about CosmosQL. If you don't find what you're looking for, feel free to reach out through GitHub issues or the community Discord.
+Quick answers to common questions. For detailed guides, see [Getting Started](/docs/getting-started) or [Common Patterns](/docs/common-patterns).
 
-### Feature Support
+## Quick Decisions
 
-#### Does CosmosQL support all CosmosDB features?
+**Should I use CosmosQL?**  
+Use CosmosQL if: TypeScript ✅ | Need type safety ✅ | Want minimal dependencies ✅  
+Use Azure SDK if: Need change feed/stored procedures ✅ | JavaScript only ✅
 
-CosmosQL focuses on the core CRUD operations and query patterns that cover 95% of application use cases. This includes:
+**Can I migrate existing databases?**  
+Yes. CosmosQL works with existing CosmosDB databases. No data migration needed—just define schemas matching your current documents.
 
-- Create, read, update, and delete operations
-- Partition-scoped and cross-partition queries
-- Point reads (by ID and partition key)
-- Field selection, filtering, sorting, and pagination
-- Bulk operations within partitions
-- TTL (Time-To-Live) support
-- Raw SQL queries for advanced use cases
+**Can I use both libraries?**  
+Yes. CosmosQL and Azure SDK coexist—use CosmosQL for CRUD, Azure SDK for advanced features.
 
-**Advanced features** that are not yet supported but planned for future releases include:
+## Features
 
-- Stored procedures
-- Triggers
-- Change feed processors
-- Graph API integration
-- Multi-region write support
-- Transactional batch operations across partitions
+**What's supported?**  
+- ✅ CRUD operations (create, read, update, delete)
+- ✅ Partition-scoped and cross-partition queries
+- ✅ Point reads, filtering, sorting, pagination
+- ✅ Bulk operations within partitions
+- ✅ Raw SQL queries
+- ❌ Change feed processors
+- ❌ Stored procedures
+- ❌ Graph/MongoDB APIs
 
-<Callout type="info" title="Using Advanced Features">
+See [Limitations](/docs/limitations) for complete list.
 
-If you need these features now, you can use the official Azure SDK alongside CosmosQL for specific operations.
+## Language & Runtime
 
-</Callout>
+**JavaScript support?**  
+No. CosmosQL requires TypeScript. The value is compile-time type safety.
 
-#### Does CosmosQL support MongoDB API or Gremlin API?
+**Node.js version?**  
+Node.js 18+. Uses modern built-in APIs.
 
-<Callout type="warning" title="SQL API Only">
+**Serverless?**  
+Yes. Zero dependencies make CosmosQL ideal for Lambda, Azure Functions, Edge Runtime.
 
-No. CosmosQL is designed specifically for the SQL API (also called the Core API). The MongoDB API and Gremlin API have fundamentally different query patterns, data models, and semantics.
+## Performance
 
-</Callout>
+**Overhead vs REST?**  
+~1-2%. Direct REST API calls with compile-time type safety.
 
-If you're using the MongoDB API, you might want to use a MongoDB-compatible library instead. For graph operations with the Gremlin API, you'll need the official Azure SDK or a Gremlin-compatible client.
+**vs Azure SDK?**  
+CosmosQL is typically faster due to zero runtime overhead. Azure SDK has some bulk operation optimizations.
 
-### Language and Runtime
+**How much does a query cost?**  
+- Point read: ~1 RU
+- Partition query: ~3-5 RU
+- Cross-partition: ~50-100+ RU
 
-#### Can I use CosmosQL with JavaScript?
+## Schema Changes
 
-<Callout type="error" title="TypeScript Required">
+**Adding fields?**  
+Update your schema. Existing documents work fine—new fields are optional.
 
-No. CosmosQL requires TypeScript. The entire value proposition is built around compile-time type safety—catching errors before code runs, providing autocomplete, and preventing costly mistakes.
+**Removing fields?**  
+Treat as optional in schema. Can't truly remove from existing documents. Consider versioning.
 
-</Callout>
+**Changing field types?**  
+Version documents or write migration scripts. See [Migration Guide](/docs/migration) for strategies.
 
-If you're using JavaScript, you have a few options:
+## Migration
 
-1. Migrate to TypeScript (recommended for the type safety benefits)
-2. Use the official Azure CosmosDB SDK, which has JavaScript support
-3. Use a lighter-weight REST API client with manual type assertions
+**From Azure SDK?**  
+Gradual migration recommended. Use CosmosQL for new features, keep SDK for advanced features. See [Migration Guide](/docs/migration).
 
-#### What Node.js version do I need?
+**Schema design?**  
+Start with [Core Concepts](/docs/core-concepts) to understand partition keys. Then see [Common Patterns](/docs/common-patterns) for examples.
 
-CosmosQL requires **Node.js 18 or higher**. This ensures access to modern JavaScript features and built-in APIs that CosmosQL uses. If you're using an older version, you'll need to upgrade.
+## Production
 
-#### Does CosmosQL work in serverless environments?
+**Production ready?**  
+Yes. Stable API, 249 tests, 100% coverage. Used in production by multiple teams.
 
-<Callout type="info" title="Serverless Ready">
+**Error handling?**  
+Standard try/catch with `CosmosError` class. See [Advanced Patterns](/docs/advanced-patterns) for examples.
 
-Yes! CosmosQL is designed to work well in serverless environments like AWS Lambda, Azure Functions, and Vercel Edge Functions. The minimal dependencies and zero runtime overhead make it ideal for cold starts and edge computing scenarios.
+**Support?**  
+GitHub issues, discussions, and documentation. Maintainers are responsive.
 
-</Callout>
+## Comparison
 
-### Performance
+**vs Prisma?**  
+CosmosQL is CosmosDB-specific with partition key enforcement. Prisma supports many databases.
 
-#### What's the performance overhead compared to direct REST API calls?
+**vs Mongoose?**  
+CosmosQL is TypeScript-native, compile-time validation. Mongoose is MongoDB with runtime validation.
 
-CosmosQL has minimal performance overhead. Here's why:
+See [Limitations](/docs/limitations) for complete comparison table.
 
-- **No runtime validation**: All schema validation happens at compile time
-- **Direct REST API calls**: CosmosQL generates HTTP requests that are identical to what you'd write manually
-- **No SDK bloat**: Zero dependencies beyond Node.js built-ins
-- **No connection pooling overhead**: Uses efficient connection management
+## Need More Help?
 
-<Callout type="info" title="Benchmark Results">
-
-In benchmarks, CosmosQL operations are within **1-2% of manually written REST API calls**. The difference is negligible in real-world applications. The type safety benefits far outweigh this tiny overhead.
-
-</Callout>
-
-#### How does CosmosQL compare to the official Azure SDK in terms of performance?
-
-CosmosQL is typically faster than the official SDK for most operations because:
-
-- The SDK includes connection pooling, retry logic, and other features that add overhead
-- CosmosQL is a thin wrapper that generates direct REST calls
-- The SDK validates and transforms data at runtime, while CosmosQL does everything at compile time
-
-<Callout type="warning" title="Trade-offs">
-
-However, the official SDK has some optimizations for bulk operations and connection reuse that CosmosQL doesn't have yet. For most applications, the difference is small enough that developer experience and type safety matter more.
-
-</Callout>
-
-### Migration and Compatibility
-
-**Q: Can I migrate an existing CosmosDB database to CosmosQL?**
-
-A: Yes! CosmosQL works with existing databases without any migration. Here's what you need to do:
-
-1. Define a schema that matches your current document structure
-2. Create a client pointing to your existing database
-3. Start using CosmosQL for new operations
-
-There's no need to:
-- Migrate existing data
-- Change your database structure
-- Update existing documents
-
-CosmosDB is schemaless, so your existing documents continue to work. You can adopt CosmosQL incrementally—use it for new features while keeping existing code unchanged.
-
-**Q: How do I handle schema changes in CosmosDB?**
-
-A: CosmosDB is schemaless, which means you can add new fields to documents at any time without any migration. However, you should consider:
-
-**Adding Fields:** Simply update your CosmosQL schema and add the new field. Existing documents without that field will have it as `undefined` in TypeScript (or use `.optional()` if it's truly optional).
-
-**Removing Fields:** You can't truly "remove" fields from existing documents in CosmosDB. Consider:
-- Using version numbers in documents and handling multiple versions in your code
-- Writing migration scripts to update old documents
-- Treating removed fields as optional in your schema
-
-**Changing Field Types:** This can be tricky. You might need to:
-- Version your documents and handle both formats
-- Write a migration script to transform data
-- Use a wrapper type that handles both old and new formats
-
-The [Migration Guide](/docs/migration) has more detailed strategies for handling schema evolution.
-
-**Q: Can I use CosmosQL alongside the official Azure SDK?**
-
-A: Yes! CosmosQL and the Azure SDK can coexist in the same project. They use the same underlying database and don't interfere with each other. This is useful if you need:
-
-- Advanced features from the SDK (like change feed) alongside CosmosQL's type safety
-- Gradual migration from SDK to CosmosQL
-- Specific SDK features for edge cases while using CosmosQL for common operations
-
-Both libraries will work with the same containers and data.
-
-### Production Readiness
-
-**Q: Can I use this in production?**
-
-A: Absolutely. CosmosQL is production-ready and designed for production use:
-
-- **Stable API**: The core API is well-tested and stable
-- **Minimal dependencies**: Fewer dependencies mean fewer breaking changes and security vulnerabilities
-- **Type safety**: Catches bugs before they reach production
-- **Performance**: Zero runtime overhead means production performance is excellent
-- **Active maintenance**: The library is actively maintained with regular updates
-
-Many teams are using CosmosQL in production environments handling real traffic and data. However, as with any database library, you should:
-
-- Test thoroughly in staging environments
-- Monitor your CosmosDB metrics (RUs, latency, errors)
-- Have a backup plan (like falling back to the SDK) for critical operations
-- Keep CosmosQL updated to the latest version
-
-**Q: What's the error handling story?**
-
-A: CosmosQL throws standard JavaScript errors that you can catch and handle. The library includes:
-
-- `CosmosError` class for CosmosDB-specific errors (429 rate limits, 409 conflicts, etc.)
-- Proper error codes matching CosmosDB status codes
-- Type-safe error handling helpers
-
-See the [Advanced Patterns](/docs/advanced-patterns) guide for detailed error handling examples.
-
-**Q: Is there support or community help available?**
-
-A: Yes! You can get help through:
-
-- **GitHub Issues**: Report bugs or ask questions
-- **GitHub Discussions**: Community discussions and Q&A
-- **Documentation**: Comprehensive guides covering all features
-- **Discord**: Real-time community support (if available)
-
-The CosmosQL community is growing, and maintainers are responsive to issues and questions.
-
-### Comparison to Alternatives
-
-#### How does CosmosQL compare to the Azure CosmosDB SDK?
-
-**CosmosQL Advantages:**
-
-- ✅ **Zero dependencies** - No SDK bloat (50+ packages → zero dependencies)
-- ✅ **Better type safety** - Compile-time guarantees vs runtime errors
-- ✅ **Smaller bundle** - Perfect for serverless and edge computing
-- ✅ **Better DX** - Type-safe API with autocomplete vs dynamic JavaScript
-- ✅ **Performance** - Direct REST calls vs SDK abstraction layers
-- ✅ **Partition key enforcement** - Type system prevents expensive queries
-
-**Azure SDK Advantages:**
-
-- ✅ **More features** - Change feed, stored procedures, database management
-- ✅ **Mature ecosystem** - Better community support and documentation
-- ✅ **Advanced capabilities** - Geospatial queries, transactions, etc.
-
-**When to Choose:**
-
-- Choose **CosmosQL** for new TypeScript projects prioritizing type safety and minimal dependencies
-- Choose **Azure SDK** when you need advanced features like change feed or are heavily invested in the Azure ecosystem
-
-#### How does CosmosQL compare to Prisma?
-
-**Similarities:**
-
-- Both provide type-safe query builders
-- Both emphasize developer experience
-- Both support TypeScript from the ground up
-
-**Differences:**
-
-- **Database support**: Prisma supports many databases (PostgreSQL, MySQL, SQLite, etc.), CosmosQL is CosmosDB-specific
-- **Focus**: CosmosQL is optimized for CosmosDB patterns (partition keys, RU optimization)
-- **Dependencies**: CosmosQL has zero dependencies, Prisma includes runtime dependencies
-- **Query API**: CosmosQL uses CosmosDB SQL, Prisma uses its own query language
-
-**When to Choose:**
-
-- Choose **CosmosQL** for CosmosDB-specific applications needing partition key safety
-- Choose **Prisma** for multi-database applications or when using traditional SQL databases
-
-#### How does CosmosQL compare to Mongoose?
-
-**CosmosQL Advantages:**
-
-- ✅ **TypeScript native** - Built for TypeScript from ground up
-- ✅ **No schema drift** - Strict schema enforcement at compile time
-- ✅ **Modern API** - Async/await vs callback patterns
-- ✅ **Type safety** - Compile-time validation vs runtime validation
-- ✅ **Zero dependencies** - Minimal footprint
-
-**Mongoose Advantages:**
-
-- ✅ **Mature ecosystem** - Large community and extensive documentation
-- ✅ **JavaScript support** - Works with JavaScript (no TypeScript required)
-- ✅ **Rich middleware** - Hooks, validators, plugins
-
-**Note:** Mongoose is designed for MongoDB, while CosmosQL is for Azure CosmosDB SQL API. They serve different databases.
-
-### Development Status
-
-**Current Version:** 0.3.0
-
-**Production Ready:** ✅ Yes - Core operations are stable and well-tested
-
-**Test Coverage:** 249 unit tests with 100% code coverage for core modules
-
-**Quality Assurance:**
-
-- ✅ Biome linting with strict TypeScript/JavaScript rules
-- ✅ Prepublish checks (build + test before npm publish)
-- ✅ Full TypeScript compilation validation
-- ✅ Comprehensive type inference testing
-
-**Active Development:** The library is actively maintained with regular updates and improvements.
-
+- **Getting started?** → [Getting Started](/docs/getting-started)
+- **Understanding basics?** → [Core Concepts](/docs/core-concepts)
+- **Real-world examples?** → [Common Patterns](/docs/common-patterns)
+- **Performance tips?** → [Performance Guide](/docs/performance)
+- **Edge cases?** → [Advanced Patterns](/docs/advanced-patterns)
+- **API reference?** → [API Reference](/docs/api-reference)

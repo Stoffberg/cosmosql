@@ -3,11 +3,17 @@ title: Deleting Documents
 description: Learn how to delete documents and implement soft delete patterns
 ---
 
-## Deleting Documents
+# Deleting Documents
 
-Deleting documents in CosmosDB requires careful consideration of performance, data integrity, and business requirements. This guide covers hard deletes, soft deletes, and best practices.
+Deleting documents requires careful consideration. Use hard deletes for performance, soft deletes for recovery.
 
-### Delete Single Document
+**Navigation**:
+- [Hard Delete](#hard-delete) - Permanent removal
+- [Soft Delete](#soft-delete) - Recoverable deletion
+
+---
+
+## Hard Delete
 
 The basic `delete` operation removes a document permanently:
 
@@ -22,9 +28,11 @@ await db.users.delete({
 
 **Important:** Deletion is permanent and cannot be undone. Always ensure you have the partition key in the `where` clause—this is enforced at compile time.
 
-### Soft Delete Pattern
+**Cost**: ~5 RU
 
-Instead of permanently deleting documents, consider marking them as deleted:
+## Soft Delete
+
+Instead of permanently deleting documents, mark them as deleted:
 
 ```typescript
 // Instead of deleting, mark as inactive
@@ -41,20 +49,20 @@ const activeUsers = await db.users.findMany({
   partitionKey: 'tenant_123',
   where: {
     isActive: true
-    // This excludes "deleted" users
   }
 });
 ```
 
 **Why Soft Delete?**
-- **Data Recovery:** Can restore deleted data
-- **Audit Trail:** Keep history of what was deleted and when
-- **Referential Integrity:** Other documents can still reference deleted items
-- **Analytics:** Analyze deleted data patterns
 
-### Implementing Soft Delete
+- **Data Recovery**: Can restore deleted data
+- **Audit Trail**: Keep history of what was deleted and when
+- **Referential Integrity**: Other documents can still reference deleted items
+- **Analytics**: Analyze deleted data patterns
 
-Here's a complete soft delete implementation:
+## Implementing Soft Delete
+
+Complete implementation:
 
 ```typescript
 // Define schema with soft delete fields
@@ -62,7 +70,6 @@ const users = container('users', {
   id: field.string(),
   email: field.string(),
   name: field.string(),
-  // ... other fields
   isDeleted: field.boolean().default(false),
   deletedAt: field.date().optional(),
   deletedBy: field.string().optional()
@@ -100,26 +107,9 @@ async function findAllUsers(partitionKey: string) {
     }
   });
 }
-
-// Query including soft-deleted items (admin view)
-async function findAllUsersIncludingDeleted(partitionKey: string) {
-  return await db.users.findMany({
-    partitionKey,
-    // No isDeleted filter
-  });
-}
-
-// Permanent delete (use with extreme caution)
-async function hardDeleteUser(id: string, email: string) {
-  return await db.users.delete({
-    where: { id, email }
-  });
-}
 ```
 
-### Soft Delete Best Practices
-
-**1. Use Expiration Time**
+## Cleanup Old Soft Deletes
 
 Automatically clean up old soft-deleted items:
 
@@ -145,34 +135,7 @@ async function cleanupOldSoftDeletes() {
 }
 ```
 
-**2. Track Who Deleted**
-
-```typescript
-async function deleteUser(userId: string, email: string, deletedByUserId: string) {
-  // Log the deletion
-  await db.auditLogs.create({
-    data: {
-      id: `audit_${Date.now()}`,
-      action: 'USER_DELETED',
-      userId,
-      performedBy: deletedByUserId,
-      timestamp: new Date()
-    }
-  });
-
-  // Soft delete the user
-  await db.users.update({
-    where: { id: userId, email },
-    data: {
-      isDeleted: true,
-      deletedAt: new Date(),
-      deletedBy: deletedByUserId
-    }
-  });
-}
-```
-
-### Cascade Delete Pattern
+## Cascade Delete Pattern
 
 When deleting a parent document, you may need to delete related documents:
 
@@ -180,30 +143,13 @@ When deleting a parent document, you may need to delete related documents:
 async function deleteUserWithRelatedData(userId: string, email: string) {
   // Find all related posts
   const posts = await db.posts.findMany({
-    partitionKey: userId,
-    where: {
-      // No filter to get all posts
-    }
+    partitionKey: userId
   });
 
   // Delete all posts
   for (const post of posts) {
     await db.posts.delete({
       where: { id: post.id, userId }
-    });
-  }
-
-  // Delete user comments
-  const comments = await db.comments.findMany({
-    partitionKey: email,
-    where: {
-      authorEmail: email
-    }
-  });
-
-  for (const comment of comments) {
-    await db.comments.delete({
-      where: { id: comment.id, authorEmail: email }
     });
   }
 
@@ -216,9 +162,9 @@ async function deleteUserWithRelatedData(userId: string, email: string) {
 
 **Note:** CosmosDB doesn't support foreign key constraints or cascade deletes at the database level. You must handle this logic in your application code.
 
-### Batch Delete Operations
+## Batch Delete Operations
 
-CosmosDB doesn't have a built-in batch delete API. You need to delete documents individually:
+CosmosDB doesn't have a built-in batch delete API. Delete documents individually:
 
 ```typescript
 async function deleteManyPosts(postIds: string[], userId: string) {
@@ -232,33 +178,9 @@ async function deleteManyPosts(postIds: string[], userId: string) {
 }
 ```
 
-<Callout type="warning" title="Rate Limiting">
+**Rate limiting**: Batch deletions can hit rate limits. Consider implementing backoff logic for large batches.
 
-Batch deletions can hit rate limits quickly. Consider implementing backoff logic:
-
-```typescript
-async function deleteManyWithBackoff(postIds: string[], userId: string) {
-  for (const id of postIds) {
-    try {
-      await db.posts.delete({ where: { id, userId } });
-      await new Promise(resolve => setTimeout(resolve, 10)); // Small delay
-    } catch (error) {
-      if (error.code === 429) {
-        // Rate limited, wait longer
-        await new Promise(resolve => setTimeout(resolve, 1000));
-        // Retry this item
-        await db.posts.delete({ where: { id, userId } });
-      } else {
-        throw error;
-      }
-    }
-  }
-}
-```
-
-</Callout>
-
-### Delete by Query
+## Delete by Query
 
 There's no built-in "delete where" operation in CosmosDB. You must:
 
@@ -267,7 +189,6 @@ There's no built-in "delete where" operation in CosmosDB. You must:
 
 ```typescript
 async function deleteOldPosts(cutoffDate: Date) {
-  // Find old posts
   const oldPosts = await db.posts.findMany({
     enableCrossPartitionQuery: true,
     where: {
@@ -289,7 +210,7 @@ async function deleteOldPosts(cutoffDate: Date) {
 }
 ```
 
-### Error Handling
+## Error Handling
 
 ```typescript
 try {
@@ -309,29 +230,18 @@ try {
 }
 ```
 
-### Performance Considerations
+## Performance Considerations
 
 **1. Always Include Partition Key**
 
 ```typescript
-// ✅ Good: Includes partition key (fast, ~1 RU)
+// ✅ Good: Includes partition key (fast, ~5 RU)
 await db.users.delete({
   where: { id: 'user_123', email: 'john@example.com' }
 });
 ```
 
-**2. Batch Delete Within Partition**
-
-```typescript
-// For better performance, group deletions by partition
-async function deletePostsByPartition(postIds: string[], userId: string) {
-  await Promise.all(
-    postIds.map(id => db.posts.delete({ where: { id, userId } }))
-  );
-}
-```
-
-**3. Use Soft Delete for Frequent Deletions**
+**2. Use Soft Delete for Frequent Deletions**
 
 Hard deletes are expensive if done repeatedly. Soft deletes allow you to batch hard deletes later:
 
@@ -348,20 +258,7 @@ setInterval(async () => {
 }, 60 * 60 * 1000); // Run every hour
 ```
 
-### Common Patterns
-
-**Pattern: Logical Delete**
-
-```typescript
-// Mark as archived instead of deleted
-await db.posts.update({
-  where: { id: 'post_1', userId: 'user_123' },
-  data: {
-    status: 'archived',
-    archivedAt: new Date()
-  }
-});
-```
+## Common Patterns
 
 **Pattern: Recycle Bin**
 
@@ -403,34 +300,8 @@ async function restoreFromRecycleBin(itemId: string) {
 }
 ```
 
-**Pattern: Scheduled Deletion**
+## Next Steps
 
-```typescript
-// Attach expiration timestamp at creation
-const post = await db.posts.create({
-  data: {
-    id: 'post_123',
-    userId: 'user_123',
-    title: 'Temporary Post',
-    content: 'This will be deleted in 30 days',
-    expiresAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000)
-  }
-});
-
-// Background job to clean up expired items
-setInterval(async () => {
-  const expired = await db.posts.findMany({
-    enableCrossPartitionQuery: true,
-    where: {
-      expiresAt: { lt: new Date() }
-    }
-  });
-
-  for (const post of expired) {
-    await db.posts.delete({
-      where: { id: post.id, userId: post.userId }
-    });
-  }
-}, 60 * 60 * 1000); // Check every hour
-```
-
+- Read [Update Operations](/docs/update) for modifying documents
+- See [Common Patterns](/docs/common-patterns) for real-world scenarios
+- Review [Performance Guide](/docs/performance) for optimization tips

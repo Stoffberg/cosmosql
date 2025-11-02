@@ -3,69 +3,200 @@ title: Common Patterns
 description: Real-world usage patterns for authentication, multi-tenant apps, time-series data, and more
 ---
 
-## Common Patterns
+# Common Patterns
 
-### User Authentication
+Real-world solutions to common problems with CosmosQL.
 
-<Callout type="info" title="Pattern Overview">
+**Organized by use case**:
+- [Authentication](#authentication) - User login and registration
+- [Multi-Tenant SaaS](#multi-tenant-saas) - Data isolation per tenant
+- [E-Commerce](#ecommerce) - Product catalogs and carts
+- [Social Platform](#social) - User-generated content
+- [Time-Series Data](#timeseries) - Metrics and logs
 
-Use email as both ID and partition key for efficient user lookups. This pattern ensures fast authentication queries while maintaining data isolation.
+---
 
-</Callout>
+## Authentication
+
+**The pattern**: Use email as both ID and partition key for user documents.
+
+**Why this works**:
+
+- Login queries are partition-scoped (fast + cheap)
+- Natural 1:1 mapping between user and partition
+- Scales to millions of users
+- No "hot partitions" (even distribution)
+
+**When to avoid**:
+
+- Users can change email addresses → Use immutable `userId` instead
+- Multiple authentication providers → Requires composite keys
+
+### Schema Design
 
 ```typescript
 const users = container('users', {
-  id: field.string(),
-  email: field.string(),
+  id: field.string(),        // Using email as ID
+  email: field.string(),     // Also the partition key
   passwordHash: field.string(),
+  profile: field.object({
+    name: field.string(),
+    avatar: field.string().optional()
+  }),
   createdAt: field.date(),
   lastLoginAt: field.date().optional()
-}).partitionKey('email');
+}).partitionKey('email'); // Key decision: email is partition key
+```
 
-// Register
+**Why email as both ID and partition key?**
+
+- Point reads during login (fastest possible: 1 RU)
+- No duplicate emails (ID uniqueness)
+- Even distribution across partitions
+
+### Registration
+
+```typescript
 async function register(email: string, password: string) {
-  const passwordHash = await hashPassword(password);
+  const passwordHash = await bcrypt.hash(password, 10);
   
-  return await db.users.create({
-    data: {
-      id: generateId(),
-      email,
-      passwordHash,
-      createdAt: new Date()
+  try {
+    const user = await db.users.create({
+      data: {
+        id: email,           // Using email as ID
+        email: email,        // And partition key
+        passwordHash,
+        profile: { name: email.split('@')[0] },
+        createdAt: new Date()
+      }
+    });
+    
+    return { success: true, user };
+  } catch (error) {
+    if (isCosmosError(error) && error.statusCode === 409) {
+      // Conflict = duplicate email
+      return { success: false, error: 'Email already exists' };
     }
-  });
-}
-
-// Login
-async function login(email: string, password: string) {
-  const user = await db.users.findUnique({
-    where: { email, id: email } // Using email as both ID and partition key
-  });
-  
-  if (!user || !(await verifyPassword(password, user.passwordHash))) {
-    throw new Error('Invalid credentials');
+    throw error;
   }
-  
-  // Update last login
-  await db.users.update({
-    where: { id: user.id, email: user.email },
-    data: { lastLoginAt: new Date() }
-  });
-  
-  return user;
 }
 ```
 
-### Multi-Tenant SaaS
+**What makes this efficient**:
 
-<Callout type="warning" title="Partition Key Strategy">
+- One partition write (5 RU)
+- Automatic duplicate detection (409 conflict)
+- Type-safe return values
 
-Partitioning by `tenantId` ensures complete data isolation between tenants. All queries are automatically scoped to a single tenant, preventing cross-tenant data leakage.
-
-</Callout>
+### Login
 
 ```typescript
-// Organization-level container
+async function login(email: string, password: string) {
+  // Point read: fastest possible query (1 RU)
+  const user = await db.users.findUnique({
+    where: {
+      id: email,
+      email: email // Partition key
+    },
+    select: {
+      id: true,
+      email: true,
+      passwordHash: true,
+      profile: true
+    }
+  });
+  
+  if (!user) {
+    return { success: false, error: 'Invalid credentials' };
+  }
+  
+  // Verify password
+  const valid = await bcrypt.compare(password, user.passwordHash);
+  if (!valid) {
+    return { success: false, error: 'Invalid credentials' };
+  }
+  
+  // Update last login (separate operation to keep read fast)
+  await db.users.update({
+    where: { id: email, email },
+    data: { lastLoginAt: new Date() }
+  });
+  
+  return { success: true, user };
+}
+```
+
+**Performance breakdown**:
+
+- Read: 1 RU (point read)
+- Update: 5 RU (partition-scoped write)
+- Total: 6 RU per login
+
+**Alternative**: Skip the update to save 5 RU if you don't need `lastLoginAt`.
+
+### Email Change (Advanced)
+
+**Problem**: User wants to change email, but email is the partition key.
+
+**Solution**: Create new document, migrate data, delete old.
+
+```typescript
+async function changeEmail(oldEmail: string, newEmail: string) {
+  // 1. Check if new email exists
+  const existing = await db.users.findUnique({
+    where: { id: newEmail, email: newEmail }
+  });
+  
+  if (existing) {
+    return { success: false, error: 'Email already in use' };
+  }
+  
+  // 2. Get current user
+  const user = await db.users.findUnique({
+    where: { id: oldEmail, email: oldEmail }
+  });
+  
+  if (!user) {
+    return { success: false, error: 'User not found' };
+  }
+  
+  // 3. Create new document with new email
+  await db.users.create({
+    data: {
+      ...user,
+      id: newEmail,
+      email: newEmail
+    }
+  });
+  
+  // 4. Delete old document
+  await db.users.delete({
+    where: { id: oldEmail, email: oldEmail }
+  });
+  
+  return { success: true };
+}
+```
+
+**Cost**: ~15 RU (read + create + delete)  
+**Caveat**: Not atomic—handle failures appropriately
+
+---
+
+## Multi-Tenant SaaS
+
+**The pattern**: Use `tenantId` as partition key to ensure data isolation.
+
+**Why this works**:
+
+- Complete isolation between tenants
+- All queries automatically scoped to a single tenant
+- Prevents cross-tenant data leakage
+- Scales as tenants grow
+
+### Schema Design
+
+```typescript
 const organizations = container('organizations', {
   id: field.string(),
   name: field.string(),
@@ -74,9 +205,8 @@ const organizations = container('organizations', {
     theme: field.string().default('light'),
     features: field.array(field.string())
   })
-}).partitionKey('id'); // Partition by organization ID
+}).partitionKey('id'); // Organization ID as partition key
 
-// User container partitioned by organization
 const users = container('users', {
   id: field.string(),
   organizationId: field.string(),
@@ -86,9 +216,8 @@ const users = container('users', {
     name: field.string(),
     department: field.string().optional()
   })
-}).partitionKey('organizationId'); // Partition by organization for isolation
+}).partitionKey('organizationId'); // All users for an org in same partition
 
-// Documents container partitioned by organization
 const documents = container('documents', {
   id: field.string(),
   tenantId: field.string(),
@@ -96,8 +225,12 @@ const documents = container('documents', {
   content: field.string(),
   createdBy: field.string(),
   createdAt: field.date()
-}).partitionKey('tenantId'); // Partition by tenant for isolation
+}).partitionKey('tenantId');
+```
 
+### Querying Tenant Data
+
+```typescript
 // All queries automatically scoped to tenant
 async function getDocuments(tenantId: string) {
   return await db.documents.findMany({
@@ -106,18 +239,6 @@ async function getDocuments(tenantId: string) {
   });
 }
 
-async function createDocument(tenantId: string, data: DocumentInput) {
-  return await db.documents.create({
-    data: {
-      id: generateId(),
-      tenantId, // Ensures correct partition
-      ...data,
-      createdAt: new Date()
-    }
-  });
-}
-
-// Cross-tenant isolation via partition keys
 async function getOrgUsers(organizationId: string) {
   return await db.users.findMany({
     partitionKey: organizationId,
@@ -133,18 +254,144 @@ async function getOrgUsers(organizationId: string) {
 }
 ```
 
-### Time-Series Data
+---
+
+## E-Commerce
+
+**The pattern**: Partition by category for efficient product queries.
+
+**Why this works**:
+
+- Fast category browsing
+- Good distribution across partitions
+- Cross-partition queries only for global search
+
+### Schema Design
+
+```typescript
+const products = container('products', {
+  id: field.string(),
+  category: field.string(), // Partition key
+  name: field.string(),
+  price: field.number(),
+  inventory: field.number(),
+  tags: field.array(field.string()),
+  metadata: field.object({
+    brand: field.string(),
+    weight: field.number().optional(),
+    dimensions: field.object({
+      length: field.number(),
+      width: field.number(),
+      height: field.number()
+    }).optional()
+  })
+}).partitionKey('category');
+```
+
+### Product Queries
+
+```typescript
+// Query products by category with filtering
+const electronics = await db.products.findMany({
+  partitionKey: 'electronics',
+  where: {
+    price: { lte: 999 },
+    inventory: { gt: 0 },
+    tags: { contains: 'wireless' }
+  },
+  select: {
+    id: true,
+    name: true,
+    price: true,
+    metadata: {
+      brand: true
+    }
+  },
+  orderBy: { price: 'asc' },
+  take: 20
+});
+```
+
+---
+
+## Social Platform
+
+**The pattern**: Partition by userId to keep all user content together.
+
+**Why this works**:
+
+- Fast queries for a user's posts, comments, activity
+- All related data in one partition
+- Efficient for user profiles and feeds
+
+### Schema Design
+
+```typescript
+const posts = container('posts', {
+  id: field.string(),
+  userId: field.string(), // Partition key
+  content: field.string(),
+  likes: field.number().default(0),
+  createdAt: field.date(),
+  tags: field.array(field.string()),
+  author: field.object({
+    name: field.string(),
+    avatar: field.string().optional()
+  })
+}).partitionKey('userId');
+```
+
+### User Content Queries
+
+```typescript
+// Find user's recent posts with engagement
+const userPosts = await db.posts.findMany({
+  partitionKey: 'user_123',
+  where: {
+    createdAt: { gte: new Date('2024-01-01') },
+    likes: { gt: 10 }
+  },
+  select: {
+    id: true,
+    content: true,
+    likes: true,
+    author: {
+      name: true
+    }
+  },
+  orderBy: { createdAt: 'desc' },
+  take: 50
+});
+```
+
+---
+
+## Time-Series Data
+
+**The pattern**: Use deviceId as partition key with TTL for automatic cleanup.
+
+**Why this works**:
+
+- Fast queries per device
+- Automatic expiration with TTL
+- Good distribution across devices
+
+### Schema Design
 
 ```typescript
 const metrics = container('metrics', {
   id: field.string(),
-  deviceId: field.string(),
+  deviceId: field.string(), // Partition key
   timestamp: field.date(),
   temperature: field.number(),
   humidity: field.number(),
   ttl: field.number() // Auto-delete old data
 }).partitionKey('deviceId');
+```
 
+### Time-Series Queries
+
+```typescript
 // Ingest metric (auto-expires after 30 days)
 await db.metrics.create({
   data: {
@@ -167,93 +414,11 @@ const recent = await db.metrics.findMany({
 });
 ```
 
-### E-commerce Application
+---
 
-<Callout type="info" title="Product Catalog Pattern">
-Partition by category for efficient product queries within categories. This enables fast category browsing while maintaining good distribution.
-</Callout>
+## Shopping Cart
 
-```typescript
-const products = container('products', {
-  id: field.string(),
-  category: field.string(),
-  name: field.string(),
-  price: field.number(),
-  inventory: field.number(),
-  tags: field.array(field.string()),
-  metadata: field.object({
-    brand: field.string(),
-    weight: field.number().optional(),
-    dimensions: field.object({
-      length: field.number(),
-      width: field.number(),
-      height: field.number()
-    }).optional()
-  })
-}).partitionKey('category');
-
-// Query products by category with filtering
-const electronics = await db.products.findMany({
-  where: {
-    category: 'electronics',
-    price: { lte: 999 },
-    inventory: { gt: 0 },
-    tags: { contains: 'wireless' }
-  },
-  select: {
-    id: true,
-    name: true,
-    price: true,
-    metadata: {
-      brand: true
-    }
-  },
-  orderBy: { price: 'asc' },
-  take: 20
-});
-```
-
-### Social Media Platform
-
-<Callout type="info" title="User Content Pattern">
-Partition by userId to keep all user content in the same partition. This enables fast queries for a user's posts, comments, and activity.
-</Callout>
-
-```typescript
-const posts = container('posts', {
-  id: field.string(),
-  userId: field.string(),
-  content: field.string(),
-  likes: field.number().default(0),
-  createdAt: field.date(),
-  tags: field.array(field.string()),
-  author: field.object({
-    name: field.string(),
-    avatar: field.string().optional()
-  })
-}).partitionKey('userId');
-
-// Find user's recent posts with engagement
-const userPosts = await db.posts.findMany({
-  where: {
-    userId: 'user_123',
-    createdAt: { gte: new Date('2024-01-01') },
-    likes: { gt: 10 }
-  },
-  select: {
-    id: true,
-    content: true,
-    likes: true,
-    author: {
-      name: true
-    }
-  },
-  orderBy: { createdAt: 'desc' },
-  take: 50
-});
-```
-
-### Shopping Cart
+**The pattern**: Use userId as partition key with TTL for abandoned carts.
 
 ```typescript
 const carts = container('carts', {
@@ -268,8 +433,11 @@ const carts = container('carts', {
   updatedAt: field.date(),
   ttl: field.number() // Expire abandoned carts
 }).partitionKey('userId');
+```
 
-// Add item to cart
+### Cart Operations
+
+```typescript
 async function addToCart(userId: string, item: CartItem) {
   const cart = await db.carts.findUnique({
     where: { id: userId, userId }
@@ -303,3 +471,10 @@ async function addToCart(userId: string, item: CartItem) {
 }
 ```
 
+---
+
+## Next Steps
+
+- Review [Advanced Patterns](/docs/advanced-patterns) for complex scenarios
+- See [Performance Guide](/docs/performance) for optimization tips
+- Check [API Reference](/docs/api-reference) for complete method documentation

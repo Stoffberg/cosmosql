@@ -3,172 +3,236 @@ title: Getting Started
 description: Install CosmosQL and create your first queries
 ---
 
-## Getting Started
+# Getting Started
 
-This guide will help you install CosmosQL and write your first type-safe queries. By the end, you'll have a working setup and understand the basics of working with CosmosQL.
+**Time**: 10 minutes  
+**You'll learn**: Installation → First query → How it works → Customization
 
-### Prerequisites
+## Prerequisites
 
-Before you begin, make sure you have:
+- [ ] Node.js 18+
+- [ ] TypeScript 5.0+
+- [ ] Azure CosmosDB account ([create one](https://portal.azure.com) | [use emulator](https://learn.microsoft.com/azure/cosmos-db/local-emulator))
+- [ ] Connection string ([where to find it](#getting-your-connection-string))
 
-- **Node.js 18+** installed on your system
-- **TypeScript 5.0+** configured in your project
-- **An Azure CosmosDB account** with a connection string
-- Basic familiarity with TypeScript and async/await
-
-If you don't have a CosmosDB account yet, you can create one through the [Azure Portal](https://portal.azure.com) or use the [Azure CosmosDB Emulator](https://learn.microsoft.com/azure/cosmos-db/local-emulator) for local development.
-
-### Installation
-
-Install CosmosQL using your preferred package manager:
+## Install
 
 ```bash
-# npm
 npm install cosmosql
-
-# yarn
-yarn add cosmosql
-
-# pnpm
-pnpm add cosmosql
-
-# bun
-bun add cosmosql
 ```
 
-That's it! CosmosQL has zero runtime dependencies beyond what Node.js provides. The package only includes TypeScript type definitions and the query builder logic.
+CosmosQL has zero runtime dependencies beyond Node.js.
 
-### Getting Your Connection String
+## Your First Query
 
-To connect to CosmosDB, you'll need a connection string. Here's how to find it:
+**We're building**: A simple user authentication system.
 
-1. In the Azure Portal, navigate to your CosmosDB account
-2. Go to **Keys** in the left sidebar
-3. Copy the **Primary Connection String**
-
-The connection string format looks like:
-```
-AccountEndpoint=https://your-account.documents.azure.com:443/;AccountKey=your-key==;...
-```
-
-**Important:** Never commit your connection string to version control. Always use environment variables or a secrets manager.
-
-### Quick Start
-
-Let's create a simple example that demonstrates CosmosQL's core concepts. This example creates a user container and performs basic operations.
+**Copy and run this**:
 
 ```typescript
 import { createClient, container, field } from 'cosmosql';
+import dotenv from 'dotenv';
+
+dotenv.config();
 
 // Step 1: Define your schema
-// The container function defines a collection with typed fields
-// This schema is used for type inference, not runtime validation
 const users = container('users', {
-  id: field.string(),                    // Required string field
-  email: field.string(),                  // Required string field
-  name: field.string(),                   // Required string field
-  age: field.number(),                    // Required number field
-  isActive: field.boolean().default(true), // Boolean with default value
-  createdAt: field.date()                 // Date field
-}).partitionKey('email');                 // Define partition key (required)
+  id: field.string(),
+  email: field.string(),
+  name: field.string(),
+  age: field.number(),
+  isActive: field.boolean().default(true),
+  createdAt: field.date()
+}).partitionKey('email');
 
 // Step 2: Create a client
-// The client manages connections and provides typed access to containers
 const db = createClient({
   connectionString: process.env.COSMOS_CONNECTION_STRING!,
-  database: 'myapp' // Your CosmosDB database name
-}).withContainers({
-  users // Register the container schema
-});
+  database: 'myapp'
+}).withContainers({ users });
 
-// Step 3: Start querying with full type safety
-// Notice that both 'id' and 'email' are required in the where clause
-// This is because 'email' is the partition key - CosmosQL enforces this at compile time
+// Step 3: Create a user
+async function main() {
+  const newUser = await db.users.create({
+    data: {
+      id: 'user_123',
+      email: 'john@example.com',
+      name: 'John Doe',
+      age: 30,
+      createdAt: new Date()
+      // isActive automatically true (default)
+    }
+  });
+  console.log('Created user:', newUser.name);
+  
+  // Step 4: Query by ID + partition key (1 RU - cheapest)
+  const user = await db.users.findUnique({
+    where: {
+      id: 'user_123',
+      email: 'john@example.com' // Partition key required!
+    }
+  });
+  console.log('Found user:', user?.name);
+}
+
+main().catch(console.error);
+```
+
+**Run it**: `npx tsx example.ts`
+
+**Expected output**:
+```
+Created user: John Doe
+Found user: John Doe
+```
+
+## What Just Happened?
+
+Let's break down each part:
+
+### 1. Schema Definition
+
+```typescript
+const users = container('users', {
+  id: field.string(),
+  email: field.string(),
+  // ...
+}).partitionKey('email');
+```
+
+This defines your data structure. Three key points:
+
+- **Not runtime validation** - This is purely for TypeScript
+- **Partition key is required** - More on why in [Core Concepts](/docs/core-concepts)
+- **Inference happens automatically** - TypeScript knows the shape
+
+### 2. Client Creation
+
+```typescript
+const db = createClient({
+  connectionString: process.env.COSMOS_CONNECTION_STRING!,
+  database: 'myapp'
+}).withContainers({ users });
+```
+
+The client manages connections and provides typed access. After `withContainers`, `db.users` is fully typed.
+
+### 3. Type-Safe Create
+
+```typescript
+const newUser = await db.users.create({ data: { ... } });
+```
+
+TypeScript enforces:
+- All required fields are provided
+- Field types match your schema
+- Default values are applied automatically
+
+### 4. Point Read (Fastest Query)
+
+```typescript
 const user = await db.users.findUnique({
-  where: {
-    id: 'user_123',
-    email: 'john@example.com' // Partition key required!
-  }
+  where: { id: 'user_123', email: 'john@example.com' }
 });
-
-// TypeScript knows the exact type of 'user'
-// Type: { id: string; email: string; name: string; age: number; isActive: boolean; createdAt: Date } | null
-console.log(user?.name); // ✅ TypeScript knows 'name' exists
 ```
 
-### Understanding the Code
+This costs ~1 RU (Request Unit) - the cheapest possible query. TypeScript requires both ID and the partition key (`email`).
 
-Let's break down what's happening in this example:
+## Make It Yours
 
-**Schema Definition:** The `container` function creates a schema definition. This isn't a runtime object—it's used by TypeScript to infer types. CosmosDB is schemaless, so this schema only exists in your TypeScript code.
+Change the example to match your data:
 
-**Partition Key:** The `.partitionKey('email')` call tells CosmosQL that this container uses `email` as its partition key. This is critical for CosmosDB performance and CosmosQL uses it to enforce type safety—you must provide the partition key in queries.
-
-**Client Creation:** `createClient` establishes a connection to your CosmosDB account. The `withContainers` call registers your schemas and returns a typed database client.
-
-**Type Safety:** When you call `db.users.findUnique`, TypeScript knows:
-- Which fields exist (`id`, `email`, `name`, etc.)
-- Which fields are required in the `where` clause (including the partition key)
-- The exact return type based on your schema
-
-### Your First Create Operation
-
-Let's create a new user document:
+**1. Update the schema**: Replace fields with yours
 
 ```typescript
-// Create a new user
-const newUser = await db.users.create({
-  data: {
-    id: 'user_123',
-    email: 'john@example.com',
-    name: 'John Doe',
-    age: 30,
-    createdAt: new Date()
-    // isActive will use the default value (true)
-  }
-});
-
-// TypeScript infers the exact type
-// newUser has type: { id: string; email: string; name: string; age: number; isActive: boolean; createdAt: Date }
+const posts = container('posts', {
+  id: field.string(),
+  userId: field.string(),
+  title: field.string(),
+  content: field.string(),
+  publishedAt: field.date().optional()
+}).partitionKey('userId');
 ```
 
-Notice that you don't need to provide `isActive` because it has a default value. CosmosQL handles this automatically based on your schema definition.
+**2. Change the partition key**: See [Choosing Partition Keys](/docs/core-concepts#choosing-a-good-partition-key) for guidance
 
-### Your First Query Operation
+**3. Add your connection string**: Store in `.env` file
 
-Let's query for users within a partition:
+```bash
+COSMOS_CONNECTION_STRING="AccountEndpoint=https://..."
+```
+
+**Complete working example**:
 
 ```typescript
-// Find all active users in a specific partition
-const activeUsers = await db.users.findMany({
-  partitionKey: 'john@example.com', // Scope query to single partition
-  where: {
-    isActive: true
-  }
-});
+import { createClient, container, field } from 'cosmosql';
+import dotenv from 'dotenv';
 
-// TypeScript knows this is an array of user objects
-// activeUsers has type: Array<{ id: string; email: string; ... }>
-console.log(`Found ${activeUsers.length} active users`);
+dotenv.config();
+
+const posts = container('posts', {
+  id: field.string(),
+  userId: field.string(),
+  title: field.string(),
+  content: field.string(),
+  publishedAt: field.date().optional()
+}).partitionKey('userId');
+
+const db = createClient({
+  connectionString: process.env.COSMOS_CONNECTION_STRING!,
+  database: 'myapp'
+}).withContainers({ posts });
+
+async function main() {
+  // Create a post
+  const post = await db.posts.create({
+    data: {
+      id: 'post_123',
+      userId: 'user_456',
+      title: 'Hello CosmosQL',
+      content: 'This is my first post',
+      publishedAt: new Date()
+    }
+  });
+  console.log('Created:', post.title);
+  
+  // Query posts for a user
+  const userPosts = await db.posts.findMany({
+    partitionKey: 'user_456',
+    where: { publishedAt: { ne: null } }
+  });
+  console.log(`Found ${userPosts.length} published posts`);
+}
+
+main().catch(console.error);
 ```
 
-The `partitionKey` parameter is required for `findMany` operations. This ensures your query is efficient and cost-effective by limiting the search to a single partition.
+## What You Learned
 
-### What's Next?
+- ✓ Schemas define structure for TypeScript (not runtime)
+- ✓ Partition keys are required and enforced
+- ✓ Queries are fully typed automatically
+- ✓ Point reads are cheapest (~1 RU vs ~5 RU for queries)
 
-You now have the basics working! Here's what to explore next:
+## Next Steps
 
-1. **[Core Concepts](/docs/core-concepts)** - Learn about CosmosDB fundamentals, partition keys, and how CosmosQL works under the hood
+**New to CosmosDB?** → Read [Core Concepts](/docs/core-concepts) to understand partition keys and Request Units
 
-2. **CRUD Operations** - Deep dive into operations with detailed examples:
-   - [Creating Documents](/docs/create) - Insert and bulk create operations
-   - [Reading Documents](/docs/read) - Query efficiently with partition-scoped and cross-partition queries
-   - [Updating Documents](/docs/update) - Modify existing documents and upsert operations
-   - [Deleting Documents](/docs/delete) - Hard deletes and soft delete patterns
+**Ready to build?** → See [CRUD Operations](/docs/create) for all operations
 
-3. **[Type System](/docs/type-system)** - Understand how CosmosQL's type inference works and leverage it effectively
+**Need patterns?** → Check [Common Patterns](/docs/common-patterns) for real scenarios
 
-4. **[Common Patterns](/docs/common-patterns)** - See real-world usage patterns for authentication, multi-tenant apps, and more
+## Getting Your Connection String
 
-If you run into issues or have questions, check the [FAQ](/docs/faq) or refer to the [API Reference](/docs/api-reference) for detailed method documentation.
+1. Open [Azure Portal](https://portal.azure.com)
+2. Navigate to your CosmosDB account
+3. Go to **Keys** in the left sidebar
+4. Copy the **Primary Connection String**
+
+The format looks like:
+```
+AccountEndpoint=https://your-account.documents.azure.com:443/;AccountKey=your-key==;
+```
+
+**Important**: Never commit your connection string to version control. Always use environment variables or a secrets manager.
 
