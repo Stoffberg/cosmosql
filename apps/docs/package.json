@@ -3,9 +3,9 @@
   "version": "0.0.0",
   "private": true,
   "scripts": {
-    "build": "next build",
-    "dev": "next dev",
-    "start": "next start",
+    "build": "next build --turbopack",
+    "dev": "next dev --turbopack",
+    "start": "next start --turbopack",
     "postinstall": "fumadocs-mdx",
     "lint": "biome check",
     "format": "biome format --write"
