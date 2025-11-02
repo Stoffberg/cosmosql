@@ -1,38 +1,109 @@
-import type { ContainerSchema } from '../schema/container';
-import type { CosmosClient } from './cosmos-client';
-import { FindOperations } from '../operations/find';
-import { CreateOperations } from '../operations/create';
-import { UpdateOperations } from '../operations/update';
-import { DeleteOperations } from '../operations/delete';
+import { CreateOperations } from "../operations/create";
+import { DeleteOperations } from "../operations/delete";
+import {
+	type FindManyArgs,
+	FindOperations,
+	type FindUniqueArgs,
+} from "../operations/find";
+import { UpdateOperations } from "../operations/update";
+import type { ContainerSchema } from "../schema/container";
+import type {
+	CreateInput,
+	InferSchema,
+	PartitionKeyMissingError,
+	SelectInput,
+	UpdateInput,
+} from "../types";
+import type { CosmosClient } from "./cosmos-client";
 
 export class ContainerClient<
-  TSchema extends Record<string, any>,
-  TPartitionKey extends keyof TSchema
+	TSchema extends Record<string, any>,
+	TPartitionKey extends keyof InferSchema<TSchema>,
 > {
-  private findOps: FindOperations<TSchema, TPartitionKey>;
-  private createOps: CreateOperations<TSchema, TPartitionKey>;
-  private updateOps: UpdateOperations<TSchema, TPartitionKey>;
-  private deleteOps: DeleteOperations<TSchema, TPartitionKey>;
+	private findOps: FindOperations<TSchema, TPartitionKey>;
+	private createOps: CreateOperations<TSchema, TPartitionKey>;
+	private updateOps: UpdateOperations<TSchema, TPartitionKey>;
+	private deleteOps: DeleteOperations<TSchema, TPartitionKey>;
 
-  constructor(
-    client: CosmosClient,
-    schema: ContainerSchema<any, TSchema, TPartitionKey>
-  ) {
-    this.findOps = new FindOperations(client, schema);
-    this.createOps = new CreateOperations(client, schema);
-    this.updateOps = new UpdateOperations(client, schema);
-    this.deleteOps = new DeleteOperations(client, schema);
-  }
+	constructor(
+		client: CosmosClient,
+		schema: ContainerSchema<any, TSchema, TPartitionKey>,
+	) {
+		this.findOps = new FindOperations(client, schema);
+		this.createOps = new CreateOperations(client, schema);
+		this.updateOps = new UpdateOperations(client, schema);
+		this.deleteOps = new DeleteOperations(client, schema);
+	}
 
-  findUnique(args: any) { return this.findOps.findUnique(args); }
-  findMany(args?: any) { return this.findOps.findMany(args); }
-  query(args: any) { return this.findOps.query(args); }
-  
-  create(args: any) { return this.createOps.create(args); }
-  createMany(args: any) { return this.createOps.createMany(args); }
-  
-  update(args: any) { return this.updateOps.update(args); }
-  upsert(args: any) { return this.updateOps.upsert(args); }
-  
-  delete(args: any) { return this.deleteOps.delete(args); }
+	findUnique<S extends SelectInput<InferSchema<TSchema>>>(
+		args: TPartitionKey extends never
+			? PartitionKeyMissingError
+			: FindUniqueArgs<InferSchema<TSchema>, TPartitionKey, S>,
+	) {
+		return this.findOps.findUnique(args);
+	}
+
+	findMany<S extends SelectInput<InferSchema<TSchema>>>(
+		args?: FindManyArgs<InferSchema<TSchema>, S, TPartitionKey>,
+	) {
+		return this.findOps.findMany(args);
+	}
+
+	query<TResult = InferSchema<TSchema>>(args: {
+		sql: string;
+		parameters?: Array<{ name: string; value: unknown }>;
+		partitionKey?: InferSchema<TSchema>[TPartitionKey];
+	}) {
+		return this.findOps.query<TResult>(args);
+	}
+
+	create(args: { data: CreateInput<TSchema> }) {
+		return this.createOps.create(args);
+	}
+
+	createMany(args: {
+		data: Array<CreateInput<TSchema>>;
+		partitionKey: InferSchema<TSchema>[TPartitionKey];
+	}) {
+		return this.createOps.createMany(args);
+	}
+
+	update(
+		args: TPartitionKey extends never
+			? PartitionKeyMissingError
+			: {
+					where: { [K in TPartitionKey]: InferSchema<TSchema>[K] } & {
+						id: string;
+					};
+					data: UpdateInput<TSchema>;
+				},
+	) {
+		return this.updateOps.update(args);
+	}
+
+	upsert(
+		args: TPartitionKey extends never
+			? PartitionKeyMissingError
+			: {
+					where: { [K in TPartitionKey]: InferSchema<TSchema>[K] } & {
+						id: string;
+					};
+					create: CreateInput<TSchema>;
+					update: UpdateInput<TSchema>;
+				},
+	) {
+		return this.updateOps.upsert(args);
+	}
+
+	delete(
+		args: TPartitionKey extends never
+			? PartitionKeyMissingError
+			: {
+					where: { [K in TPartitionKey]: InferSchema<TSchema>[K] } & {
+						id: string;
+					};
+				},
+	) {
+		return this.deleteOps.delete(args);
+	}
 }
