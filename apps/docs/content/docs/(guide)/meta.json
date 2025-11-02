@@ -1,0 +1,11 @@
+{
+  "title": "Guide",
+  "icon": "Book",
+  "pages": [
+    "core-concepts",
+    "type-system",
+    "crud-operations",
+    "common-patterns",
+    "advanced-patterns"
+  ]
+}
