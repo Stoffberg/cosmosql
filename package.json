@@ -1,6 +1,6 @@
 {
   "name": "cosmosql",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "description": "Type-safe, minimal ORM for Azure CosmosDB",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
@@ -28,16 +28,16 @@
     "database",
     "nosql"
   ],
-  "author": "",
+  "author": "Dirk Beukes",
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "https://github.com/yourusername/cosmosql.git"
+    "url": "https://github.com/Stoffberg/cosmosql.git"
   },
   "bugs": {
-    "url": "https://github.com/yourusername/cosmosql/issues"
+    "url": "https://github.com/Stoffberg/cosmosql/issues"
   },
-  "homepage": "https://github.com/yourusername/cosmosql#readme",
+  "homepage": "https://cosmosql.dev",
   "devDependencies": {
     "@types/jest": "^29.5.0",
     "@types/node": "^20.0.0",

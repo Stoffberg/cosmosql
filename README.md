@@ -43,7 +43,11 @@ const user = await db.users.findUnique({
 
 ## Documentation
 
-See [full documentation](./docs/README.md) for complete API reference and guides.
+See the [full documentation](https://cosmosql.dev) for complete API reference and guides.
+
+## Repository
+
+[GitHub](https://github.com/Stoffberg/cosmosql)
 
 ## License
 
