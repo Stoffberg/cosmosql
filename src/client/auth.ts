@@ -9,7 +9,7 @@ export class CosmosAuth {
 		resourceId: string,
 		date: Date,
 	): string {
-		const text = `${method.toLowerCase()}\n${resourceType.toLowerCase()}\n${resourceId}\n${date.toUTCString().toLowerCase()}\n\n\n`;
+		const text = `${method.toLowerCase()}\n${resourceType.toLowerCase()}\n${resourceId}\n${date.toUTCString().toLowerCase()}\n\n`;
 
 		const key = Buffer.from(this.masterKey, "base64");
 		const signature = createHmac("sha256", key).update(text).digest("base64");

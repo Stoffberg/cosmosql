@@ -169,6 +169,7 @@ describe("FindOperations", () => {
 					parameters: expect.any(Array),
 				}),
 				"test@example.com",
+				undefined, // enableCrossPartitionQuery
 			);
 			expect(result).toEqual(expectedResult.Documents);
 		});
@@ -245,6 +246,33 @@ describe("FindOperations", () => {
 			await ops.findMany(args);
 
 			expect(mockClient.request).toHaveBeenCalled();
+			expect(mockClient.request).toHaveBeenCalledWith(
+				expect.any(String),
+				expect.any(String),
+				expect.any(Object),
+				undefined, // partitionKey
+				true, // enableCrossPartitionQuery
+			);
+		});
+
+		test("passes enableCrossPartitionQuery through to client request", async () => {
+			const ops = new FindOperations(mockClient, schema);
+			const args = {
+				enableCrossPartitionQuery: true,
+				take: 10,
+			};
+
+			mockClient.request.mockResolvedValue({ Documents: [] });
+
+			await ops.findMany(args);
+
+			expect(mockClient.request).toHaveBeenCalledWith(
+				"POST",
+				expect.stringContaining("/docs"),
+				expect.any(Object),
+				undefined, // partitionKey should be undefined when enableCrossPartitionQuery is true
+				true, // enableCrossPartitionQuery should be passed through
+			);
 		});
 
 		test("applies select to results", async () => {

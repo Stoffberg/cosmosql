@@ -58,8 +58,9 @@ export class CosmosClient {
 		path: string,
 		body?: any,
 		partitionKey?: any,
+		enableCrossPartitionQuery?: boolean,
 	): Promise<T> {
-		return this.requestWithRetry<T>(method, path, body, partitionKey, 0);
+		return this.requestWithRetry<T>(method, path, body, partitionKey, enableCrossPartitionQuery, 0);
 	}
 
 	private async requestWithRetry<T>(
@@ -67,6 +68,7 @@ export class CosmosClient {
 		path: string,
 		body: any,
 		partitionKey: any,
+		enableCrossPartitionQuery: boolean | undefined,
 		attempt: number,
 	): Promise<T> {
 		const date = new Date();
@@ -93,6 +95,10 @@ export class CosmosClient {
 			);
 		}
 
+		if (enableCrossPartitionQuery === true) {
+			headers["x-ms-documentdb-query-enablecrosspartition"] = "true";
+		}
+
 		const url = `${this.endpoint}${path}`;
 
 		try {
@@ -117,6 +123,7 @@ export class CosmosClient {
 						path,
 						body,
 						partitionKey,
+						enableCrossPartitionQuery,
 						attempt + 1,
 					);
 				}

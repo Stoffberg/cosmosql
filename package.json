@@ -17,7 +17,10 @@
 		"lint": "eslint src --ext .ts",
 		"format": "prettier --write \"src/**/*.ts\"",
 		"prepublishOnly": "npm run build && npm test",
-		"type-check": "tsc --noEmit"
+		"type-check": "tsc --noEmit",
+		"deploy:patch": "npm version patch && npm publish",
+		"deploy:minor": "npm version minor && npm publish",
+		"deploy:major": "npm version major && npm publish"
 	},
 	"keywords": [
 		"cosmosdb",

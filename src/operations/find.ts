@@ -152,6 +152,7 @@ export class FindOperations<
 				parameters,
 			},
 			partitionKey,
+			enableCrossPartitionQuery,
 		);
 
 		return result.Documents || [];

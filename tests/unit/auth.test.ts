@@ -1,3 +1,4 @@
+import { createHmac } from "node:crypto";
 import { CosmosAuth } from "../../src/client/auth";
 
 describe("CosmosAuth", () => {
@@ -229,6 +230,37 @@ describe("CosmosAuth", () => {
 					new Date(),
 				);
 			}).not.toThrow();
+		});
+
+		test("generates auth token with exactly 2 trailing newlines (Azure format)", () => {
+			const auth = new CosmosAuth("dGVzdEtleQ==");
+			const date = new Date("2020-01-01T00:00:00Z");
+
+			const token = auth.generateAuthToken(
+				"GET",
+				"docs",
+				"dbs/mydb/colls/mycoll",
+				date,
+			);
+
+			// Verify token format by recreating expected signature with correct format (2 trailing newlines)
+			// Use the actual date format that toUTCString().toLowerCase() produces
+			const dateStr = date.toUTCString().toLowerCase();
+			const correctText = `get\ndocs\ndbs/mydb/colls/mycoll\n${dateStr}\n\n`;
+			const key = Buffer.from("dGVzdEtleQ==", "base64");
+			const expectedSignature = createHmac("sha256", key).update(correctText).digest("base64");
+			const expectedToken = encodeURIComponent(`type=master&ver=1.0&sig=${expectedSignature}`);
+
+			expect(token).toBe(expectedToken);
+
+			// Verify the correct format ends with exactly 2 newlines (not 3)
+			expect(correctText.endsWith("\n\n")).toBe(true);
+			expect(correctText.endsWith("\n\n\n")).toBe(false); // Should NOT end with 3
+			
+			// Verify wrong format (3 newlines) would produce different signature
+			const wrongText = `get\ndocs\ndbs/mydb/colls/mycoll\n${dateStr}\n\n\n`;
+			const wrongSignature = createHmac("sha256", key).update(wrongText).digest("base64");
+			expect(wrongSignature).not.toBe(expectedSignature);
 		});
 	});
 

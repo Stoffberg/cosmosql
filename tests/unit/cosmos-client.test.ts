@@ -277,6 +277,92 @@ describe("CosmosClient", () => {
 			);
 		});
 
+		test("includes cross-partition query header when enableCrossPartitionQuery is true", async () => {
+			const config: CosmosClientConfig = {
+				endpoint: "https://test.documents.azure.com:443",
+				key: "dGVzdC1rZXk=",
+				database: "testdb",
+			};
+
+			const client = new CosmosClient(config);
+
+			(global.fetch as jest.Mock).mockResolvedValueOnce({
+				ok: true,
+				json: async () => ({}),
+			});
+
+			await client.request(
+				"POST",
+				"/dbs/testdb/colls/test/docs",
+				{ query: "SELECT * FROM c", parameters: [] },
+				undefined,
+				true, // enableCrossPartitionQuery
+			);
+
+			expect(global.fetch).toHaveBeenCalledWith(
+				expect.any(String),
+				expect.objectContaining({
+					headers: expect.objectContaining({
+						"x-ms-documentdb-query-enablecrosspartition": "true",
+					}),
+				}),
+			);
+		});
+
+		test("does not include cross-partition query header when enableCrossPartitionQuery is false", async () => {
+			const config: CosmosClientConfig = {
+				endpoint: "https://test.documents.azure.com:443",
+				key: "dGVzdC1rZXk=",
+				database: "testdb",
+			};
+
+			const client = new CosmosClient(config);
+
+			(global.fetch as jest.Mock).mockResolvedValueOnce({
+				ok: true,
+				json: async () => ({}),
+			});
+
+			await client.request(
+				"POST",
+				"/dbs/testdb/colls/test/docs",
+				{ query: "SELECT * FROM c", parameters: [] },
+				undefined,
+				false, // enableCrossPartitionQuery
+			);
+
+			const callArgs = (global.fetch as jest.Mock).mock.calls[0];
+			const headers = callArgs[1].headers;
+
+			expect(headers).not.toHaveProperty("x-ms-documentdb-query-enablecrosspartition");
+		});
+
+		test("does not include cross-partition query header when enableCrossPartitionQuery is undefined", async () => {
+			const config: CosmosClientConfig = {
+				endpoint: "https://test.documents.azure.com:443",
+				key: "dGVzdC1rZXk=",
+				database: "testdb",
+			};
+
+			const client = new CosmosClient(config);
+
+			(global.fetch as jest.Mock).mockResolvedValueOnce({
+				ok: true,
+				json: async () => ({}),
+			});
+
+			await client.request(
+				"POST",
+				"/dbs/testdb/colls/test/docs",
+				{ query: "SELECT * FROM c", parameters: [] },
+			);
+
+			const callArgs = (global.fetch as jest.Mock).mock.calls[0];
+			const headers = callArgs[1].headers;
+
+			expect(headers).not.toHaveProperty("x-ms-documentdb-query-enablecrosspartition");
+		});
+
 		test("includes required headers", async () => {
 			const config: CosmosClientConfig = {
 				endpoint: "https://test.documents.azure.com:443",
