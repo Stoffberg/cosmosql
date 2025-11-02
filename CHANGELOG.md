@@ -5,6 +5,31 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.3.3] - 2025-11-02
+
+### Fixed
+- **CRITICAL**: Fixed double slash in URL construction when endpoint has trailing slash
+- Removed trailing slashes from endpoints to prevent malformed URLs like `https://domain.com:443//dbs/...`
+- URL construction now works correctly with both trailing slash and no trailing slash endpoints
+
+### Added
+- Comprehensive URL construction tests to prevent regression
+- Integration tests with real Azure CosmosDB instance
+
+## [0.3.2] - 2025-11-02
+
+### Fixed
+- **CRITICAL**: Fixed Azure CosmosDB authentication token format to match Azure SDK specification
+- Fixed `parseResourcePath()` to return correct resourceType and resourceId
+- Fixed `generateAuthToken()` to use proper text format with correct newline sequences (3 trailing newlines)
+- Fixed date handling to use `Date` objects with `toUTCString().toLowerCase()` instead of string lowercase
+- Authentication now works correctly with all Azure CosmosDB operations
+
+### Added
+- Comprehensive Azure CosmosDB integration tests
+- Tests for all authentication edge cases
+- Tests for all resource path parsing scenarios
+
 ## [0.3.0] - 2025-11-02
 
 ### Fixed
