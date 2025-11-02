@@ -16,7 +16,6 @@
     "fumadocs-core": "16.0.7",
     "fumadocs-mdx": "13.0.4",
     "fumadocs-ui": "16.0.7",
-    "lightningcss": "^1.30.2",
     "lucide-react": "^0.548.0",
     "next": "16.0.1",
     "react": "^19.2.0",
@@ -30,8 +29,18 @@
     "@types/node": "^24.9.2",
     "@types/react": "^19.2.2",
     "@types/react-dom": "^19.2.2",
+    "lightningcss": "^1.30.2",
     "postcss": "^8.5.6",
     "tailwindcss": "^4.1.16",
     "typescript": "^5.9.3"
+  },
+  "optionalDependencies": {
+    "@tailwindcss/oxide-darwin-arm64": "^4.1.16",
+    "@tailwindcss/oxide-darwin-x64": "^4.1.16",
+    "@tailwindcss/oxide-linux-arm64-gnu": "^4.1.16",
+    "@tailwindcss/oxide-linux-arm64-musl": "^4.1.16",
+    "@tailwindcss/oxide-linux-x64-gnu": "^4.1.16",
+    "@tailwindcss/oxide-linux-x64-musl": "^4.1.16",
+    "@tailwindcss/oxide-win32-x64-msvc": "^4.1.16"
   }
 }
