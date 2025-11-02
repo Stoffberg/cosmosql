@@ -53,7 +53,11 @@ await db.posts.createMany({
 });
 ```
 
-**Why Same Partition?** CosmosDB batch operations only work within a single partition. This is enforced at the type level.
+<Callout type="warning" title="Why Same Partition?">
+
+CosmosDB batch operations only work within a single partition. This is enforced at the type level.
+
+</Callout>
 
 ### Read
 
@@ -73,6 +77,8 @@ const user = await db.users.findUnique({
 
 **Compile-Time Error Without Partition Key:**
 
+<Callout type="error" title="TypeScript Prevents This">
+
 ```typescript
 const user = await db.users.findUnique({
   where: {
@@ -85,6 +91,8 @@ const user = await db.users.findUnique({
 // Property 'email' is missing in type '{ id: string; }'
 // but required in type '{ email: string; }'
 ```
+
+</Callout>
 
 **Find Many (Partition-Scoped):**
 
@@ -121,7 +129,11 @@ const recentPosts = await db.posts.findMany({
 });
 ```
 
-**Why Explicit Opt-In?** Cross-partition queries are expensive. Making them explicit prevents accidental high costs.
+<Callout type="error" title="Why Explicit Opt-In?">
+
+Cross-partition queries are expensive (50-100+ RU vs 1-5 RU). Making them explicit prevents accidental high costs.
+
+</Callout>
 
 **Select Specific Fields:**
 

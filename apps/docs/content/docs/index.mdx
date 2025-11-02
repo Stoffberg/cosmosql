@@ -33,59 +33,107 @@ CosmosQL provides:
 
 Working with CosmosDB presents unique challenges that generic database libraries don't address. CosmosQL was built specifically to solve these problems.
 
-**The Problem with Existing Solutions:**
+#### The Problem with Existing Solutions
 
 Azure's official CosmosDB SDK is powerful and feature-rich, but it comes with significant drawbacks that impact developer productivity and application reliability:
 
-**Heavy Dependency Footprint:** The official SDK pulls in 50+ packages, increasing bundle size and dependency vulnerabilities. For microservices or serverless functions, this overhead matters.
+<Callout type="warning" title="Heavy Dependency Footprint">
 
-**Weak TypeScript Support:** The SDK provides loose typing that doesn't catch common mistakes. Missing partition keys, incorrect field names, or type mismatches only surface at runtime, not during development.
+The official SDK pulls in 50+ packages, increasing bundle size and dependency vulnerabilities. For microservices or serverless functions, this overhead matters.
 
-**Accidental Expensive Queries:** CosmosDB's pricing model is based on Request Units (RUs). A simple mistake like forgetting a partition key can turn a 1 RU query into a 100+ RU query, increasing costs by 100x. The official SDK doesn't prevent these mistakes at compile time.
+</Callout>
 
-**Partition Keys as Afterthought:** In the official SDK, partition keys are often optional or easy to forget. In CosmosDB, they're critical for performance. This mismatch leads to performance issues and high costs.
+**Weak TypeScript Support**
 
-**Complex Setup:** The SDK requires understanding containers, databases, connection strings, and various configuration options. While flexible, this complexity makes getting started harder than it needs to be.
+The SDK provides loose typing that doesn't catch common mistakes. Missing partition keys, incorrect field names, or type mismatches only surface at runtime, not during development.
 
-**The CosmosQL Approach:**
+**Accidental Expensive Queries**
+
+<Callout type="error" title="The Cost of Mistakes">
+
+CosmosDB's pricing model is based on Request Units (RUs). A simple mistake like forgetting a partition key can turn a **1 RU query into a 100+ RU query**, increasing costs by 100x. The official SDK doesn't prevent these mistakes at compile time.
+
+</Callout>
+
+**Partition Keys as Afterthought**
+
+In the official SDK, partition keys are often optional or easy to forget. In CosmosDB, they're critical for performance. This mismatch leads to performance issues and high costs.
+
+**Complex Setup**
+
+The SDK requires understanding containers, databases, connection strings, and various configuration options. While flexible, this complexity makes getting started harder than it needs to be.
+
+#### The CosmosQL Approach
 
 We believe that CosmosDB-specific challenges deserve CosmosDB-specific solutions. CosmosQL is built from the ground up with these principles:
 
-**Partition Keys are First-Class Citizens:** Every query operation requires partition keys by default. This isn't optional—it's enforced at the type level. When you need cross-partition queries, you must explicitly opt in, making expensive operations intentional, not accidental.
+**Partition Keys are First-Class Citizens**
 
-**Type Safety Prevents Costly Mistakes:** TypeScript's type system catches errors before your code runs. Try to query without a partition key? TypeScript error. Use the wrong field type? TypeScript error. Access a field that doesn't exist? TypeScript error.
+Every query operation requires partition keys by default. This isn't optional—it's enforced at the type level. When you need cross-partition queries, you must explicitly opt in, making expensive operations intentional, not accidental.
 
-**Direct REST API Integration:** CosmosQL generates direct REST API calls using Node.js's built-in HTTP capabilities. No heavy SDK, no runtime overhead, just efficient HTTP requests with compile-time type safety.
+**Type Safety Prevents Costly Mistakes**
 
-**Zero Runtime Validation:** Unlike many ORMs that validate schemas at runtime, CosmosQL performs all validation at compile time. Your production code has zero validation overhead—all checks happen during development.
+TypeScript's type system catches errors before your code runs. Try to query without a partition key? TypeScript error. Use the wrong field type? TypeScript error. Access a field that doesn't exist? TypeScript error.
 
-**Developer Experience Matters:** We've designed the API to be intuitive and discoverable. If you've used Prisma, you'll find familiar patterns. If you haven't, you'll find an API that makes sense.
+**Direct REST API Integration**
+
+CosmosQL generates direct REST API calls using Node.js's built-in HTTP capabilities. No heavy SDK, no runtime overhead, just efficient HTTP requests with compile-time type safety.
+
+**Zero Runtime Validation**
+
+Unlike many ORMs that validate schemas at runtime, CosmosQL performs all validation at compile time. Your production code has zero validation overhead—all checks happen during development.
+
+**Developer Experience Matters**
+
+We've designed the API to be intuitive and discoverable. If you've used Prisma, you'll find familiar patterns. If you haven't, you'll find an API that makes sense.
 
 ### When to Use CosmosQL
 
 CosmosQL is designed for specific use cases. Understanding when it's the right fit helps you make informed decisions.
 
-✅ **Perfect For:**
+#### ✅ Perfect For
 
-**TypeScript Applications Requiring Type Safety:** If you're building with TypeScript and want compile-time guarantees about your database operations, CosmosQL is an excellent choice. The type safety prevents entire classes of bugs.
+**TypeScript Applications Requiring Type Safety**
 
-**Teams New to CosmosDB:** CosmosDB has unique concepts like partition keys, request units, and cross-partition queries. CosmosQL's type system acts as guardrails, preventing common mistakes that lead to poor performance or high costs.
+If you're building with TypeScript and want compile-time guarantees about your database operations, CosmosQL is an excellent choice. The type safety prevents entire classes of bugs.
 
-**Performance-Critical Applications:** With zero runtime overhead and direct REST API calls, CosmosQL delivers maximum performance. Every operation is as fast as using the REST API directly, but with type safety.
+**Teams New to CosmosDB**
 
-**Microservices with Minimal Dependency Budgets:** Serverless functions, edge computing, and microservices benefit from CosmosQL's minimal dependencies. No heavy SDK means faster cold starts and smaller deployment sizes.
+<Callout type="info" title="Built-in Guardrails">
 
-**Projects That Value Developer Experience:** If you want autocomplete, type checking, and compile-time error detection for your database operations, CosmosQL provides an excellent developer experience.
+CosmosDB has unique concepts like partition keys, request units, and cross-partition queries. CosmosQL's type system acts as guardrails, preventing common mistakes that lead to poor performance or high costs.
 
-❌ **Not Ideal For:**
+</Callout>
 
-**JavaScript-Only Projects:** CosmosQL requires TypeScript. The core value proposition is compile-time type safety, which isn't possible with JavaScript. If you're not using TypeScript, CosmosQL won't work for you.
+**Performance-Critical Applications**
 
-**Applications Needing Advanced CosmosDB Features:** CosmosQL focuses on core CRUD operations and common query patterns. If you need features like the Graph API, MongoDB API, stored procedures, or change feed processors, you'll need the official SDK.
+With zero runtime overhead and direct REST API calls, CosmosQL delivers maximum performance. Every operation is as fast as using the REST API directly, but with type safety.
 
-**Projects Heavily Invested in Azure SDK Ecosystem:** If you're already using the Azure SDK extensively and have established patterns, workflows, and team knowledge, migrating might not be worth the effort unless you're experiencing specific pain points.
+**Microservices with Minimal Dependency Budgets**
 
-**Applications Requiring Runtime Schema Validation:** CosmosQL validates everything at compile time. If you need runtime schema validation (for example, validating data from external APIs), you'll need additional validation logic beyond CosmosQL.
+Serverless functions, edge computing, and microservices benefit from CosmosQL's minimal dependencies. No heavy SDK means faster cold starts and smaller deployment sizes.
+
+**Projects That Value Developer Experience**
+
+If you want autocomplete, type checking, and compile-time error detection for your database operations, CosmosQL provides an excellent developer experience.
+
+#### ❌ Not Ideal For
+
+**JavaScript-Only Projects**
+
+CosmosQL requires TypeScript. The core value proposition is compile-time type safety, which isn't possible with JavaScript. If you're not using TypeScript, CosmosQL won't work for you.
+
+**Applications Needing Advanced CosmosDB Features**
+
+CosmosQL focuses on core CRUD operations and common query patterns. If you need features like the Graph API, MongoDB API, stored procedures, or change feed processors, you'll need the official SDK.
+
+**Projects Heavily Invested in Azure SDK Ecosystem**
+
+If you're already using the Azure SDK extensively and have established patterns, workflows, and team knowledge, migrating might not be worth the effort unless you're experiencing specific pain points.
+
+**Applications Requiring Runtime Schema Validation**
+
+CosmosQL validates everything at compile time. If you need runtime schema validation (for example, validating data from external APIs), you'll need additional validation logic beyond CosmosQL.
 
 ### Getting Started
 

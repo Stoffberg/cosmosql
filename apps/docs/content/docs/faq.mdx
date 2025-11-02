@@ -9,9 +9,9 @@ Here are answers to the most commonly asked questions about CosmosQL. If you don
 
 ### Feature Support
 
-**Q: Does CosmosQL support all CosmosDB features?**
+#### Does CosmosQL support all CosmosDB features?
 
-A: CosmosQL focuses on the core CRUD operations and query patterns that cover 95% of application use cases. This includes:
+CosmosQL focuses on the core CRUD operations and query patterns that cover 95% of application use cases. This includes:
 
 - Create, read, update, and delete operations
 - Partition-scoped and cross-partition queries
@@ -21,7 +21,8 @@ A: CosmosQL focuses on the core CRUD operations and query patterns that cover 95
 - TTL (Time-To-Live) support
 - Raw SQL queries for advanced use cases
 
-Advanced features that are not yet supported but planned for future releases include:
+**Advanced features** that are not yet supported but planned for future releases include:
+
 - Stored procedures
 - Triggers
 - Change feed processors
@@ -29,55 +30,80 @@ Advanced features that are not yet supported but planned for future releases inc
 - Multi-region write support
 - Transactional batch operations across partitions
 
+<Callout type="info" title="Using Advanced Features">
+
 If you need these features now, you can use the official Azure SDK alongside CosmosQL for specific operations.
 
-**Q: Does CosmosQL support MongoDB API or Gremlin API?**
+</Callout>
 
-A: No. CosmosQL is designed specifically for the SQL API (also called the Core API). The MongoDB API and Gremlin API have fundamentally different query patterns, data models, and semantics. Supporting them would require a different approach and API design.
+#### Does CosmosQL support MongoDB API or Gremlin API?
+
+<Callout type="warning" title="SQL API Only">
+
+No. CosmosQL is designed specifically for the SQL API (also called the Core API). The MongoDB API and Gremlin API have fundamentally different query patterns, data models, and semantics.
+
+</Callout>
 
 If you're using the MongoDB API, you might want to use a MongoDB-compatible library instead. For graph operations with the Gremlin API, you'll need the official Azure SDK or a Gremlin-compatible client.
 
 ### Language and Runtime
 
-**Q: Can I use CosmosQL with JavaScript?**
+#### Can I use CosmosQL with JavaScript?
 
-A: No. CosmosQL requires TypeScript. The entire value proposition is built around compile-time type safety—catching errors before code runs, providing autocomplete, and preventing costly mistakes. These features rely on TypeScript's type system, which isn't available in JavaScript.
+<Callout type="error" title="TypeScript Required">
+
+No. CosmosQL requires TypeScript. The entire value proposition is built around compile-time type safety—catching errors before code runs, providing autocomplete, and preventing costly mistakes.
+
+</Callout>
 
 If you're using JavaScript, you have a few options:
+
 1. Migrate to TypeScript (recommended for the type safety benefits)
 2. Use the official Azure CosmosDB SDK, which has JavaScript support
 3. Use a lighter-weight REST API client with manual type assertions
 
-**Q: What Node.js version do I need?**
+#### What Node.js version do I need?
 
-A: CosmosQL requires Node.js 18 or higher. This ensures access to modern JavaScript features and built-in APIs that CosmosQL uses. If you're using an older version, you'll need to upgrade.
+CosmosQL requires **Node.js 18 or higher**. This ensures access to modern JavaScript features and built-in APIs that CosmosQL uses. If you're using an older version, you'll need to upgrade.
 
-**Q: Does CosmosQL work in serverless environments?**
+#### Does CosmosQL work in serverless environments?
 
-A: Yes! CosmosQL is designed to work well in serverless environments like AWS Lambda, Azure Functions, and Vercel Edge Functions. The minimal dependencies and zero runtime overhead make it ideal for cold starts and edge computing scenarios.
+<Callout type="info" title="Serverless Ready">
+
+Yes! CosmosQL is designed to work well in serverless environments like AWS Lambda, Azure Functions, and Vercel Edge Functions. The minimal dependencies and zero runtime overhead make it ideal for cold starts and edge computing scenarios.
+
+</Callout>
 
 ### Performance
 
-**Q: What's the performance overhead compared to direct REST API calls?**
+#### What's the performance overhead compared to direct REST API calls?
 
-A: CosmosQL has minimal performance overhead. Here's why:
+CosmosQL has minimal performance overhead. Here's why:
 
 - **No runtime validation**: All schema validation happens at compile time
 - **Direct REST API calls**: CosmosQL generates HTTP requests that are identical to what you'd write manually
 - **No SDK bloat**: Zero dependencies beyond Node.js built-ins
 - **No connection pooling overhead**: Uses efficient connection management
 
-In benchmarks, CosmosQL operations are within 1-2% of manually written REST API calls. The difference is negligible in real-world applications. The type safety benefits far outweigh this tiny overhead.
+<Callout type="info" title="Benchmark Results">
 
-**Q: How does CosmosQL compare to the official Azure SDK in terms of performance?**
+In benchmarks, CosmosQL operations are within **1-2% of manually written REST API calls**. The difference is negligible in real-world applications. The type safety benefits far outweigh this tiny overhead.
 
-A: CosmosQL is typically faster than the official SDK for most operations because:
+</Callout>
+
+#### How does CosmosQL compare to the official Azure SDK in terms of performance?
+
+CosmosQL is typically faster than the official SDK for most operations because:
 
 - The SDK includes connection pooling, retry logic, and other features that add overhead
 - CosmosQL is a thin wrapper that generates direct REST calls
 - The SDK validates and transforms data at runtime, while CosmosQL does everything at compile time
 
+<Callout type="warning" title="Trade-offs">
+
 However, the official SDK has some optimizations for bulk operations and connection reuse that CosmosQL doesn't have yet. For most applications, the difference is small enough that developer experience and type safety matter more.
+
+</Callout>
 
 ### Migration and Compatibility
 

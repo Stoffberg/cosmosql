@@ -7,6 +7,12 @@ description: Real-world usage patterns for authentication, multi-tenant apps, ti
 
 ### User Authentication
 
+<Callout type="info" title="Pattern Overview">
+
+Use email as both ID and partition key for efficient user lookups. This pattern ensures fast authentication queries while maintaining data isolation.
+
+</Callout>
+
 ```typescript
 const users = container('users', {
   id: field.string(),
@@ -51,6 +57,12 @@ async function login(email: string, password: string) {
 ```
 
 ### Multi-Tenant SaaS
+
+<Callout type="warning" title="Partition Key Strategy">
+
+Partitioning by `tenantId` ensures complete data isolation between tenants. All queries are automatically scoped to a single tenant, preventing cross-tenant data leakage.
+
+</Callout>
 
 ```typescript
 const documents = container('documents', {

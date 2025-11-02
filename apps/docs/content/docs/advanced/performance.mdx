@@ -7,6 +7,8 @@ description: Optimize your CosmosQL queries for speed and cost efficiency
 
 ### 1. Always Use Partition Keys When Possible
 
+<Callout type="error" title="The Cost Difference">
+
 ```typescript
 // ❌ BAD: Cross-partition query (expensive)
 const user = await db.users.findMany({
@@ -23,7 +25,11 @@ const user = await db.users.findMany({
 // Cost: ~5 RU (10-20x cheaper)
 ```
 
+</Callout>
+
 ### 2. Use Point Reads for Single Documents
+
+<Callout type="info" title="Performance Tip">
 
 ```typescript
 // ❌ OK: Query for single document
@@ -40,6 +46,8 @@ const user = await db.users.findUnique({
 });
 // Cost: ~1 RU (5x cheaper)
 ```
+
+</Callout>
 
 ### 3. Select Only Needed Fields
 
@@ -60,6 +68,8 @@ const user = await db.users.findUnique({
 
 ### 4. Batch Operations in Same Partition
 
+<Callout type="warning" title="Batch Efficiency">
+
 ```typescript
 // ❌ BAD: Individual creates (multiple requests)
 for (const post of posts) {
@@ -74,6 +84,8 @@ await db.posts.createMany({
 });
 // 10 posts = 1 HTTP request (10x faster)
 ```
+
+</Callout>
 
 ### 5. Use Appropriate Indexes
 

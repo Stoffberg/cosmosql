@@ -9,6 +9,8 @@ description: Working with partition keys, TTL, raw queries, and error handling
 
 **Understanding the Trade-offs:**
 
+<Callout type="warning" title="Cost Comparison">
+
 ```typescript
 // ✅ GOOD: Query with partition key (1-5 RU)
 const posts = await db.posts.findMany({
@@ -23,15 +25,19 @@ const posts = await db.posts.findMany({
 });
 ```
 
+**The cost difference is 10-100x higher for cross-partition queries.**
+
+</Callout>
+
 **Choosing a Good Partition Key:**
 
-Good partition keys have:
+<Callout type="info" title="Good Partition Keys Have">
 
 - **High cardinality** - Many unique values (e.g., userId, email)
-
 - **Even distribution** - Data spread evenly across values
-
 - **Query alignment** - Most queries filter by this field
+
+</Callout>
 
 ```typescript
 // ✅ Good: User emails (high cardinality, even distribution)
