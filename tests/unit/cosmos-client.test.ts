@@ -75,6 +75,82 @@ describe("CosmosClient", () => {
 			const client = new CosmosClient(config);
 			expect(client).toBeDefined();
 		});
+
+		test("removes trailing slash from endpoint with slash", () => {
+			const config: CosmosClientConfig = {
+				endpoint: "https://test.documents.azure.com:443/",
+				key: "dGVzdC1rZXk=",
+				database: "testdb",
+			};
+
+			const client = new CosmosClient(config);
+
+			(global.fetch as jest.Mock).mockResolvedValueOnce({
+				ok: true,
+				json: async () => ({}),
+			});
+
+			void client.request("GET", "/dbs/testdb/colls/test/docs/doc1");
+
+			const callArgs = (global.fetch as jest.Mock).mock.calls[0];
+			const url = callArgs[0];
+
+			expect(url).toBe(
+				"https://test.documents.azure.com:443/dbs/testdb/colls/test/docs/doc1"
+			);
+			// Should not contain double slash in the path (after :443/)
+			expect(url).not.toContain(":443//");
+		});
+
+		test("removes trailing slash from connectionString endpoint", () => {
+			const config: CosmosClientConfig = {
+				connectionString:
+					"AccountEndpoint=https://test.documents.azure.com:443/;AccountKey=dGVzdC1rZXk=;",
+				database: "testdb",
+			};
+
+			const client = new CosmosClient(config);
+
+			(global.fetch as jest.Mock).mockResolvedValueOnce({
+				ok: true,
+				json: async () => ({}),
+			});
+
+			void client.request("GET", "/dbs/testdb/colls/test/docs/doc1");
+
+			const callArgs = (global.fetch as jest.Mock).mock.calls[0];
+			const url = callArgs[0];
+
+			expect(url).toBe(
+				"https://test.documents.azure.com:443/dbs/testdb/colls/test/docs/doc1"
+			);
+			// Should not contain double slash in the path (after :443/)
+			expect(url).not.toContain(":443//");
+		});
+
+		test("handles endpoint without trailing slash", () => {
+			const config: CosmosClientConfig = {
+				endpoint: "https://test.documents.azure.com:443",
+				key: "dGVzdC1rZXk=",
+				database: "testdb",
+			};
+
+			const client = new CosmosClient(config);
+
+			(global.fetch as jest.Mock).mockResolvedValueOnce({
+				ok: true,
+				json: async () => ({}),
+			});
+
+			void client.request("GET", "/dbs/testdb/colls/test/docs/doc1");
+
+			const callArgs = (global.fetch as jest.Mock).mock.calls[0];
+			const url = callArgs[0];
+
+			expect(url).toBe(
+				"https://test.documents.azure.com:443/dbs/testdb/colls/test/docs/doc1"
+			);
+		});
 	});
 
 	describe("request", () => {

@@ -28,10 +28,10 @@ export class CosmosClient {
 			const parsed = new CosmosAuth("").parseConnectionString(
 				config.connectionString,
 			);
-			this.endpoint = parsed.endpoint;
+			this.endpoint = parsed.endpoint.replace(/\/$/, "");
 			this.auth = new CosmosAuth(parsed.key);
 		} else if (config.endpoint && config.key) {
-			this.endpoint = config.endpoint;
+			this.endpoint = config.endpoint.replace(/\/$/, "");
 			this.auth = new CosmosAuth(config.key);
 		} else {
 			throw new Error("Must provide either connectionString or endpoint + key");
