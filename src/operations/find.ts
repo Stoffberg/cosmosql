@@ -13,7 +13,7 @@ import type {
 export interface FindUniqueArgs<
 	T,
 	PK extends keyof T,
-	S extends SelectInput<T>,
+	S extends SelectInput<T> | undefined = undefined,
 > {
 	where: { [K in PK]: T[K] } & Partial<T>;
 	select?: S;
@@ -21,7 +21,7 @@ export interface FindUniqueArgs<
 
 export interface FindManyArgs<
 	T,
-	S extends SelectInput<T>,
+	S extends SelectInput<T> | undefined = undefined,
 	PK extends keyof T = never,
 > {
 	where?: WhereInput<T>;
@@ -42,14 +42,16 @@ export class FindOperations<
 		private schema: ContainerSchema<any, TSchema, TPartitionKey>,
 	) {}
 
-	async findUnique<S extends SelectInput<InferSchema<TSchema>>>(
+	async findUnique<
+		S extends SelectInput<InferSchema<TSchema>> | undefined = undefined,
+	>(
 		args: TPartitionKey extends never
 			? PartitionKeyMissingError
-			: FindUniqueArgs<InferSchema<TSchema>, TPartitionKey, S>,
+			: FindUniqueArgs<InferSchema<TSchema>, TPartitionKey, NonNullable<S>>,
 	): Promise<
 		S extends undefined
 			? InferSchema<TSchema> | null
-			: SelectResult<InferSchema<TSchema>, S> | null
+			: SelectResult<InferSchema<TSchema>, NonNullable<S>> | null
 	> {
 		const { where, select } = args as any;
 
@@ -87,9 +89,19 @@ export class FindOperations<
 		}
 	}
 
-	async findMany<S extends SelectInput<InferSchema<TSchema>>>(
-		args: FindManyArgs<InferSchema<TSchema>, S, TPartitionKey> = {},
-	) {
+	async findMany<
+		S extends SelectInput<InferSchema<TSchema>> | undefined = undefined,
+	>(
+		args: FindManyArgs<
+			InferSchema<TSchema>,
+			NonNullable<S>,
+			TPartitionKey
+		> = {},
+	): Promise<
+		S extends undefined
+			? InferSchema<TSchema>[]
+			: SelectResult<InferSchema<TSchema>, NonNullable<S>>[]
+	> {
 		const {
 			where,
 			select,

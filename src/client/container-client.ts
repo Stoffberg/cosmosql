@@ -12,6 +12,7 @@ import type {
 	InferSchema,
 	PartitionKeyMissingError,
 	SelectInput,
+	SelectResult,
 	UpdateInput,
 } from "../types";
 import type { CosmosClient } from "./cosmos-client";
@@ -35,17 +36,23 @@ export class ContainerClient<
 		this.deleteOps = new DeleteOperations(client, schema);
 	}
 
-	findUnique<S extends SelectInput<InferSchema<TSchema>>>(
+	findUnique<
+		S extends SelectInput<InferSchema<TSchema>> | undefined = undefined,
+	>(
 		args: TPartitionKey extends never
 			? PartitionKeyMissingError
-			: FindUniqueArgs<InferSchema<TSchema>, TPartitionKey, S>,
+			: FindUniqueArgs<InferSchema<TSchema>, TPartitionKey, NonNullable<S>>,
 	) {
 		return this.findOps.findUnique(args);
 	}
 
-	findMany<S extends SelectInput<InferSchema<TSchema>>>(
-		args?: FindManyArgs<InferSchema<TSchema>, S, TPartitionKey>,
-	) {
+	findMany<S extends SelectInput<InferSchema<TSchema>> | undefined = undefined>(
+		args?: FindManyArgs<InferSchema<TSchema>, NonNullable<S>, TPartitionKey>,
+	): Promise<
+		S extends undefined
+			? InferSchema<TSchema>[]
+			: SelectResult<InferSchema<TSchema>, NonNullable<S>>[]
+	> {
 		return this.findOps.findMany(args);
 	}
 

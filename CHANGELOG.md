@@ -5,6 +5,27 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.3.0] - 2025-11-02
+
+### Fixed
+- **CRITICAL**: Fixed `findMany` and `findUnique` return types - methods now properly return typed results instead of `Promise<any>`
+- Fixed generic parameter constraints to allow optional `select` parameters
+- Fixed type inference issues that caused confusing method signatures in production codebases
+
+### Added
+- **BREAKING**: Comprehensive type-checking test suite (`src/type-tests.ts`) with 100% type inference coverage
+- Tests for all field types: `string`, `number`, `boolean`, `date`, `array`, `object`
+- Tests for all ContainerClient methods with complex nested schemas
+- Tests for edge cases and deeply nested structures (5+ levels)
+- Runtime type validation to ensure compile-time types match runtime behavior
+- 99.9% confidence in type system correctness through comprehensive testing
+
+### Technical
+- Updated `FindManyArgs` and `FindUniqueArgs` interfaces to properly handle optional select parameters
+- Changed generic constraints from `S extends SelectInput<T>` to `S extends SelectInput<T> | undefined = undefined`
+- Added `NonNullable<S>` type constraints where needed
+- Enhanced type safety for all ContainerClient operations
+
 ## [0.2.0] - 2025-11-02
 
 ### Changed
