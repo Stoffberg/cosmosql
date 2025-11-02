@@ -1,0 +1,168 @@
+---
+title: Common Patterns
+description: Real-world usage patterns for authentication, multi-tenant apps, time-series data, and more
+---
+
+## Common Patterns
+
+### User Authentication
+
+```typescript
+const users = container('users', {
+  id: field.string(),
+  email: field.string(),
+  passwordHash: field.string(),
+  createdAt: field.date(),
+  lastLoginAt: field.date().optional()
+}).partitionKey('email');
+
+// Register
+async function register(email: string, password: string) {
+  const passwordHash = await hashPassword(password);
+  
+  return await db.users.create({
+    data: {
+      id: generateId(),
+      email,
+      passwordHash,
+      createdAt: new Date()
+    }
+  });
+}
+
+// Login
+async function login(email: string, password: string) {
+  const user = await db.users.findUnique({
+    where: { email, id: email } // Using email as both ID and partition key
+  });
+  
+  if (!user || !(await verifyPassword(password, user.passwordHash))) {
+    throw new Error('Invalid credentials');
+  }
+  
+  // Update last login
+  await db.users.update({
+    where: { id: user.id, email: user.email },
+    data: { lastLoginAt: new Date() }
+  });
+  
+  return user;
+}
+```
+
+### Multi-Tenant SaaS
+
+```typescript
+const documents = container('documents', {
+  id: field.string(),
+  tenantId: field.string(),
+  name: field.string(),
+  content: field.string(),
+  createdBy: field.string(),
+  createdAt: field.date()
+}).partitionKey('tenantId'); // Partition by tenant for isolation
+
+// All queries automatically scoped to tenant
+async function getDocuments(tenantId: string) {
+  return await db.documents.findMany({
+    partitionKey: tenantId,
+    orderBy: { createdAt: 'desc' }
+  });
+}
+
+async function createDocument(tenantId: string, data: DocumentInput) {
+  return await db.documents.create({
+    data: {
+      id: generateId(),
+      tenantId, // Ensures correct partition
+      ...data,
+      createdAt: new Date()
+    }
+  });
+}
+```
+
+### Time-Series Data
+
+```typescript
+const metrics = container('metrics', {
+  id: field.string(),
+  deviceId: field.string(),
+  timestamp: field.date(),
+  temperature: field.number(),
+  humidity: field.number(),
+  ttl: field.number() // Auto-delete old data
+}).partitionKey('deviceId');
+
+// Ingest metric (auto-expires after 30 days)
+await db.metrics.create({
+  data: {
+    id: generateId(),
+    deviceId: 'device_123',
+    timestamp: new Date(),
+    temperature: 22.5,
+    humidity: 45,
+    ttl: 30 * 24 * 60 * 60 // 30 days in seconds
+  }
+});
+
+// Query recent metrics for device
+const recent = await db.metrics.findMany({
+  partitionKey: 'device_123',
+  where: {
+    timestamp: { gte: new Date(Date.now() - 24 * 60 * 60 * 1000) }
+  },
+  orderBy: { timestamp: 'desc' }
+});
+```
+
+### Shopping Cart
+
+```typescript
+const carts = container('carts', {
+  id: field.string(),
+  userId: field.string(),
+  items: field.array(field.object({
+    productId: field.string(),
+    quantity: field.number(),
+    price: field.number()
+  })),
+  total: field.number(),
+  updatedAt: field.date(),
+  ttl: field.number() // Expire abandoned carts
+}).partitionKey('userId');
+
+// Add item to cart
+async function addToCart(userId: string, item: CartItem) {
+  const cart = await db.carts.findUnique({
+    where: { id: userId, userId }
+  });
+  
+  if (!cart) {
+    return await db.carts.create({
+      data: {
+        id: userId,
+        userId,
+        items: [item],
+        total: item.price * item.quantity,
+        updatedAt: new Date(),
+        ttl: 7 * 24 * 60 * 60 // Expire after 7 days
+      }
+    });
+  }
+  
+  // Update existing cart
+  const newItems = [...cart.items, item];
+  const newTotal = newItems.reduce((sum, i) => sum + i.price * i.quantity, 0);
+  
+  return await db.carts.update({
+    where: { id: userId, userId },
+    data: {
+      items: newItems,
+      total: newTotal,
+      updatedAt: new Date()
+    }
+  });
+}
+```
+

@@ -1,0 +1,51 @@
+---
+title: Migration from Azure SDK
+description: Learn how to migrate from the official Azure CosmosDB SDK to CosmosQL
+---
+
+## Migration from Azure SDK
+
+If you're currently using the official Azure CosmosDB SDK:
+
+**Before (Azure SDK):**
+
+```typescript
+import { CosmosClient } from '@azure/cosmos';
+
+const client = new CosmosClient(connectionString);
+const database = client.database('mydb');
+const container = database.container('users');
+
+const { resource: user } = await container.items
+  .query({
+    query: 'SELECT * FROM c WHERE c.id = @id',
+    parameters: [{ name: '@id', value: 'user_123' }]
+  })
+  .fetchAll();
+
+// No type safety, easy to make mistakes
+```
+
+**After (CosmosQL):**
+
+```typescript
+import { createClient, container, field } from 'cosmosql';
+
+const users = container('users', {
+  id: field.string(),
+  email: field.string(),
+  name: field.string()
+}).partitionKey('email');
+
+const db = createClient({
+  connectionString,
+  database: 'mydb'
+}).withContainers({ users });
+
+const user = await db.users.findUnique({
+  where: { id: 'user_123', email: 'john@example.com' }
+});
+
+// Full type safety, cleaner API, enforced best practices
+```
+

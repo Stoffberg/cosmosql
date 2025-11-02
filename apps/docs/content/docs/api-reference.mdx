@@ -1,0 +1,66 @@
+---
+title: API Reference
+description: Complete API reference for CosmosQL field types, container methods, and query options
+---
+
+## API Reference
+
+### Field Types
+
+```typescript
+field.string()           // String type
+field.number()           // Number type
+field.boolean()          // Boolean type
+field.date()             // Date type
+field.array(type)        // Array of type
+field.object(schema)     // Nested object
+
+// Modifiers
+.optional()              // Makes field optional
+.default(value)          // Sets default value
+```
+
+### Container Methods
+
+```typescript
+// Query operations
+findUnique(args)         // Get single document (requires partition key)
+findMany(args)           // Get multiple documents
+query(args)              // Raw SQL query
+
+// Write operations
+create(args)             // Create single document
+createMany(args)         // Create multiple documents (same partition)
+update(args)             // Update single document
+upsert(args)             // Insert or update
+delete(args)             // Delete single document
+```
+
+### Query Options
+
+```typescript
+{
+  where: WhereClause,           // Filter conditions
+  select: SelectClause,         // Choose fields to return
+  orderBy: OrderByClause,       // Sort results
+  take: number,                 // Limit results (max)
+  skip: number,                 // Offset results
+  partitionKey: string | any[], // Scope to partition
+  enableCrossPartitionQuery: boolean // Allow expensive cross-partition
+}
+```
+
+---
+
+This documentation gives you everything you need to start building with CosmosQL. The library enforces CosmosDB best practices at the type level, preventing costly mistakes before they reach production.
+
+**Next Steps:**
+
+1. Install CosmosQL: `npm install cosmosql`
+
+2. Define your schema
+
+3. Start querying with full type safety
+
+For questions or issues, visit [GitHub repository](#) or join our [Discord community](#).
+

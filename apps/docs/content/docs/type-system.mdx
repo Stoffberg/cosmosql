@@ -1,0 +1,80 @@
+---
+title: Type System Deep Dive
+description: Understanding how CosmosQL's type inference works and leveraging it effectively
+---
+
+## Type System Deep Dive
+
+### How Type Inference Works
+
+CosmosQL leverages TypeScript's powerful type inference to provide compile-time safety:
+
+```typescript
+const users = container('users', {
+  id: field.string(),
+  email: field.string(),
+  name: field.string().optional(),
+  age: field.number()
+}).partitionKey('email');
+
+// The type is automatically inferred:
+type User = typeof users.infer;
+// {
+//   id: string;
+//   email: string;
+//   name?: string;
+//   age: number;
+// }
+
+// Query results are typed automatically
+const user = await db.users.findUnique({
+  where: { id: '123', email: 'john@example.com' }
+});
+// Type: User | null (no manual type annotation needed!)
+
+// Select creates a new type
+const partial = await db.users.findUnique({
+  where: { id: '123', email: 'john@example.com' },
+  select: { name: true, age: true }
+});
+// Type: { name?: string; age: number } | null
+```
+
+### Custom Type Errors
+
+When you make a mistake, CosmosQL provides helpful error messages:
+
+```typescript
+// Missing partition key
+const user = await db.users.findUnique({
+  where: { id: '123' }
+});
+
+// Error message in IDE:
+// ❌ PARTITION KEY REQUIRED
+//
+// This operation requires a partition key to avoid expensive cross-partition queries.
+//
+// 💡 Fix: Add the partition key to your where clause:
+//    where: { id: '123', email: 'john@example.com' }
+//
+// 📖 Learn more about partition keys: https://cosmosql.dev/docs/partition-keys
+```
+
+### Type Guards
+
+Runtime type checking when needed:
+
+```typescript
+import { isCosmosError } from 'cosmosql';
+
+try {
+  await db.users.create({ data: user });
+} catch (error) {
+  if (isCosmosError(error)) {
+    // error is now typed as CosmosError
+    console.log(error.code, error.statusCode, error.retryAfter);
+  }
+}
+```
+

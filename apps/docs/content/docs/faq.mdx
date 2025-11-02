@@ -1,0 +1,35 @@
+---
+title: FAQ
+description: Frequently asked questions about CosmosQL
+---
+
+## FAQ
+
+**Q: Does CosmosQL support all CosmosDB features?**
+
+A: CosmosQL covers the core CRUD operations and query patterns used in 95% of applications. Advanced features like stored procedures, triggers, and change feed are not yet supported but planned for future releases.
+
+**Q: Can I use CosmosQL with JavaScript?**
+
+A: CosmosQL requires TypeScript. The core value proposition is compile-time type safety, which isn't possible with JavaScript.
+
+**Q: What's the performance overhead compared to direct REST API calls?**
+
+A: Minimal. CosmosQL is a thin wrapper that generates REST API calls. There's no schema validation at runtime - all checks happen at compile time.
+
+**Q: Can I migrate an existing CosmosDB database to CosmosQL?**
+
+A: Yes! CosmosQL works with existing databases. Define your schema to match your current structure, and you're ready to go. No migration needed.
+
+**Q: How do I handle schema changes?**
+
+A: CosmosDB is schemaless, so you can add new fields anytime. For breaking changes, consider versioning your documents or using a migration strategy specific to your application.
+
+**Q: Does CosmosQL support MongoDB API or Gremlin API?**
+
+A: No. CosmosQL is designed specifically for the SQL API (Core API). Other APIs have different query patterns and are not supported.
+
+**Q: Can I use this in production?**
+
+A: Yes. CosmosQL is production-ready. The library is minimal with no dependencies, making it stable and maintainable.
+

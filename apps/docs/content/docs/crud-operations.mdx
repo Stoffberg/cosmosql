@@ -1,0 +1,303 @@
+---
+title: CRUD Operations
+description: Create, read, update, and delete documents with CosmosQL
+---
+
+## CRUD Operations
+
+### Create
+
+**Single Document:**
+
+```typescript
+const newUser = await db.users.create({
+  data: {
+    id: 'user_123',
+    email: 'john@example.com',
+    name: 'John Doe',
+    age: 30,
+    isActive: true,
+    createdAt: new Date()
+  }
+});
+
+// Type: User (fully typed result)
+```
+
+**With Partial Data (defaults/optional fields):**
+
+```typescript
+const user = await db.users.create({
+  data: {
+    id: 'user_124',
+    email: 'jane@example.com',
+    name: 'Jane Smith',
+    age: 28,
+    createdAt: new Date()
+    // isActive uses default (true)
+  }
+});
+```
+
+**Bulk Create (Same Partition):**
+
+```typescript
+// All documents MUST share the same partition key
+await db.posts.createMany({
+  data: [
+    { id: 'post_1', userId: 'user_123', title: 'First Post', content: '...' },
+    { id: 'post_2', userId: 'user_123', title: 'Second Post', content: '...' },
+    { id: 'post_3', userId: 'user_123', title: 'Third Post', content: '...' }
+  ],
+  partitionKey: 'user_123' // Required: ensures all docs are in same partition
+});
+```
+
+**Why Same Partition?** CosmosDB batch operations only work within a single partition. This is enforced at the type level.
+
+### Read
+
+**Find Unique (Point Read):**
+
+```typescript
+// Most efficient query: Direct document lookup with partition key
+const user = await db.users.findUnique({
+  where: {
+    id: 'user_123',
+    email: 'john@example.com' // Partition key REQUIRED
+  }
+});
+
+// Type: User | null
+```
+
+**Compile-Time Error Without Partition Key:**
+
+```typescript
+const user = await db.users.findUnique({
+  where: {
+    id: 'user_123'
+    // Missing email (partition key)
+  }
+});
+
+// ❌ TypeScript Error:
+// Property 'email' is missing in type '{ id: string; }'
+// but required in type '{ email: string; }'
+```
+
+**Find Many (Partition-Scoped):**
+
+```typescript
+// Query within a single partition (efficient: ~5 RU)
+const userPosts = await db.posts.findMany({
+  partitionKey: 'user_123', // Limits search to one partition
+  where: {
+    isPublished: true
+  },
+  orderBy: {
+    publishedAt: 'desc'
+  },
+  take: 10
+});
+
+// Type: Post[]
+```
+
+**Find Many (Cross-Partition):**
+
+```typescript
+// Query across all partitions (expensive: ~50-100+ RU)
+const recentPosts = await db.posts.findMany({
+  where: {
+    isPublished: true,
+    publishedAt: { gte: new Date('2024-01-01') }
+  },
+  enableCrossPartitionQuery: true, // Explicit opt-in required
+  orderBy: {
+    publishedAt: 'desc'
+  },
+  take: 20
+});
+```
+
+**Why Explicit Opt-In?** Cross-partition queries are expensive. Making them explicit prevents accidental high costs.
+
+**Select Specific Fields:**
+
+```typescript
+const user = await db.users.findUnique({
+  where: { id: 'user_123', email: 'john@example.com' },
+  select: {
+    name: true,
+    age: true,
+    email: true
+  }
+});
+
+// Type: { name: string; age: number; email: string } | null
+```
+
+**Select Nested Fields:**
+
+```typescript
+const post = await db.posts.findUnique({
+  where: { id: 'post_1', userId: 'user_123' },
+  select: {
+    title: true,
+    metadata: {
+      source: true
+      // version excluded
+    }
+  }
+});
+
+// Type: { title: string; metadata?: { source: string } } | null
+```
+
+**Where Clause Operators:**
+
+```typescript
+await db.users.findMany({
+  partitionKey: 'john@example.com',
+  where: {
+    // Exact match
+    isActive: true,
+    
+    // Number comparisons
+    age: { gte: 18, lte: 65 },
+    
+    // String operations
+    name: { startsWith: 'John' },
+    
+    // Array operations
+    tags: { contains: 'premium' }
+  }
+});
+```
+
+**Pagination:**
+
+```typescript
+// Page 1
+const page1 = await db.posts.findMany({
+  enableCrossPartitionQuery: true,
+  take: 20,
+  skip: 0
+});
+
+// Page 2
+const page2 = await db.posts.findMany({
+  enableCrossPartitionQuery: true,
+  take: 20,
+  skip: 20
+});
+```
+
+### Update
+
+**Update Single Document:**
+
+```typescript
+await db.users.update({
+  where: {
+    id: 'user_123',
+    email: 'john@example.com' // Partition key required
+  },
+  data: {
+    age: 31,
+    name: 'John Updated'
+  }
+});
+```
+
+**Partial Updates:**
+
+```typescript
+await db.users.update({
+  where: { id: 'user_123', email: 'john@example.com' },
+  data: {
+    age: 31
+    // Other fields remain unchanged
+  }
+});
+```
+
+**Update Nested Fields:**
+
+```typescript
+await db.posts.update({
+  where: { id: 'post_1', userId: 'user_123' },
+  data: {
+    'metadata.version': 2, // Path-based update
+    title: 'Updated Title'
+  }
+});
+```
+
+**Increment/Decrement:**
+
+```typescript
+await db.posts.update({
+  where: { id: 'post_1', userId: 'user_123' },
+  data: {
+    viewCount: { increment: 1 }
+  }
+});
+```
+
+### Upsert
+
+Insert if doesn't exist, update if it does:
+
+```typescript
+await db.users.upsert({
+  where: {
+    id: 'user_123',
+    email: 'john@example.com'
+  },
+  create: {
+    // Full user object for creation
+    id: 'user_123',
+    email: 'john@example.com',
+    name: 'John Doe',
+    age: 30,
+    isActive: true,
+    createdAt: new Date()
+  },
+  update: {
+    // Partial update
+    age: 31,
+    name: 'John Updated'
+  }
+});
+```
+
+**Why Upsert?** Common pattern in distributed systems where you want idempotent operations.
+
+### Delete
+
+**Delete Single Document:**
+
+```typescript
+await db.users.delete({
+  where: {
+    id: 'user_123',
+    email: 'john@example.com' // Partition key required
+  }
+});
+```
+
+**Soft Delete Pattern:**
+
+```typescript
+// Instead of deleting, mark as inactive
+await db.users.update({
+  where: { id: 'user_123', email: 'john@example.com' },
+  data: {
+    isActive: false,
+    deletedAt: new Date()
+  }
+});
+```
+

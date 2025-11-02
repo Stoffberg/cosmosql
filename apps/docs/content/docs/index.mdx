@@ -1,13 +1,76 @@
 ---
-title: Hello World
-description: Your first document
+title: CosmosQL Documentation
+description: A lightweight, type-safe ORM for Azure CosmosDB
 ---
 
-Welcome to the docs! You can start writing documents in `/content/docs`.
+# CosmosQL Documentation
 
-## What is Next?
+## Introduction
 
-<Cards>
-  <Card title="Learn more about Next.js" href="https://nextjs.org/docs" />
-  <Card title="Learn more about Fumadocs" href="https://fumadocs.dev" />
-</Cards>
+### What is CosmosQL?
+
+CosmosQL is a lightweight, type-safe ORM for Azure CosmosDB that makes working with NoSQL databases feel as safe and productive as SQL with Prisma, while maintaining the raw speed of Drizzle ORM.
+
+**Key Features:**
+
+- 🎯 **100% Type-Safe** - Catch errors at compile time, not runtime
+
+- ⚡ **Zero Overhead** - Direct REST API calls, no heavy SDK
+
+- 🧠 **Partition Key Aware** - Enforces best practices at the type level
+
+- 📦 **Minimal Dependencies** - Only TypeScript, no external packages
+
+- 🎨 **Excellent DX** - Intuitive API inspired by Prisma
+
+- 🚀 **Production Ready** - Built for performance and reliability
+
+### Why CosmosQL?
+
+**The Problem with Existing Solutions:**
+
+Azure's official SDK is powerful but comes with significant drawbacks:
+
+- Heavy dependency footprint (50+ packages)
+
+- Weak TypeScript support with loose typing
+
+- Easy to write expensive cross-partition queries accidentally
+
+- Partition keys are an afterthought in the API design
+
+- Complex setup and configuration
+
+**The CosmosQL Approach:**
+
+We believe that CosmosDB-specific challenges deserve CosmosDB-specific solutions:
+
+- **Partition keys are first-class citizens** - Required by default, explicit when needed
+
+- **Type safety prevents costly mistakes** - Cross-partition queries require explicit opt-in
+
+- **Direct REST API** - Skip the SDK, use native Node.js HTTP
+
+- **Zero runtime validation** - All checks happen at compile time
+
+### When to Use CosmosQL
+
+✅ **Perfect For:**
+
+- TypeScript applications requiring type safety
+
+- Teams new to CosmosDB who need guardrails
+
+- Performance-critical applications
+
+- Microservices with minimal dependency budgets
+
+- Projects that value developer experience
+
+❌ **Not Ideal For:**
+
+- JavaScript-only projects (TypeScript required)
+
+- Applications needing advanced CosmosDB features (graph API, MongoDB API)
+
+- Projects already heavily invested in Azure SDK ecosystem

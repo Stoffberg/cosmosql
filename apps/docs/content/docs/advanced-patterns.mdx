@@ -1,0 +1,172 @@
+---
+title: Advanced Patterns
+description: Working with partition keys, TTL, raw queries, and error handling
+---
+
+## Advanced Patterns
+
+### Working with Partition Keys
+
+**Understanding the Trade-offs:**
+
+```typescript
+// ✅ GOOD: Query with partition key (1-5 RU)
+const posts = await db.posts.findMany({
+  partitionKey: 'user_123',
+  where: { isPublished: true }
+});
+
+// ⚠️ EXPENSIVE: Cross-partition query (50-100+ RU)
+const posts = await db.posts.findMany({
+  enableCrossPartitionQuery: true,
+  where: { isPublished: true }
+});
+```
+
+**Choosing a Good Partition Key:**
+
+Good partition keys have:
+
+- **High cardinality** - Many unique values (e.g., userId, email)
+
+- **Even distribution** - Data spread evenly across values
+
+- **Query alignment** - Most queries filter by this field
+
+```typescript
+// ✅ Good: User emails (high cardinality, even distribution)
+const users = container('users', schema).partitionKey('email');
+
+// ✅ Good: UserId for user-specific data
+const posts = container('posts', schema).partitionKey('userId');
+
+// ❌ Bad: Boolean field (only 2 values, uneven distribution)
+const users = container('users', schema).partitionKey('isActive');
+
+// ❌ Bad: Status with few values
+const orders = container('orders', schema).partitionKey('status');
+```
+
+### Composite Partition Keys
+
+When you need multi-tenant data or hierarchical structures:
+
+```typescript
+const documents = container('documents', {
+  id: field.string(),
+  tenantId: field.string(),
+  organizationId: field.string(),
+  name: field.string(),
+  content: field.string()
+}).partitionKey('tenantId', 'organizationId'); // Composite key
+
+// Querying requires both parts
+const docs = await db.documents.findMany({
+  partitionKey: ['tenant_1', 'org_a'], // Array for composite keys
+  where: { name: { startsWith: 'Report' } }
+});
+```
+
+### TTL (Time-To-Live)
+
+Auto-expire documents after a period:
+
+```typescript
+const sessions = container('sessions', {
+  id: field.string(),
+  userId: field.string(),
+  token: field.string(),
+  createdAt: field.date(),
+  ttl: field.number() // Seconds until auto-delete
+}).partitionKey('userId');
+
+// Create session that expires in 1 hour
+await db.sessions.create({
+  data: {
+    id: 'session_123',
+    userId: 'user_123',
+    token: 'abc...',
+    createdAt: new Date(),
+    ttl: 3600 // 1 hour in seconds
+  }
+});
+
+// CosmosDB automatically deletes after 1 hour
+```
+
+### Raw Queries
+
+For advanced use cases beyond the query builder:
+
+```typescript
+const result = await db.users.query<{ name: string; age: number }>({
+  sql: `
+    SELECT c.name, c.age 
+    FROM c 
+    WHERE c.age > @minAge 
+    AND c.isActive = @active
+  `,
+  parameters: [
+    { name: '@minAge', value: 18 },
+    { name: '@active', value: true }
+  ],
+  partitionKey: 'john@example.com' // Optional: for partition-scoped query
+});
+
+// Type: Array<{ name: string; age: number }>
+```
+
+**When to Use Raw Queries:**
+
+- Complex aggregations
+
+- CosmosDB-specific functions (e.g., spatial queries)
+
+- Performance optimization with custom SQL
+
+- Features not yet supported by query builder
+
+### Error Handling
+
+```typescript
+import { CosmosError } from 'cosmosql';
+
+try {
+  await db.users.create({ data: user });
+} catch (error) {
+  if (error instanceof CosmosError) {
+    switch (error.code) {
+      case 409: // Conflict (duplicate ID)
+        console.error('User already exists');
+        break;
+      case 429: // Too Many Requests (rate limit)
+        console.error('Rate limited, retry after:', error.retryAfter);
+        break;
+      case 404: // Not Found
+        console.error('Container or database not found');
+        break;
+      default:
+        console.error('CosmosDB error:', error.message);
+    }
+  } else {
+    throw error;
+  }
+}
+```
+
+**Auto-Retry on 429:**
+
+```typescript
+const db = createClient({
+  connectionString: '...',
+  database: 'myapp',
+  retryOptions: {
+    maxRetries: 3,
+    initialDelay: 100, // ms
+    maxDelay: 5000 // ms
+  }
+}).withContainers({ users });
+
+// Automatically retries with exponential backoff on 429 errors
+```
+

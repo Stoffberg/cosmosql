@@ -1,0 +1,123 @@
+---
+title: Core Concepts
+description: Understand CosmosDB fundamentals, schema definition, and client setup
+---
+
+## Core Concepts
+
+### Understanding CosmosDB Fundamentals
+
+Before diving into CosmosQL, it's crucial to understand how CosmosDB works:
+
+**Partition Keys:**
+
+CosmosDB is a distributed database that shards your data across multiple physical partitions. The partition key determines which partition stores each document. This design has major implications:
+
+- **Within-partition queries** are fast and cheap (~1-5 RU)
+
+- **Cross-partition queries** scan all partitions and are expensive (~50-100+ RU)
+
+- All documents in a transaction must share the same partition key
+
+- Choosing the right partition key is critical for performance and cost
+
+**Request Units (RU):**
+
+CosmosDB charges based on Request Units consumed. Reading a 1KB document costs ~1 RU. Cross-partition queries, writes, and complex operations cost more.
+
+**Why This Matters:**
+
+Poor partition key strategy or accidental cross-partition queries can increase costs by 10-100x. CosmosQL is designed to prevent these mistakes at compile time.
+
+### Schema Definition
+
+Schemas in CosmosQL are simple TypeScript objects that define your data structure:
+
+```typescript
+import { container, field } from 'cosmosql';
+
+const posts = container('posts', {
+  // Required fields
+  id: field.string(),
+  userId: field.string(),
+  title: field.string(),
+  content: field.string(),
+  
+  // Optional fields
+  subtitle: field.string().optional(),
+  publishedAt: field.date().optional(),
+  
+  // Fields with defaults
+  viewCount: field.number().default(0),
+  isPublished: field.boolean().default(false),
+  
+  // Arrays
+  tags: field.array(field.string()),
+  
+  // Nested objects
+  metadata: field.object({
+    source: field.string(),
+    version: field.number()
+  }).optional(),
+  
+  // Special CosmosDB field
+  ttl: field.number().optional() // Auto-delete after N seconds
+}).partitionKey('userId'); // Define partition key
+
+// Extract TypeScript type
+type Post = typeof posts.infer;
+// Result:
+// {
+//   id: string;
+//   userId: string;
+//   title: string;
+//   content: string;
+//   subtitle?: string;
+//   publishedAt?: Date;
+//   viewCount: number;
+//   isPublished: boolean;
+//   tags: string[];
+//   metadata?: { source: string; version: number };
+//   ttl?: number;
+// }
+```
+
+**Why This Syntax?**
+
+This approach combines the best of both worlds:
+
+- **Drizzle-style**: Schemas are data, not decorators or classes
+
+- **Prisma-style**: Familiar, readable API
+
+- **Type inference**: Full TypeScript support with zero boilerplate
+
+- **Composable**: Schemas can be reused and extended
+
+### Client Setup
+
+```typescript
+import { createClient } from 'cosmosql';
+
+const db = createClient({
+  // Option 1: Connection string
+  connectionString: 'AccountEndpoint=https://mydb.documents.azure.com:443/;AccountKey=...',
+  
+  // Option 2: Separate endpoint and key
+  endpoint: 'https://mydb.documents.azure.com:443/',
+  key: 'your-master-key',
+  
+  // Required: Database name
+  database: 'production'
+}).withContainers({
+  users,
+  posts,
+  comments
+});
+
+// Type-safe access to containers
+db.users     // ContainerClient<User>
+db.posts     // ContainerClient<Post>
+db.comments  // ContainerClient<Comment>
+```
+

@@ -1,0 +1,45 @@
+---
+title: Getting Started
+description: Install CosmosQL and create your first queries
+---
+
+## Getting Started
+
+### Installation
+
+```bash
+npm install cosmosql
+```
+
+### Quick Start
+
+```typescript
+import { createClient, container, field } from 'cosmosql';
+
+// 1. Define your schema
+const users = container('users', {
+  id: field.string(),
+  email: field.string(),
+  name: field.string(),
+  age: field.number(),
+  isActive: field.boolean().default(true),
+  createdAt: field.date()
+}).partitionKey('email');
+
+// 2. Create a client
+const db = createClient({
+  connectionString: process.env.COSMOS_CONNECTION_STRING!,
+  database: 'myapp'
+}).withContainers({
+  users
+});
+
+// 3. Start querying with full type safety
+const user = await db.users.findUnique({
+  where: {
+    id: 'user_123',
+    email: 'john@example.com' // Partition key required!
+  }
+});
+```
+
