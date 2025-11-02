@@ -1,3 +1,27 @@
 @import "tailwindcss";
 @import "fumadocs-ui/css/neutral.css";
 @import "fumadocs-ui/css/preset.css";
+@import "fumadocs-ui/css/shiki.css";
+
+/* Clean base styles */
+* {
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* Better button focus styles */
+button:focus-visible,
+a:focus-visible {
+  outline: 2px solid #000;
+  outline-offset: 2px;
+}
+
+/* Syntax highlighter override for cleaner look */
+pre[class*="language-"] {
+  border-radius: 0.5rem;
+}
+
+/* Smooth transitions */
+a, button {
+  transition: all 0.15s ease;
+}
