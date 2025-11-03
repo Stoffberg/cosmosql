@@ -256,36 +256,36 @@ describe("QueryBuilder", () => {
 			expect(query).toContain("SELECT *");
 		});
 
-		test("selects specific fields", () => {
-			const builder = new QueryBuilder();
-			builder.select(["name", "email"]);
+	test("selects specific fields", () => {
+		const builder = new QueryBuilder();
+		builder.select(["name", "email"]);
 
-			const { query } = builder.build();
+		const { query } = builder.build();
 
-			expect(query).toContain("SELECT c.name, c.email");
-			expect(query).not.toContain("*");
-		});
+		expect(query).toContain('SELECT c["name"], c["email"]');
+		expect(query).not.toContain("*");
+	});
 
-		test("selects single field", () => {
-			const builder = new QueryBuilder();
-			builder.select(["id"]);
+	test("selects single field", () => {
+		const builder = new QueryBuilder();
+		builder.select(["id"]);
 
-			const { query } = builder.build();
+		const { query } = builder.build();
 
-			expect(query).toContain("SELECT c.id");
-		});
+		expect(query).toContain('SELECT c["id"]');
+	});
 
-		test("selects multiple fields", () => {
-			const builder = new QueryBuilder();
-			builder.select(["id", "name", "email", "age"]);
+	test("selects multiple fields", () => {
+		const builder = new QueryBuilder();
+		builder.select(["id", "name", "email", "age"]);
 
-			const { query } = builder.build();
+		const { query } = builder.build();
 
-			expect(query).toContain("c.id");
-			expect(query).toContain("c.name");
-			expect(query).toContain("c.email");
-			expect(query).toContain("c.age");
-		});
+		expect(query).toContain('c["id"]');
+		expect(query).toContain('c["name"]');
+		expect(query).toContain('c["email"]');
+		expect(query).toContain('c["age"]');
+	});
 
 		test("empty select defaults to all", () => {
 			const builder = new QueryBuilder();
@@ -416,7 +416,7 @@ describe("QueryBuilder", () => {
 
 			const { query, parameters } = builder.build();
 
-			expect(query).toContain("SELECT c.name, c.age");
+			expect(query).toContain('SELECT c["name"], c["age"]');
 			expect(query).toContain("FROM c");
 			expect(query).toMatch(/WHERE c\["age"\] >= @param0/);
 			expect(query).toMatch(/ORDER BY c\["age"\] DESC/);

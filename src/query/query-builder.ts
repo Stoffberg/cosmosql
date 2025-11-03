@@ -100,7 +100,7 @@ export class QueryBuilder<T> {
 		}
 
 		if (this.selectFields.length > 0) {
-			query += this.selectFields.map((f) => `c.${f}`).join(", ");
+			query += this.selectFields.map((f) => `c["${f}"]`).join(", ");
 		} else {
 			query += "*";
 		}

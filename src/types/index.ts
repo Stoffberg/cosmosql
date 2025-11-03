@@ -1,4 +1,15 @@
 // Re-export from sub-modules
+
+export type {
+	AggregateOperations,
+	AggregateOptions,
+	AggregateResult,
+	CountOptions,
+	ExtractAggregateOps,
+	GroupByOptions,
+	GroupByResult,
+	KeysOfType,
+} from "./aggregate";
 export type {
 	CreateInput,
 	InferFieldType,

@@ -1,6 +1,6 @@
 {
   "name": "cosmosql",
-  "version": "0.6.0",
+  "version": "0.7.0",
   "description": "Type-safe, minimal ORM for Azure CosmosDB",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",

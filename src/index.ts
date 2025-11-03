@@ -12,7 +12,9 @@ export { container, type IndexingPolicy } from "./schema/container";
 export { field } from "./schema/field";
 export type { ContainerMode };
 
+export type { FindManyResult } from "./operations/find";
 export type {
+	AggregateOperations,
 	CreateInput,
 	InferSchema,
 	OrderByInput,

@@ -358,6 +358,245 @@ describe("FindOperations", () => {
 			// This test verifies the select parameter is passed to QueryBuilder
 			expect(result).toHaveLength(1);
 		});
+
+		describe("with aggregations", () => {
+			test("returns data and aggregations when aggregate is provided", async () => {
+				const ops = new FindOperations(mockClient, schema);
+				const args = {
+					partitionKey: "test@example.com",
+					aggregate: {
+						_count: true,
+						_avg: { id: true },
+					},
+				};
+
+				const dataResult = {
+					Documents: [
+						{ id: "1", email: "test@example.com", name: "John" },
+						{ id: "2", email: "test@example.com", name: "Jane" },
+					],
+				};
+
+				const aggResult = {
+					Documents: [{ _count: 2, _avg_id: 1.5 }],
+				};
+
+				mockClient.request.mockResolvedValueOnce(dataResult).mockResolvedValueOnce(aggResult);
+
+				const result = await ops.findMany(args as any);
+
+				// Should make two requests
+				expect(mockClient.request).toHaveBeenCalledTimes(2);
+
+				// Result should have data and aggregations
+				expect(result).toHaveProperty("data");
+				expect(result).toHaveProperty("_count");
+				expect(result).toHaveProperty("_avg");
+
+				expect((result as any).data).toEqual(dataResult.Documents);
+				expect((result as any)._count).toBe(2);
+				expect((result as any)._avg).toEqual({ id: 1.5 });
+			});
+
+			test("executes both queries in parallel", async () => {
+				const ops = new FindOperations(mockClient, schema);
+				const args = {
+					partitionKey: "test@example.com",
+					aggregate: { _count: true },
+				};
+
+				const dataResult = { Documents: [{ id: "1" }] };
+				const aggResult = { Documents: [{ _count: 1 }] };
+
+				mockClient.request.mockResolvedValueOnce(dataResult).mockResolvedValueOnce(aggResult);
+
+				await ops.findMany(args as any);
+
+				// Both requests should be made
+				expect(mockClient.request).toHaveBeenCalledTimes(2);
+
+				// First call is data query
+				const dataCall = mockClient.request.mock.calls[0];
+				expect(dataCall[2]).toHaveProperty("query");
+
+				// Second call is aggregate query
+				const aggCall = mockClient.request.mock.calls[1];
+				expect(aggCall[2]).toHaveProperty("query");
+			});
+
+			test("combines aggregate with where clause", async () => {
+				const ops = new FindOperations(mockClient, schema);
+				const args = {
+					partitionKey: "test@example.com",
+					where: { name: "John" },
+					aggregate: { _count: true },
+				};
+
+				mockClient.request
+					.mockResolvedValueOnce({ Documents: [] })
+					.mockResolvedValueOnce({ Documents: [{ _count: 0 }] });
+
+				await ops.findMany(args as any);
+
+				// Both queries should include the where clause
+				const dataCall = mockClient.request.mock.calls[0];
+				const aggCall = mockClient.request.mock.calls[1];
+
+				expect((dataCall[2] as any).query).toContain("WHERE");
+				expect((aggCall[2] as any).query).toContain("WHERE");
+			});
+
+			test("supports multiple aggregation operations", async () => {
+				const schemaWithNumbers = container("stats", {
+					id: field.string(),
+					email: field.string(),
+					age: field.number(),
+					score: field.number(),
+				}).partitionKey("email");
+
+				const ops = new FindOperations(mockClient, schemaWithNumbers as any);
+				const args = {
+					partitionKey: "test@example.com",
+					aggregate: {
+						_count: true,
+						_avg: { age: true, score: true },
+						_min: { age: true },
+						_max: { score: true },
+					},
+				};
+
+				mockClient.request.mockResolvedValueOnce({ Documents: [] }).mockResolvedValueOnce({
+					Documents: [
+						{
+							_count: 10,
+							_avg_age: 25,
+							_avg_score: 85,
+							_min_age: 20,
+							_max_score: 95,
+						},
+					],
+				});
+
+				const result = await ops.findMany(args as any);
+
+				expect(result).toHaveProperty("_count", 10);
+				expect(result).toHaveProperty("_avg");
+				expect((result as any)._avg).toEqual({ age: 25, score: 85 });
+				expect(result).toHaveProperty("_min");
+				expect((result as any)._min).toEqual({ age: 20 });
+				expect(result).toHaveProperty("_max");
+				expect((result as any)._max).toEqual({ score: 95 });
+			});
+
+			test("works with cross-partition queries", async () => {
+				const ops = new FindOperations(mockClient, schema);
+				const args = {
+					enableCrossPartitionQuery: true,
+					aggregate: { _count: true },
+				};
+
+				mockClient.request
+					.mockResolvedValueOnce({ Documents: [] })
+					.mockResolvedValueOnce({ Documents: [{ _count: 0 }] });
+
+				await ops.findMany(args as any);
+
+				// Both calls should have enableCrossPartitionQuery
+				expect(mockClient.request).toHaveBeenCalledTimes(2);
+				expect(mockClient.request.mock.calls[0][4]).toBe(true);
+				expect(mockClient.request.mock.calls[1][4]).toBe(true);
+			});
+
+			test("handles select with aggregations", async () => {
+				const ops = new FindOperations(mockClient, schema);
+				const args = {
+					partitionKey: "test@example.com",
+					select: { id: true, name: true },
+					aggregate: { _count: true },
+				};
+
+				mockClient.request
+					.mockResolvedValueOnce({ Documents: [{ id: "1", name: "John" }] })
+					.mockResolvedValueOnce({ Documents: [{ _count: 1 }] });
+
+				const result = await ops.findMany(args as any);
+
+				expect(result).toHaveProperty("data");
+				expect((result as any).data).toEqual([{ id: "1", name: "John" }]);
+				expect((result as any)._count).toBe(1);
+			});
+
+			test("handles pagination with aggregations", async () => {
+				const ops = new FindOperations(mockClient, schema);
+				const args = {
+					partitionKey: "test@example.com",
+					take: 10,
+					skip: 5,
+					aggregate: { _count: true },
+				};
+
+				mockClient.request
+					.mockResolvedValueOnce({ Documents: [] })
+					.mockResolvedValueOnce({ Documents: [{ _count: 50 }] });
+
+				const result = await ops.findMany(args as any);
+
+				// Data query should have pagination
+				const dataCall = mockClient.request.mock.calls[0];
+				expect((dataCall[2] as any).query).toContain("LIMIT");
+				expect((dataCall[2] as any).query).toContain("OFFSET");
+
+				// Aggregate query should NOT have pagination (counts all)
+				const aggCall = mockClient.request.mock.calls[1];
+				expect((aggCall[2] as any).query).not.toContain("LIMIT");
+				expect((aggCall[2] as any).query).not.toContain("OFFSET");
+
+				// Result should have both data and count
+				expect(result).toHaveProperty("data");
+				expect(result).toHaveProperty("_count");
+			});
+
+			test("handles orderBy with aggregations", async () => {
+				const ops = new FindOperations(mockClient, schema);
+				const args = {
+					partitionKey: "test@example.com",
+					orderBy: { name: "desc" as const },
+					aggregate: { _count: true },
+				};
+
+				mockClient.request
+					.mockResolvedValueOnce({ Documents: [] })
+					.mockResolvedValueOnce({ Documents: [{ _count: 0 }] });
+
+				await ops.findMany(args as any);
+
+				// Data query should have ORDER BY
+				const dataCall = mockClient.request.mock.calls[0];
+				expect((dataCall[2] as any).query).toContain("ORDER BY");
+
+				// Aggregate query should NOT have ORDER BY
+				const aggCall = mockClient.request.mock.calls[1];
+				expect((aggCall[2] as any).query).not.toContain("ORDER BY");
+			});
+
+			test("returns plain array when no aggregate provided", async () => {
+				const ops = new FindOperations(mockClient, schema);
+				const args = {
+					partitionKey: "test@example.com",
+				};
+
+				mockClient.request.mockResolvedValue({
+					Documents: [{ id: "1" }, { id: "2" }],
+				});
+
+				const result = await ops.findMany(args);
+
+				// Should return plain array, not object with data property
+				expect(Array.isArray(result)).toBe(true);
+				expect(result).toHaveLength(2);
+				expect(result).not.toHaveProperty("data");
+			});
+		});
 	});
 
 	describe("query", () => {

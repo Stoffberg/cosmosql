@@ -1,14 +1,27 @@
+import { AggregateOps } from "../operations/aggregate";
 import { CreateOperations } from "../operations/create";
 import { DeleteOperations } from "../operations/delete";
-import { type FindManyArgs, FindOperations, type FindUniqueArgs } from "../operations/find";
+import {
+	type FindManyArgs,
+	type FindManyResult,
+	FindOperations,
+	type FindUniqueArgs,
+} from "../operations/find";
 import { UpdateOperations } from "../operations/update";
 import type { ContainerSchema } from "../schema/container";
 import type {
+	AggregateOperations,
+	AggregateOptions,
+	AggregateResult,
+	CountOptions,
 	CreateInput,
+	ExtractAggregateOps,
+	GroupByOptions,
+	GroupByResult,
 	InferSchema,
+	KeysOfType,
 	PartitionKeyMissingError,
 	SelectInput,
-	SelectResult,
 	UpdateInput,
 } from "../types";
 import type { CosmosClient } from "./cosmos-client";
@@ -21,12 +34,14 @@ export class ContainerClient<
 	private createOps: CreateOperations<TSchema, TPartitionKey>;
 	private updateOps: UpdateOperations<TSchema, TPartitionKey>;
 	private deleteOps: DeleteOperations<TSchema, TPartitionKey>;
+	private aggregateOps: AggregateOps<TSchema, TPartitionKey>;
 
 	constructor(client: CosmosClient, schema: ContainerSchema<any, TSchema, TPartitionKey>) {
 		this.findOps = new FindOperations(client, schema);
 		this.createOps = new CreateOperations(client, schema);
 		this.updateOps = new UpdateOperations(client, schema);
 		this.deleteOps = new DeleteOperations(client, schema);
+		this.aggregateOps = new AggregateOps(client, schema);
 	}
 
 	findUnique<S extends SelectInput<InferSchema<TSchema>> | undefined = undefined>(
@@ -37,13 +52,12 @@ export class ContainerClient<
 		return this.findOps.findUnique(args);
 	}
 
-	findMany<S extends SelectInput<InferSchema<TSchema>> | undefined = undefined>(
-		args?: FindManyArgs<InferSchema<TSchema>, NonNullable<S>, TPartitionKey>,
-	): Promise<
-		S extends undefined
-			? InferSchema<TSchema>[]
-			: SelectResult<InferSchema<TSchema>, NonNullable<S>>[]
-	> {
+	findMany<
+		S extends SelectInput<InferSchema<TSchema>> | undefined = undefined,
+		A extends AggregateOperations<InferSchema<TSchema>> | undefined = undefined,
+	>(
+		args?: FindManyArgs<InferSchema<TSchema>, NonNullable<S>, TPartitionKey, A>,
+	): Promise<FindManyResult<InferSchema<TSchema>, S, A>> {
 		return this.findOps.findMany(args);
 	}
 
@@ -93,5 +107,71 @@ export class ContainerClient<
 				},
 	) {
 		return this.deleteOps.delete(args);
+	}
+
+	// Aggregation methods
+	async count(options: CountOptions<InferSchema<TSchema>>): Promise<number> {
+		return this.aggregateOps.count(options);
+	}
+
+	async aggregate<Opts extends AggregateOptions<InferSchema<TSchema>>>(
+		options: Opts,
+	): Promise<
+		AggregateResult<InferSchema<TSchema>, ExtractAggregateOps<InferSchema<TSchema>, Opts>>
+	> {
+		return this.aggregateOps.aggregate(options) as any;
+	}
+
+	// Overload for readonly array
+	async groupBy<
+		K extends readonly (keyof InferSchema<TSchema>)[],
+		Opts extends GroupByOptions<InferSchema<TSchema>, K>,
+	>(
+		options: Opts & { by: K },
+	): Promise<
+		GroupByResult<InferSchema<TSchema>, K, ExtractAggregateOps<InferSchema<TSchema>, Opts>>
+	>;
+
+	// Overload for single key
+	async groupBy<
+		K extends keyof InferSchema<TSchema>,
+		Opts extends GroupByOptions<InferSchema<TSchema>, K>,
+	>(
+		options: Opts & { by: K },
+	): Promise<
+		GroupByResult<InferSchema<TSchema>, K, ExtractAggregateOps<InferSchema<TSchema>, Opts>>
+	>;
+
+	// Implementation
+	async groupBy(options: any): Promise<any> {
+		return this.aggregateOps.groupBy(options);
+	}
+
+	async sum(
+		field: KeysOfType<InferSchema<TSchema>, number>,
+		options: CountOptions<InferSchema<TSchema>>,
+	): Promise<number | null> {
+		return this.aggregateOps.sum(field, options);
+	}
+
+	async avg(
+		field: KeysOfType<InferSchema<TSchema>, number>,
+		options: CountOptions<InferSchema<TSchema>>,
+	): Promise<number | null> {
+		return this.aggregateOps.avg(field, options);
+	}
+
+	async min<K extends keyof InferSchema<TSchema>>(
+		field: K,
+		options: CountOptions<InferSchema<TSchema>>,
+	): Promise<InferSchema<TSchema>[K] | null> {
+		return this.aggregateOps.min(field, options);
+	}
+
+	async max<K extends keyof InferSchema<TSchema>>(
+		field: K,
+		options: CountOptions<InferSchema<TSchema>>,
+	): Promise<InferSchema<TSchema>[K] | null> {
+		return this.aggregateOps.max(field, options);
 	}
 }
