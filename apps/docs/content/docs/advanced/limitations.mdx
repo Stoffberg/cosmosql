@@ -3,19 +3,19 @@ title: Limitations
 description: Current limitations of CosmosQL and planned features
 ---
 
-# Limitations
-
-## Limitations & Missing Features
-
 CosmosQL focuses on core CRUD operations and common query patterns that cover the majority of application use cases. This document outlines what's currently supported, what's missing, and workarounds for common scenarios.
 
 ### Current Version Status
 
-**Version:** 0.3.0
-
 **Production Ready:** ✅ Yes - Core operations are stable and well-tested
 
-**Test Coverage:** 249 unit tests with 100% code coverage for core modules
+**Test Coverage:** Comprehensive test suite covering all core functionality
+
+**Architecture:**
+- **Zero dependencies** - Only TypeScript required
+- **Type-level programming** - Schema inference and type safety
+- **REST API direct** - No SDK wrapper, minimal overhead
+- **Bun runtime** - Optimized for Bun 1.0+ and Node.js 18+
 
 ### Missing Features
 
@@ -121,15 +121,23 @@ await db.posts.createMany({
 
 **Future Plans:** Transaction support is under consideration for future releases.
 
-#### 5. Advanced Query Features
+#### 5. Cross-Partition Query Limitations
+
+**Azure CosmosDB Restriction:** Cross-partition queries are limited on empty containers. This is a CosmosDB limitation, not a CosmosQL limitation.
+
+When attempting cross-partition queries on empty containers, CosmosDB returns an error. This is by design to prevent expensive operations on empty data.
+
+**Workaround:** Ensure containers have at least one document before running cross-partition queries, or use partition-scoped queries when possible.
+
+#### 6. Advanced Query Features
 
 The following CosmosDB features are not yet supported:
 
-- **Geospatial queries** - Spatial indexing and distance queries
-- **Full-text search** - Integration with Azure Cognitive Search
+- **Geospatial queries** - Spatial indexing is supported in schema definition but full geospatial queries require raw SQL
+- **Full-text search** - Integration with Azure Cognitive Search (not supported via REST API)
 - **JOIN operations** - Not applicable to document databases, but no support for array joins
-- **Stored procedures** - Cannot execute stored procedures
-- **User-defined functions (UDFs)** - Cannot use UDFs in queries
+- **Stored procedures** - Cannot execute stored procedures (REST API focus)
+- **User-defined functions (UDFs)** - Cannot use UDFs in queries (REST API focus)
 
 **Workaround:** Use raw SQL queries for features not supported by the query builder:
 
@@ -153,7 +161,7 @@ const result = await db.locations.query({
 
 **Future Plans:** Advanced query features may be added based on community demand.
 
-#### 6. Performance Optimizations
+#### 7. Performance Optimizations
 
 Missing performance-related features:
 
@@ -171,7 +179,7 @@ Missing performance-related features:
 
 **Future Plans:** Performance monitoring and optimization tools may be added.
 
-#### 7. Change Feed
+#### 8. Change Feed
 
 CosmosQL does not support:
 
@@ -200,7 +208,7 @@ const changeFeedProcessor = container.items
 
 **Future Plans:** Change feed support is being considered for future releases.
 
-#### 8. Multi-Database Operations
+#### 9. Multi-Database Operations
 
 CosmosQL works with a single database per client instance. Cross-database operations are not supported.
 

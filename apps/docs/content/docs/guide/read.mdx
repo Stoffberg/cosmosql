@@ -3,8 +3,6 @@ title: Reading Documents
 description: Learn how to query and read documents from CosmosDB efficiently
 ---
 
-# Reading Documents
-
 Reading data is the most common operation. CosmosQL provides three methods optimized for different scenarios.
 
 **Navigation**:
@@ -145,8 +143,8 @@ await db.users.findMany({
     
     // Array operations
     tags: { contains: 'premium' },                    // CONTAINS array element
-    skills: { containsAny: ['react', 'node'] },      // Any element matches
-    permissions: { containsAll: ['read', 'write'] },  // All elements must match
+    // Note: containsAny and containsAll are planned features
+    // For now, use contains for single checks or raw SQL for complex operations
     
     // Date comparisons
     createdAt: { gte: new Date('2024-01-01') },

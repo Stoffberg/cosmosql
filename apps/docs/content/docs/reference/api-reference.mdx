@@ -3,9 +3,6 @@ title: API Reference
 description: Complete API reference for CosmosQL field types, container methods, and query options
 ---
 
-# API Reference
-
-## API Reference
 
 Complete reference for CosmosQL's API, including field types, container methods, query operators, and configuration options.
 
@@ -62,6 +59,74 @@ const users = container('users', {
     location: field.string().optional()
   }).optional()
 }).partitionKey('email');
+```
+
+### Container Configuration
+
+Containers can be configured with throughput, indexing policies, and more:
+
+```typescript
+const posts = container('posts', {
+  id: field.string(),
+  userId: field.string(),
+  title: field.string(),
+  content: field.string(),
+  tags: field.array(field.string()),
+  createdAt: field.date()
+})
+.partitionKey('userId')
+.throughput(400)                    // Optional: Set RU/s (Request Units per second)
+.indexing({                         // Optional: Configure indexing policy
+  automatic: true,
+  includedPaths: [
+    { path: '/title/?' },
+    { path: '/tags/[]/?' }
+  ],
+  excludedPaths: [
+    { path: '/content/?' }
+  ],
+  compositeIndexes: [
+    [
+      { path: '/createdAt', order: 'ascending' },
+      { path: '/userId', order: 'ascending' }
+    ]
+  ]
+});
+```
+
+**Container Configuration Options:**
+
+- **`.partitionKey(field)`** - Required: Specifies the partition key field
+- **`.throughput(ru)`** - Optional: Sets RU/s for the container (default: auto-scale)
+- **`.indexing(policy)`** - Optional: Configures indexing policy
+
+**Indexing Policy Options:**
+
+```typescript
+indexing: {
+  automatic: boolean;              // Enable automatic indexing
+  includedPaths?: Array<{          // Paths to index
+    path: string;                  // Path pattern (e.g., '/title/?')
+    indexes?: Array<{
+      kind: 'Range' | 'Hash';      // Index kind
+      precision?: number;           // Precision for range indexes
+      dataType: 'String' | 'Number' // Data type
+    }>
+  }>;
+  excludedPaths?: Array<{          // Paths to exclude from indexing
+    path: string;
+  }>;
+  compositeIndexes?: Array<        // Composite indexes for multi-field sorting
+    Array<{
+      path: string;
+      order: 'ascending' | 'descending';
+    }>
+  >;
+  spatialIndexes?: Array<{         // Spatial indexes (advanced)
+    path: string;
+    types: Array<'Point' | 'LineString' | 'Polygon' | 'MultiPolygon'>;
+  }>;
+}
 ```
 
 ### Container Methods
@@ -224,10 +289,12 @@ where: {
 
 ```typescript
 where: {
-  age: { gt: 21 },     // c.age > 21
-  score: { gte: 85 },  // c.age >= 85
-  rating: { lt: 5 },   // c.age < 5
-  count: { lte: 100 }  // c.age <= 100
+  age: { gt: 21 },     // c.age > 21 (greater than)
+  score: { gte: 85 },  // c.score >= 85 (greater than or equal)
+  rating: { lt: 5 },   // c.rating < 5 (less than)
+  count: { lte: 100 },  // c.count <= 100 (less than or equal)
+  // Multiple conditions (range)
+  age: { gte: 18, lte: 65 }  // 18 <= c.age <= 65
 }
 ```
 
@@ -235,9 +302,31 @@ where: {
 
 ```typescript
 where: {
-  tags: { contains: 'javascript' },              // CONTAINS array element
-  skills: { containsAny: ['react', 'node'] },    // Any match in array
-  permissions: { containsAll: ['read', 'write'] } // All must match
+  tags: { contains: 'javascript' },              // CONTAINS(c.tags, 'javascript')
+  skills: { containsAny: ['react', 'node'] },    // Any element matches (planned)
+  permissions: { containsAll: ['read', 'write'] } // All elements must match (planned)
+}
+```
+
+**Note:** `containsAny` and `containsAll` are planned features. Currently, use `contains` for single element checks or raw SQL queries for complex array operations.
+
+#### Boolean Operators
+
+```typescript
+where: {
+  isActive: true,           // Exact match
+  isActive: { equals: true }, // Explicit equals (same as above)
+  isVerified: false
+}
+```
+
+#### Date Operators
+
+```typescript
+where: {
+  createdAt: { gte: new Date('2024-01-01') },  // Greater than or equal
+  publishedAt: { lt: new Date() },              // Less than
+  lastLoginAt: { lte: new Date() }              // Less than or equal
 }
 ```
 
@@ -361,14 +450,41 @@ const db = await createClient({
   
   // Optional: Retry configuration
   retryOptions: {
-    maxRetries: 3,
-    initialDelay: 100,    // ms
-    maxDelay: 5000        // ms
+    maxRetries: 3,        // Default: 3
+    initialDelay: 100,    // Default: 100ms
+    maxDelay: 5000        // Default: 5000ms
   }
 }).withContainers({ users, posts });
 ```
 
-**Note**: Client creation is async. It validates and optionally creates containers based on the `mode` parameter. See [Getting Started](/docs/getting-started) for mode details.
+**Configuration Options:**
+
+| Option | Type | Default | Description |
+|--------|------|---------|-------------|
+| `endpoint` | `string` | - | Azure CosmosDB endpoint URL |
+| `key` | `string` | - | Azure CosmosDB master key |
+| `connectionString` | `string` | - | Full connection string (alternative to endpoint+key) |
+| `database` | `string` | **Required** | Database name |
+| `mode` | `ContainerMode` | `'verify'` | Container management mode |
+| `retryOptions` | `object` | See below | Retry configuration |
+
+**Container Modes:**
+
+- **`'auto-create'`** - Automatically creates database and containers if they don't exist
+- **`'verify'`** - Validates that database and containers exist with correct configuration (production default)
+- **`'skip'`** - Skips all checks for maximum performance
+
+**Retry Options:**
+
+```typescript
+retryOptions: {
+  maxRetries?: number;    // Default: 3
+  initialDelay?: number;  // Default: 100ms
+  maxDelay?: number;      // Default: 5000ms
+}
+```
+
+**Note**: Client creation is async. It validates and optionally creates containers based on the `mode` parameter. See [Getting Started](/docs/getting-started) for detailed mode documentation.
 
 **Container Registration:**
 
@@ -380,6 +496,42 @@ const db = await createClient({
   // Add all your container schemas here
 })
 ```
+
+### Database Operations
+
+#### Container Management
+
+**`listOrphanedContainers()`**
+
+Lists containers in the database that are not registered in your schema. Useful for identifying containers that may need cleanup.
+
+```typescript
+const orphaned = await db.listOrphanedContainers();
+// Returns: string[] - Array of container names not in schema
+```
+
+**`deleteContainers(names)`**
+
+Deletes specific containers by name. Use with caution as this permanently removes containers and all their data.
+
+```typescript
+await db.deleteContainers(['old_container', 'temp_container']);
+```
+
+**`pruneContainers(options)`**
+
+Removes all orphaned containers (containers not in your schema). Requires explicit confirmation.
+
+```typescript
+// Prune all orphaned containers (requires confirmation)
+await db.pruneContainers({ confirm: true });
+
+// Get list of containers that would be pruned without deleting
+const orphaned = await db.listOrphanedContainers();
+console.log('Would delete:', orphaned);
+```
+
+**⚠️ Warning**: These operations permanently delete containers and all their data. Always back up important data before using these methods.
 
 ---
 

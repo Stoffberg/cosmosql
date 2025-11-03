@@ -39,6 +39,7 @@ CosmosQL prevents these at compile time:
 - **Partition keys required** - TypeScript won't compile without them
 - **Type-safe queries** - Autocomplete catches field name typos
 - **Zero dependencies** - Just TypeScript, direct REST API calls
+- **Prisma-inspired API** - Familiar patterns with CosmosDB-specific optimizations
 
 ```typescript
 import { createClient, container, field } from 'cosmosql';
@@ -94,7 +95,13 @@ See the [Getting Started guide](/docs/getting-started) for your first query → 
 
 ## Production Ready
 
-Used in production by teams handling real traffic. 249 tests, 100% coverage of core operations.
+Used in production by teams handling real traffic. Comprehensive test coverage ensures reliability.
+
+**Features:**
+- **100% Type-Safe** - Compile-time error catching for all operations
+- **Zero Overhead** - Direct REST API calls, minimal bundle size (43.6 kB packed)
+- **Partition Key Aware** - Enforces partition key usage to avoid expensive cross-partition queries
+- **Zero Dependencies** - Only TypeScript required, works with Node.js 18+ and Bun 1.0+
 
 **Next Steps:**
 - **New to CosmosDB?** → [Core Concepts](/docs/guide/core-concepts)
