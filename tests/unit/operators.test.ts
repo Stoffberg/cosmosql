@@ -3,12 +3,7 @@
  * These verify that the type definitions work correctly
  */
 
-import type {
-	OrderByInput,
-	SelectInput,
-	SelectResult,
-	WhereInput,
-} from "../../src/types";
+import type { OrderByInput, SelectInput, SelectResult, WhereInput } from "../../src/types";
 
 describe("Operator Types", () => {
 	describe("WhereInput", () => {
@@ -174,11 +169,8 @@ describe("Operator Types", () => {
 			};
 
 			// Type assertion
-			const _typeCheck: Result extends Expected
-				? Expected extends Result
-					? true
-					: false
-				: false = true;
+			const _typeCheck: Result extends Expected ? (Expected extends Result ? true : false) : false =
+				true;
 			expect(_typeCheck).toBe(true);
 		});
 	});

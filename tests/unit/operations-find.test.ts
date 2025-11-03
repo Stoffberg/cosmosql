@@ -272,6 +272,71 @@ describe("FindOperations", () => {
 			);
 		});
 
+		test("handles explicit undefined partitionKey with enableCrossPartitionQuery", async () => {
+			const ops = new FindOperations(mockClient, schema);
+			const args = {
+				partitionKey: undefined as any, // explicit undefined
+				enableCrossPartitionQuery: true,
+				take: 1,
+			};
+
+			mockClient.request.mockResolvedValue({ Documents: [] });
+
+			await ops.findMany(args);
+
+			expect(mockClient.request).toHaveBeenCalledWith(
+				"POST",
+				expect.stringContaining("/docs"),
+				expect.any(Object),
+				undefined, // partitionKey explicitly undefined
+				true, // enableCrossPartitionQuery
+			);
+		});
+
+		test("cross-partition query with where clause and explicit undefined partitionKey", async () => {
+			const ops = new FindOperations(mockClient, schema);
+			const args = {
+				where: { name: "John" },
+				partitionKey: undefined as any, // explicit undefined
+				enableCrossPartitionQuery: true,
+			};
+
+			mockClient.request.mockResolvedValue({ Documents: [] });
+
+			await ops.findMany(args);
+
+			const callArgs = mockClient.request.mock.calls[0];
+			expect(callArgs[3]).toBeUndefined(); // partitionKey
+			expect(callArgs[4]).toBe(true); // enableCrossPartitionQuery
+
+			const body = callArgs[2] as { query: string; parameters: any[] };
+			expect(body.query).toContain("WHERE");
+			expect(body.parameters.length).toBeGreaterThan(0);
+		});
+
+		test("cross-partition query with take parameter and undefined partitionKey", async () => {
+			const ops = new FindOperations(mockClient, schema);
+			const args = {
+				take: 5,
+				partitionKey: undefined as any,
+				enableCrossPartitionQuery: true,
+			};
+
+			mockClient.request.mockResolvedValue({ Documents: [] });
+
+			await ops.findMany(args);
+
+			expect(mockClient.request).toHaveBeenCalledWith(
+				"POST",
+				expect.stringContaining("/docs"),
+				expect.objectContaining({
+					query: expect.stringContaining("TOP"),
+				}),
+				undefined, // partitionKey
+				true, // enableCrossPartitionQuery
+			);
+		});
+
 		test("applies select to results", async () => {
 			const ops = new FindOperations(mockClient, schema);
 			const args = {

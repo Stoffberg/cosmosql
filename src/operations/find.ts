@@ -42,9 +42,7 @@ export class FindOperations<
 		private schema: ContainerSchema<any, TSchema, TPartitionKey>,
 	) {}
 
-	async findUnique<
-		S extends SelectInput<InferSchema<TSchema>> | undefined = undefined,
-	>(
+	async findUnique<S extends SelectInput<InferSchema<TSchema>> | undefined = undefined>(
 		args: TPartitionKey extends never
 			? PartitionKeyMissingError
 			: FindUniqueArgs<InferSchema<TSchema>, TPartitionKey, NonNullable<S>>,
@@ -69,12 +67,7 @@ export class FindOperations<
 		const path = `/dbs/${this.client.getDatabase()}/colls/${this.schema.name}/docs/${id}`;
 
 		try {
-			const result = await this.client.request(
-				"GET",
-				path,
-				undefined,
-				partitionKeyValue,
-			);
+			const result = await this.client.request("GET", path, undefined, partitionKeyValue);
 
 			if (select) {
 				return this.applySelect(result, select) as any;
@@ -89,33 +82,17 @@ export class FindOperations<
 		}
 	}
 
-	async findMany<
-		S extends SelectInput<InferSchema<TSchema>> | undefined = undefined,
-	>(
-		args: FindManyArgs<
-			InferSchema<TSchema>,
-			NonNullable<S>,
-			TPartitionKey
-		> = {},
+	async findMany<S extends SelectInput<InferSchema<TSchema>> | undefined = undefined>(
+		args: FindManyArgs<InferSchema<TSchema>, NonNullable<S>, TPartitionKey> = {},
 	): Promise<
 		S extends undefined
 			? InferSchema<TSchema>[]
 			: SelectResult<InferSchema<TSchema>, NonNullable<S>>[]
 	> {
-		const {
-			where,
-			select,
-			orderBy,
-			take,
-			skip,
-			partitionKey,
-			enableCrossPartitionQuery,
-		} = args;
+		const { where, select, orderBy, take, skip, partitionKey, enableCrossPartitionQuery } = args;
 
 		if (!partitionKey && !enableCrossPartitionQuery) {
-			throw new Error(
-				"Either partitionKey or enableCrossPartitionQuery must be provided",
-			);
+			throw new Error("Either partitionKey or enableCrossPartitionQuery must be provided");
 		}
 
 		const builder = new QueryBuilder<InferSchema<TSchema>>();
@@ -177,10 +154,7 @@ export class FindOperations<
 		return result.Documents || [];
 	}
 
-	private applySelect<T, S extends SelectInput<T>>(
-		data: T,
-		select: S,
-	): SelectResult<T, S> {
+	private applySelect<T, S extends SelectInput<T>>(data: T, select: S): SelectResult<T, S> {
 		const result: any = {};
 
 		for (const [key, value] of Object.entries(select)) {

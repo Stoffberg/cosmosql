@@ -1,17 +1,6 @@
 import { container, createClient, field } from "../../src";
 import type { CosmosClientConfig } from "../../src/client/cosmos-client";
 
-// Mock undici's fetch
-jest.mock("undici", () => ({
-	...jest.requireActual("undici"),
-	fetch: jest.fn(),
-	Pool: jest.fn().mockImplementation(() => ({
-		close: jest.fn(),
-	})),
-}));
-
-import { fetch } from "undici";
-
 describe("withContainers Modes", () => {
 	beforeEach(() => {
 		jest.clearAllMocks();

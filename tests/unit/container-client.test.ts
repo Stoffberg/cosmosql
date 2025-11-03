@@ -34,6 +34,7 @@ describe("ContainerClient", () => {
 		mockCreateOps = {
 			create: jest.fn(),
 			createMany: jest.fn(),
+			upsert: jest.fn(),
 		} as any;
 
 		mockUpdateOps = {
@@ -186,7 +187,7 @@ describe("ContainerClient", () => {
 		expect(result).toEqual(expectedResult);
 	});
 
-	test("delegates upsert to UpdateOperations", async () => {
+	test("delegates upsert to CreateOperations", async () => {
 		const schema = container("users", {
 			id: field.string(),
 			email: field.string(),
@@ -194,17 +195,15 @@ describe("ContainerClient", () => {
 
 		const client = new ContainerClient(mockCosmosClient, schema);
 		const args = {
-			where: { id: "1", email: "test@example.com" },
-			create: { id: "1", email: "test@example.com" },
-			update: { email: "updated@example.com" },
+			data: { id: "1", email: "test@example.com" },
 		};
-		const expectedResult = { id: "1", email: "updated@example.com" };
+		const expectedResult = { id: "1", email: "test@example.com" };
 
-		mockUpdateOps.upsert.mockResolvedValue(expectedResult);
+		mockCreateOps.upsert.mockResolvedValue(expectedResult);
 
 		const result = await client.upsert(args);
 
-		expect(mockUpdateOps.upsert).toHaveBeenCalledWith(args);
+		expect(mockCreateOps.upsert).toHaveBeenCalledWith(args);
 		expect(result).toEqual(expectedResult);
 	});
 

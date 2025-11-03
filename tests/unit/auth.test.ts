@@ -16,8 +16,7 @@ describe("CosmosAuth", () => {
 
 		test("handles connection string with spaces", () => {
 			const auth = new CosmosAuth("");
-			const connectionString =
-				"AccountEndpoint = https://test.com ; AccountKey = key123 ";
+			const connectionString = "AccountEndpoint = https://test.com ; AccountKey = key123 ";
 
 			const result = auth.parseConnectionString(connectionString);
 
@@ -53,8 +52,7 @@ describe("CosmosAuth", () => {
 
 		test("handles extra fields in connection string", () => {
 			const auth = new CosmosAuth("");
-			const connectionString =
-				"AccountEndpoint=https://test.com;AccountKey=key;ExtraField=ignored";
+			const connectionString = "AccountEndpoint=https://test.com;AccountKey=key;ExtraField=ignored";
 
 			const result = auth.parseConnectionString(connectionString);
 
@@ -64,8 +62,7 @@ describe("CosmosAuth", () => {
 
 		test("handles connection string with different order", () => {
 			const auth = new CosmosAuth("");
-			const connectionString =
-				"AccountKey=myKey;AccountEndpoint=https://endpoint.com";
+			const connectionString = "AccountKey=myKey;AccountEndpoint=https://endpoint.com";
 
 			const result = auth.parseConnectionString(connectionString);
 
@@ -75,8 +72,7 @@ describe("CosmosAuth", () => {
 
 		test("handles connection string without trailing semicolon", () => {
 			const auth = new CosmosAuth("");
-			const connectionString =
-				"AccountEndpoint=https://test.com;AccountKey=key";
+			const connectionString = "AccountEndpoint=https://test.com;AccountKey=key";
 
 			const result = auth.parseConnectionString(connectionString);
 
@@ -86,8 +82,7 @@ describe("CosmosAuth", () => {
 
 		test("handles connection string with trailing semicolon", () => {
 			const auth = new CosmosAuth("");
-			const connectionString =
-				"AccountEndpoint=https://test.com;AccountKey=key;";
+			const connectionString = "AccountEndpoint=https://test.com;AccountKey=key;";
 
 			const result = auth.parseConnectionString(connectionString);
 
@@ -97,8 +92,7 @@ describe("CosmosAuth", () => {
 
 		test("handles malformed parts gracefully", () => {
 			const auth = new CosmosAuth("");
-			const connectionString =
-				"AccountEndpoint=https://test.com;MalformedPart;AccountKey=key";
+			const connectionString = "AccountEndpoint=https://test.com;MalformedPart;AccountKey=key";
 
 			const result = auth.parseConnectionString(connectionString);
 
@@ -108,8 +102,7 @@ describe("CosmosAuth", () => {
 
 		test("handles keys with equals signs", () => {
 			const auth = new CosmosAuth("");
-			const connectionString =
-				"AccountEndpoint=https://test.com;AccountKey=keyWith==padding";
+			const connectionString = "AccountEndpoint=https://test.com;AccountKey=keyWith==padding";
 
 			const result = auth.parseConnectionString(connectionString);
 
@@ -118,8 +111,7 @@ describe("CosmosAuth", () => {
 
 		test("handles endpoints with query parameters", () => {
 			const auth = new CosmosAuth("");
-			const connectionString =
-				"AccountEndpoint=https://test.com?param=value;AccountKey=key";
+			const connectionString = "AccountEndpoint=https://test.com?param=value;AccountKey=key";
 
 			const result = auth.parseConnectionString(connectionString);
 
@@ -128,8 +120,7 @@ describe("CosmosAuth", () => {
 
 		test("trims whitespace from values", () => {
 			const auth = new CosmosAuth("");
-			const connectionString =
-				"AccountEndpoint =  https://test.com  ; AccountKey =  key123  ";
+			const connectionString = "AccountEndpoint =  https://test.com  ; AccountKey =  key123  ";
 
 			const result = auth.parseConnectionString(connectionString);
 
@@ -162,9 +153,7 @@ describe("CosmosAuth", () => {
 
 			const result = auth.parseConnectionString(connectionString);
 
-			expect(result.endpoint).toBe(
-				"https://my-cosmos-db.documents.azure.com:443/",
-			);
+			expect(result.endpoint).toBe("https://my-cosmos-db.documents.azure.com:443/");
 			expect(result.key).toBe(
 				"C2y6yDjf5/R+ob0N8A7Cgv30VRDJIWEHLM+4QDU5DE2nQ9nDuVTqobD4b8mGGyPMbIZnqyMsEcaGQy67XIw/Jw==",
 			);
@@ -223,12 +212,7 @@ describe("CosmosAuth", () => {
 			const auth = new CosmosAuth("key");
 
 			expect(() => {
-				auth.generateAuthToken(
-					"GET",
-					"docs",
-					"dbs/test-db/colls/test-coll",
-					new Date(),
-				);
+				auth.generateAuthToken("GET", "docs", "dbs/test-db/colls/test-coll", new Date());
 			}).not.toThrow();
 		});
 
@@ -236,12 +220,7 @@ describe("CosmosAuth", () => {
 			const auth = new CosmosAuth("dGVzdEtleQ==");
 			const date = new Date("2020-01-01T00:00:00Z");
 
-			const token = auth.generateAuthToken(
-				"GET",
-				"docs",
-				"dbs/mydb/colls/mycoll",
-				date,
-			);
+			const token = auth.generateAuthToken("GET", "docs", "dbs/mydb/colls/mycoll", date);
 
 			// Verify token format by recreating expected signature with correct format (2 trailing newlines)
 			// Use the actual date format that toUTCString().toLowerCase() produces
@@ -256,7 +235,7 @@ describe("CosmosAuth", () => {
 			// Verify the correct format ends with exactly 2 newlines (not 3)
 			expect(correctText.endsWith("\n\n")).toBe(true);
 			expect(correctText.endsWith("\n\n\n")).toBe(false); // Should NOT end with 3
-			
+
 			// Verify wrong format (3 newlines) would produce different signature
 			const wrongText = `get\ndocs\ndbs/mydb/colls/mycoll\n${dateStr}\n\n\n`;
 			const wrongSignature = createHmac("sha256", key).update(wrongText).digest("base64");
@@ -267,18 +246,12 @@ describe("CosmosAuth", () => {
 	describe("Integration scenarios", () => {
 		test("can generate token after parsing connection string", () => {
 			const auth = new CosmosAuth("");
-			const connectionString =
-				"AccountEndpoint=https://test.com;AccountKey=dGVzdEtleQ==";
+			const connectionString = "AccountEndpoint=https://test.com;AccountKey=dGVzdEtleQ==";
 
 			const { endpoint, key } = auth.parseConnectionString(connectionString);
 			const authWithKey = new CosmosAuth(key);
 
-			const token = authWithKey.generateAuthToken(
-				"GET",
-				"docs",
-				"resource",
-				new Date(),
-			);
+			const token = authWithKey.generateAuthToken("GET", "docs", "resource", new Date());
 
 			expect(token).toBeTruthy();
 			expect(token).toContain("type%3Dmaster");

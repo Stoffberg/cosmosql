@@ -1,10 +1,6 @@
 import { CreateOperations } from "../operations/create";
 import { DeleteOperations } from "../operations/delete";
-import {
-	type FindManyArgs,
-	FindOperations,
-	type FindUniqueArgs,
-} from "../operations/find";
+import { type FindManyArgs, FindOperations, type FindUniqueArgs } from "../operations/find";
 import { UpdateOperations } from "../operations/update";
 import type { ContainerSchema } from "../schema/container";
 import type {
@@ -26,19 +22,14 @@ export class ContainerClient<
 	private updateOps: UpdateOperations<TSchema, TPartitionKey>;
 	private deleteOps: DeleteOperations<TSchema, TPartitionKey>;
 
-	constructor(
-		client: CosmosClient,
-		schema: ContainerSchema<any, TSchema, TPartitionKey>,
-	) {
+	constructor(client: CosmosClient, schema: ContainerSchema<any, TSchema, TPartitionKey>) {
 		this.findOps = new FindOperations(client, schema);
 		this.createOps = new CreateOperations(client, schema);
 		this.updateOps = new UpdateOperations(client, schema);
 		this.deleteOps = new DeleteOperations(client, schema);
 	}
 
-	findUnique<
-		S extends SelectInput<InferSchema<TSchema>> | undefined = undefined,
-	>(
+	findUnique<S extends SelectInput<InferSchema<TSchema>> | undefined = undefined>(
 		args: TPartitionKey extends never
 			? PartitionKeyMissingError
 			: FindUniqueArgs<InferSchema<TSchema>, TPartitionKey, NonNullable<S>>,
@@ -88,18 +79,8 @@ export class ContainerClient<
 		return this.updateOps.update(args);
 	}
 
-	upsert(
-		args: TPartitionKey extends never
-			? PartitionKeyMissingError
-			: {
-					where: { [K in TPartitionKey]: InferSchema<TSchema>[K] } & {
-						id: string;
-					};
-					create: CreateInput<TSchema>;
-					update: UpdateInput<TSchema>;
-				},
-	) {
-		return this.updateOps.upsert(args);
+	upsert(args: { data: CreateInput<TSchema> }) {
+		return this.createOps.upsert(args);
 	}
 
 	delete(

@@ -2,9 +2,7 @@ import type { FieldConfig, InferSchema } from "../types";
 import type { FieldBuilder } from "./field";
 
 // Helper type to extract FieldConfig from FieldBuilder for runtime access
-type ExtractFieldConfig<
-	TSchema extends Record<string, FieldBuilder<any> | FieldConfig>,
-> = {
+type ExtractFieldConfig<TSchema extends Record<string, FieldBuilder<any> | FieldConfig>> = {
 	[K in keyof TSchema]: TSchema[K] extends FieldBuilder<any>
 		? FieldConfig
 		: TSchema[K] extends FieldConfig
@@ -16,9 +14,7 @@ export interface IndexingPolicy {
 	automatic?: boolean;
 	includedPaths?: Array<{ path: string }>;
 	excludedPaths?: Array<{ path: string }>;
-	compositeIndexes?: Array<
-		Array<{ path: string; order?: "ascending" | "descending" }>
-	>;
+	compositeIndexes?: Array<Array<{ path: string; order?: "ascending" | "descending" }>>;
 	spatialIndexes?: Array<{ path: string; types: string[] }>;
 }
 
@@ -40,9 +36,7 @@ export class ContainerSchema<
 		public readonly config?: ContainerConfig,
 	) {}
 
-	partitionKey<K extends keyof InferSchema<TSchema>>(
-		key: K,
-	): ContainerSchema<TName, TSchema, K> {
+	partitionKey<K extends keyof InferSchema<TSchema>>(key: K): ContainerSchema<TName, TSchema, K> {
 		return new ContainerSchema(this.name, this.schema, key, this.config);
 	}
 
@@ -53,9 +47,7 @@ export class ContainerSchema<
 		});
 	}
 
-	indexing(
-		policy: IndexingPolicy,
-	): ContainerSchema<TName, TSchema, TPartitionKey> {
+	indexing(policy: IndexingPolicy): ContainerSchema<TName, TSchema, TPartitionKey> {
 		return new ContainerSchema(this.name, this.schema, this.partitionKeyField, {
 			...this.config,
 			indexing: policy,
@@ -67,18 +59,15 @@ export class ContainerSchema<
 	}
 }
 
-export function container<
-	TName extends string,
-	TSchema extends Record<string, FieldBuilder<any>>,
->(name: TName, schema: TSchema): ContainerSchema<TName, TSchema> {
+export function container<TName extends string, TSchema extends Record<string, FieldBuilder<any>>>(
+	name: TName,
+	schema: TSchema,
+): ContainerSchema<TName, TSchema> {
 	// At runtime, convert FieldBuilders to FieldConfigs
 	const configs: Record<string, FieldConfig> = {};
 	for (const [key, builder] of Object.entries(schema)) {
 		configs[key] = builder.getConfig();
 	}
 	// Intersection type allows both FieldConfig property access and FieldBuilder type inference
-	return new ContainerSchema(
-		name,
-		configs as ExtractFieldConfig<TSchema> & TSchema,
-	);
+	return new ContainerSchema(name, configs as ExtractFieldConfig<TSchema> & TSchema);
 }

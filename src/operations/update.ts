@@ -1,11 +1,6 @@
 import type { CosmosClient } from "../client/cosmos-client";
 import type { ContainerSchema } from "../schema/container";
-import type {
-	CreateInput,
-	InferSchema,
-	PartitionKeyMissingError,
-	UpdateInput,
-} from "../types";
+import type { CreateInput, InferSchema, PartitionKeyMissingError, UpdateInput } from "../types";
 import { CreateOperations } from "./create";
 
 export class UpdateOperations<
@@ -38,23 +33,30 @@ export class UpdateOperations<
 
 		// Get existing document
 		const path = `/dbs/${this.client.getDatabase()}/colls/${this.schema.name}/docs/${id}`;
-		const existing = await this.client.request(
-			"GET",
-			path,
-			undefined,
-			partitionKeyValue,
-		);
+		const existing = await this.client.request("GET", path, undefined, partitionKeyValue);
 
-		// Merge updates
-		const updated = { ...existing, ...data };
+		// Merge updates (handle nested paths like "metadata.updated")
+		const updated = { ...existing };
+		for (const [key, value] of Object.entries(data)) {
+			if (key.includes(".")) {
+				// Handle nested path
+				const parts = key.split(".");
+				let current: any = updated;
+				for (let i = 0; i < parts.length - 1; i++) {
+					if (!current[parts[i]]) {
+						current[parts[i]] = {};
+					}
+					current = current[parts[i]];
+				}
+				current[parts[parts.length - 1]] = value;
+			} else {
+				// Simple field
+				updated[key] = value;
+			}
+		}
 
 		// Replace document
-		const result = await this.client.request(
-			"PUT",
-			path,
-			updated,
-			partitionKeyValue,
-		);
+		const result = await this.client.request("PUT", path, updated, partitionKeyValue);
 
 		return result;
 	}

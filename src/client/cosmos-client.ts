@@ -1,4 +1,3 @@
-import { fetch, Pool, type Response } from "undici";
 import { CosmosError } from "../errors/cosmos-error";
 import { CosmosAuth } from "./auth";
 
@@ -21,20 +20,15 @@ export class CosmosClient {
 	private auth: CosmosAuth;
 	private endpoint: string;
 	private database: string;
-	private pool: Pool;
-	private retryOptions: Required<
-		NonNullable<CosmosClientConfig["retryOptions"]>
-	>;
+	private retryOptions: Required<NonNullable<CosmosClientConfig["retryOptions"]>>;
 
 	constructor(config: CosmosClientConfig) {
 		if (config.connectionString) {
-			const parsed = new CosmosAuth("").parseConnectionString(
-				config.connectionString,
-			);
-			this.endpoint = parsed.endpoint.replace(/\/$/, "");
+			const parsed = new CosmosAuth("").parseConnectionString(config.connectionString);
+			this.endpoint = this.normalizeEndpoint(parsed.endpoint);
 			this.auth = new CosmosAuth(parsed.key);
 		} else if (config.endpoint && config.key) {
-			this.endpoint = config.endpoint.replace(/\/$/, "");
+			this.endpoint = this.normalizeEndpoint(config.endpoint);
 			this.auth = new CosmosAuth(config.key);
 		} else {
 			throw new Error("Must provide either connectionString or endpoint + key");
@@ -46,12 +40,21 @@ export class CosmosClient {
 			initialDelay: config.retryOptions?.initialDelay ?? 100,
 			maxDelay: config.retryOptions?.maxDelay ?? 5000,
 		};
+	}
 
-		// Connection pooling with undici
-		this.pool = new Pool(this.endpoint, {
-			connections: 50,
-			keepAliveTimeout: 30000,
-		});
+	private normalizeEndpoint(endpoint: string): string {
+		// Remove trailing slash
+		let normalized = endpoint.replace(/\/$/, "");
+
+		// Remove default ports (:443 for https, :80 for http)
+		// These can cause issues with Cosmos DB authentication
+		normalized = normalized.replace(/:443$/, "").replace(/^(http:\/\/[^:]+):80$/, "$1");
+
+		if (process.env.DEBUG_COSMOS_AUTH) {
+			console.log(`[CosmosClient] Normalized endpoint: ${normalized}`);
+		}
+
+		return normalized;
 	}
 
 	async request<T = any>(
@@ -60,6 +63,7 @@ export class CosmosClient {
 		body?: any,
 		partitionKey?: any,
 		enableCrossPartitionQuery?: boolean,
+		extraHeaders?: Record<string, string>,
 	): Promise<T> {
 		return this.requestWithRetry<T>(
 			method,
@@ -67,6 +71,7 @@ export class CosmosClient {
 			body,
 			partitionKey,
 			enableCrossPartitionQuery,
+			extraHeaders,
 			0,
 		);
 	}
@@ -77,25 +82,32 @@ export class CosmosClient {
 		body: any,
 		partitionKey: any,
 		enableCrossPartitionQuery: boolean | undefined,
+		extraHeaders: Record<string, string> | undefined,
 		attempt: number,
 	): Promise<T> {
 		const date = new Date();
 		const [resourceType, resourceId] = this.parseResourcePath(path);
 
-		const token = this.auth.generateAuthToken(
-			method,
-			resourceType,
-			resourceId,
-			date,
-		);
+		const token = this.auth.generateAuthToken(method, resourceType, resourceId, date);
 
+		// Use plain object for headers instead of Headers instance
 		const headers: Record<string, string> = {
-			Authorization: token,
+			authorization: token,
 			"x-ms-date": date.toUTCString(),
 			"x-ms-version": "2018-12-31",
-			"Content-Type": "application/json",
-			Accept: "application/json",
+			accept: "application/json",
 		};
+
+		// Only add Content-Type for requests with body
+		if (body) {
+			// If the body has a 'query' property, this is a query request
+			if (typeof body === "object" && body !== null && "query" in body) {
+				headers["content-type"] = "application/query+json";
+				headers["x-ms-documentdb-isquery"] = "true";
+			} else {
+				headers["content-type"] = "application/json";
+			}
+		}
 
 		if (partitionKey !== undefined && partitionKey !== null) {
 			headers["x-ms-documentdb-partitionkey"] = JSON.stringify(
@@ -107,14 +119,44 @@ export class CosmosClient {
 			headers["x-ms-documentdb-query-enablecrosspartition"] = "true";
 		}
 
+		// Apply any extra headers
+		if (extraHeaders) {
+			Object.assign(headers, extraHeaders);
+		}
+
 		const url = `${this.endpoint}${path}`;
+
+		// Debug logging
+		if (process.env.DEBUG_COSMOS_AUTH) {
+			console.log("\n=== CosmosQL Request Debug ===");
+			console.log(`URL: ${url}`);
+			console.log(`Method: ${method}`);
+			console.log(`ResourceType: ${resourceType}`);
+			console.log(`ResourceId: ${resourceId}`);
+			console.log("Auth string for signature:");
+			console.log(
+				`  "${method.toLowerCase()}\\n${resourceType.toLowerCase()}\\n${resourceId}\\n${date.toUTCString().toLowerCase()}\\n\\n"`,
+			);
+			console.log("Headers:");
+			for (const [key, value] of Object.entries(headers)) {
+				if (key === "authorization") {
+					console.log(`  ${key}: ${value.substring(0, 60)}...`);
+				} else {
+					console.log(`  ${key}: ${value}`);
+				}
+			}
+			if (body) {
+				console.log("Body:");
+				console.log(`  ${JSON.stringify(body).substring(0, 200)}`);
+			}
+			console.log("=============================\n");
+		}
 
 		try {
 			const response = await fetch(url, {
 				method,
 				headers,
 				body: body ? JSON.stringify(body) : undefined,
-				dispatcher: this.pool,
 			});
 
 			if (!response.ok) {
@@ -131,6 +173,7 @@ export class CosmosClient {
 						body,
 						partitionKey,
 						enableCrossPartitionQuery,
+						extraHeaders,
 						attempt + 1,
 					);
 				}
@@ -139,10 +182,7 @@ export class CosmosClient {
 			}
 
 			// HEAD and DELETE requests may not have body
-			if (
-				method === "HEAD" ||
-				(method === "DELETE" && response.status === 204)
-			) {
+			if (method === "HEAD" || (method === "DELETE" && response.status === 204)) {
 				return {} as T;
 			}
 
@@ -162,23 +202,109 @@ export class CosmosClient {
 	private parseResourcePath(path: string): [string, string] {
 		const parts = path.split("/").filter(Boolean);
 
-		if (parts.length >= 1) {
-			const resourceType = parts[parts.length - 1];
-			const resourceId = parts.length > 1 ? parts.slice(0, -1).join("/") : "";
+		if (parts.length === 0) {
+			return ["", ""];
+		}
+
+		// Known resource types in Azure Cosmos DB REST API
+		const resourceTypes = [
+			"dbs",
+			"colls",
+			"docs",
+			"sprocs",
+			"udfs",
+			"triggers",
+			"users",
+			"permissions",
+			"attachments",
+			"conflicts",
+			"offers",
+			"clientencryptionkeys",
+			"schemacollections",
+		];
+
+		// Azure Cosmos DB REST API auth format (corrected based on server error messages):
+		// For /dbs/{dbname}: resourceType="dbs", resourceId="dbs/{dbname}"
+		// For /dbs/{dbname}/colls/{collname}: resourceType="colls", resourceId="dbs/{dbname}/colls/{collname}"
+		// For /dbs/{dbname}/colls/{collname}/docs/{docid}: resourceType="docs", resourceId="dbs/{dbname}/colls/{collname}/docs/{docid}"
+		// Rule: resourceType is the LAST resource type in the path, resourceId is the FULL path
+
+		// Special case: if first part is a resource type and it's the only segment, resourceId is empty
+		// e.g., /dbs -> resourceType="dbs", resourceId=""
+		if (parts.length === 1 && resourceTypes.includes(parts[0])) {
+			return [parts[0], ""];
+		}
+
+		// Find the last occurrence of a known resource type
+		let resourceTypeIndex = -1;
+		let resourceType = "";
+		for (let i = parts.length - 1; i >= 0; i--) {
+			if (resourceTypes.includes(parts[i])) {
+				resourceTypeIndex = i;
+				resourceType = parts[i];
+				break;
+			}
+		}
+
+		if (resourceTypeIndex >= 0) {
+			// ResourceId is the full path BEFORE the resource type
+			// For /dbs/dbname: resourceType="dbs", resourceId="dbs/dbname"
+			// For /dbs/dbname/colls: resourceType="colls", resourceId="dbs/dbname"
+			// For /dbs/dbname/colls/collname: resourceType="colls", resourceId="dbs/dbname/colls/collname"
+			// For /dbs/dbname/colls/collname/docs/docid: resourceType="docs", resourceId="dbs/dbname/colls/collname/docs/docid"
+
+			// Special case: if resourceType is at index 0 and there's a value after it
+			if (resourceTypeIndex === 0 && parts.length > 1) {
+				// /dbs/dbname -> resourceId = "dbs/dbname"
+				const resourceId = parts.slice(0, 2).join("/");
+				return [resourceType, resourceId];
+			}
+
+			// If there's a value after the resource type, include it in the resourceId
+			// /dbs/dbname/colls/collname -> resourceType="colls", resourceId="dbs/dbname/colls/collname"
+			if (resourceTypeIndex < parts.length - 1) {
+				const resourceId = parts.join("/");
+				return [resourceType, resourceId];
+			}
+
+			// If resource type is at the end with no value after
+			// /dbs/dbname/colls -> resourceType="colls", resourceId="dbs/dbname"
+			const resourceId = parts.slice(0, resourceTypeIndex).join("/");
 			return [resourceType, resourceId];
 		}
 
-		return ["", ""];
+		// Fallback: treat last segment as resource type (for backwards compatibility with tests)
+		const resourceTypeFallback = parts[parts.length - 1];
+		const resourceIdFallback = parts.length > 1 ? parts.slice(0, -1).join("/") : "";
+		return [resourceTypeFallback, resourceIdFallback];
 	}
 
-	private async handleErrorResponse(response: Response): Promise<CosmosError> {
+	private async handleErrorResponse(response: globalThis.Response): Promise<CosmosError> {
 		let message = response.statusText || "Unknown error";
 		let code = "UNKNOWN_ERROR";
+		let bodyText = "";
 
 		try {
-			const body: any = await response.json();
-			message = body.message || message;
-			code = body.code || code;
+			bodyText = await response.text();
+
+			// Debug: log full error response
+			if (process.env.DEBUG_COSMOS_AUTH) {
+				console.log("\n=== Cosmos DB Error Response ===");
+				console.log(`Status: ${response.status} ${response.statusText}`);
+				console.log(`Response headers:`);
+				response.headers.forEach((value, key) => {
+					console.log(`  ${key}: ${value}`);
+				});
+				console.log(`Raw body: ${bodyText}`);
+				console.log("================================\n");
+			}
+
+			// Try to parse as JSON
+			if (bodyText) {
+				const body = JSON.parse(bodyText);
+				message = body.message || message;
+				code = body.code || code;
+			}
 		} catch {
 			// Ignore JSON parse errors
 		}
@@ -190,14 +316,12 @@ export class CosmosClient {
 		return this.database;
 	}
 
-	close(): void {
-		this.pool.close();
-	}
-
 	// Container management methods
 	async databaseExists(): Promise<boolean> {
 		try {
-			await this.request("HEAD", `/dbs/${this.database}`);
+			// Instead of HEAD /dbs/{db}, list containers to verify database exists
+			// This works around an auth issue with direct database HEAD requests
+			await this.request("GET", `/dbs/${this.database}/colls`);
 			return true;
 		} catch (error) {
 			if (error instanceof CosmosError && error.statusCode === 404) {
@@ -215,7 +339,9 @@ export class CosmosClient {
 
 	async containerExists(name: string): Promise<boolean> {
 		try {
-			await this.request("HEAD", `/dbs/${this.database}/colls/${name}`);
+			// Use GET instead of HEAD because HEAD returns 403 Forbidden
+			// instead of 404 for non-existent containers
+			await this.request("GET", `/dbs/${this.database}/colls/${name}`);
 			return true;
 		} catch (error) {
 			if (error instanceof CosmosError && error.statusCode === 404) {
@@ -227,10 +353,7 @@ export class CosmosClient {
 
 	async getContainer(name: string): Promise<ContainerInfo | null> {
 		try {
-			return await this.request<ContainerInfo>(
-				"GET",
-				`/dbs/${this.database}/colls/${name}`,
-			);
+			return await this.request<ContainerInfo>("GET", `/dbs/${this.database}/colls/${name}`);
 		} catch (error) {
 			if (error instanceof CosmosError && error.statusCode === 404) {
 				return null;
@@ -243,10 +366,7 @@ export class CosmosClient {
 		await this.request("POST", `/dbs/${this.database}/colls`, body);
 	}
 
-	async updateContainer(
-		name: string,
-		body: UpdateContainerBody,
-	): Promise<void> {
+	async updateContainer(name: string, body: UpdateContainerBody): Promise<void> {
 		await this.request("PUT", `/dbs/${this.database}/colls/${name}`, body);
 	}
 

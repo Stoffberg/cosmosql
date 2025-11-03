@@ -128,10 +128,9 @@ function testMinimalSchema() {
 	const containerClient = new ContainerClient(client, minimalSchema);
 
 	// findUnique
-	const findUniqueResult: Promise<MinimalType | null> =
-		containerClient.findUnique({
-			where: { id: "test" },
-		});
+	const findUniqueResult: Promise<MinimalType | null> = containerClient.findUnique({
+		where: { id: "test" },
+	});
 
 	// findMany
 	const findManyResult: Promise<MinimalType[]> = containerClient.findMany({
@@ -154,10 +153,9 @@ function testAllTypesSchema() {
 	const containerClient = new ContainerClient(client, allTypesSchema);
 
 	// Test all field types are correctly inferred
-	const findUniqueResult: Promise<AllTypesType | null> =
-		containerClient.findUnique({
-			where: { id: "test" },
-		});
+	const findUniqueResult: Promise<AllTypesType | null> = containerClient.findUnique({
+		where: { id: "test" },
+	});
 
 	// Test create with all field types
 	const createResult = containerClient.create({
@@ -188,10 +186,9 @@ function testComplexSchemaAllMethods() {
 	const containerClient = new ContainerClient(client, complexSchema);
 
 	// findUnique without select
-	const findUniqueResult: Promise<ComplexType | null> =
-		containerClient.findUnique({
-			where: { id: "test", conversationId: "test" },
-		});
+	const findUniqueResult: Promise<ComplexType | null> = containerClient.findUnique({
+		where: { id: "test", conversationId: "test" },
+	});
 
 	// findUnique with select
 	const findUniqueSelectResult = containerClient.findUnique({
@@ -219,11 +216,10 @@ function testComplexSchemaAllMethods() {
 	});
 
 	// findMany cross-partition
-	const findManyCrossPartitionResult: Promise<ComplexType[]> =
-		containerClient.findMany({
-			enableCrossPartitionQuery: true,
-			where: { role: "user" },
-		});
+	const findManyCrossPartitionResult: Promise<ComplexType[]> = containerClient.findMany({
+		enableCrossPartitionQuery: true,
+		where: { role: "user" },
+	});
 
 	// create with complex nested data
 	const createResult = containerClient.create({
@@ -241,9 +237,7 @@ function testComplexSchemaAllMethods() {
 				profile: {
 					bio: "Developer",
 					website: "https://example.com",
-					socialLinks: [
-						{ platform: "twitter", url: "https://twitter.com/test" },
-					],
+					socialLinks: [{ platform: "twitter", url: "https://twitter.com/test" }],
 				},
 			},
 			attachments: [
@@ -299,8 +293,7 @@ function testComplexSchemaAllMethods() {
 
 	// upsert
 	const upsertResult = containerClient.upsert({
-		where: { id: "test", conversationId: "test" },
-		create: {
+		data: {
 			id: "test",
 			conversationId: "test",
 			role: "user",
@@ -319,7 +312,6 @@ function testComplexSchemaAllMethods() {
 			},
 			attachments: [],
 		},
-		update: { content: "Updated" },
 	});
 
 	// delete
@@ -358,10 +350,9 @@ function testDeepNestedSchema() {
 	const client = {} as any;
 	const containerClient = new ContainerClient(client, deepNestedSchema);
 
-	const findUniqueResult: Promise<DeepNestedType | null> =
-		containerClient.findUnique({
-			where: { id: "test" },
-		});
+	const findUniqueResult: Promise<DeepNestedType | null> = containerClient.findUnique({
+		where: { id: "test" },
+	});
 
 	const findManyResult: Promise<DeepNestedType[]> = containerClient.findMany({
 		partitionKey: "test",

@@ -142,10 +142,7 @@ describe("CreateOperations", () => {
 				createdAt: field.date().default(() => new Date()),
 			}).partitionKey("email");
 
-			const ops = new CreateOperations(
-				mockClient,
-				schemaWithFunctionDefault as any,
-			);
+			const ops = new CreateOperations(mockClient, schemaWithFunctionDefault as any);
 			const data = { id: "1", email: "test@example.com" };
 
 			mockClient.request.mockResolvedValue({ ...data, createdAt: new Date() });

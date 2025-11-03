@@ -1,13 +1,7 @@
 import type { FieldConfig, FieldDef } from "../types";
 
 export class FieldBuilder<
-	TDef extends FieldDef<any, any, any, any, any> = FieldDef<
-		any,
-		any,
-		any,
-		any,
-		any
-	>,
+	TDef extends FieldDef<any, any, any, any, any> = FieldDef<any, any, any, any, any>,
 > {
 	readonly _def: TDef;
 
@@ -19,13 +13,7 @@ export class FieldBuilder<
 	}
 
 	optional(): FieldBuilder<
-		FieldDef<
-			TDef["_type"],
-			true,
-			TDef["_default"],
-			TDef["_array"],
-			TDef["_objectSchema"]
-		>
+		FieldDef<TDef["_type"], true, TDef["_default"], TDef["_array"], TDef["_objectSchema"]>
 	> {
 		return new FieldBuilder({ ...this.config, optional: true }, {
 			_type: this._def._type,
@@ -33,25 +21,13 @@ export class FieldBuilder<
 			_default: this._def._default,
 			_array: this._def._array,
 			_objectSchema: this._def._objectSchema,
-		} as FieldDef<
-			TDef["_type"],
-			true,
-			TDef["_default"],
-			TDef["_array"],
-			TDef["_objectSchema"]
-		>);
+		} as FieldDef<TDef["_type"], true, TDef["_default"], TDef["_array"], TDef["_objectSchema"]>);
 	}
 
 	default<TValue>(
 		value: TValue,
 	): FieldBuilder<
-		FieldDef<
-			TDef["_type"],
-			TDef["_optional"],
-			TValue,
-			TDef["_array"],
-			TDef["_objectSchema"]
-		>
+		FieldDef<TDef["_type"], TDef["_optional"], TValue, TDef["_array"], TDef["_objectSchema"]>
 	> {
 		return new FieldBuilder({ ...this.config, default: value }, {
 			_type: this._def._type,
@@ -59,13 +35,7 @@ export class FieldBuilder<
 			_default: value,
 			_array: this._def._array,
 			_objectSchema: this._def._objectSchema,
-		} as FieldDef<
-			TDef["_type"],
-			TDef["_optional"],
-			TValue,
-			TDef["_array"],
-			TDef["_objectSchema"]
-		>);
+		} as FieldDef<TDef["_type"], TDef["_optional"], TValue, TDef["_array"], TDef["_objectSchema"]>);
 	}
 
 	getConfig(): FieldConfig {
@@ -75,9 +45,7 @@ export class FieldBuilder<
 
 // Helper to extract FieldDef from a schema of FieldBuilders
 type InferSchemaFromBuilders<S extends Record<string, FieldBuilder<any>>> = {
-	[K in keyof S]: S[K] extends FieldBuilder<
-		infer D extends FieldDef<any, any, any, any, any>
-	>
+	[K in keyof S]: S[K] extends FieldBuilder<infer D extends FieldDef<any, any, any, any, any>>
 		? D
 		: never;
 };
@@ -119,9 +87,7 @@ export const field = {
 			_objectSchema: undefined,
 		} as FieldDef<"date", false, undefined>),
 
-	array: <TItemDef extends FieldDef<any, any, any, any, any>>(
-		itemType: FieldBuilder<TItemDef>,
-	) => {
+	array: <TItemDef extends FieldDef<any, any, any, any, any>>(itemType: FieldBuilder<TItemDef>) => {
 		const itemConfig = itemType.getConfig();
 		return new FieldBuilder(
 			{

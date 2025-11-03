@@ -16,13 +16,7 @@ export type {
 } from "./operators";
 
 // Base field types
-export type FieldType =
-	| "string"
-	| "number"
-	| "boolean"
-	| "date"
-	| "array"
-	| "object";
+export type FieldType = "string" | "number" | "boolean" | "date" | "array" | "object";
 
 // Type-level field definition that preserves literal types
 export type FieldDef<
@@ -30,9 +24,7 @@ export type FieldDef<
 	TOptional extends boolean = false,
 	TDefault = undefined,
 	TArray extends FieldDef<any, any, any> | undefined = undefined,
-	TObjectSchema extends
-		| Record<string, FieldDef<any, any, any>>
-		| undefined = undefined,
+	TObjectSchema extends Record<string, FieldDef<any, any, any>> | undefined = undefined,
 > = {
 	readonly _type: TType;
 	readonly _optional: TOptional;

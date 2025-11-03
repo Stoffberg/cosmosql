@@ -74,9 +74,7 @@ describe("UpdateOperations", () => {
 			};
 			const updatedDoc = { ...existingDoc, name: "New Name" };
 
-			mockClient.request
-				.mockResolvedValueOnce(existingDoc)
-				.mockResolvedValueOnce(updatedDoc);
+			mockClient.request.mockResolvedValueOnce(existingDoc).mockResolvedValueOnce(updatedDoc);
 
 			const result = await ops.update(args);
 

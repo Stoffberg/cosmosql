@@ -27,9 +27,7 @@ export function createClient(config: CosmosClientConfig) {
 	const mode = config.mode ?? "verify";
 
 	return {
-		async withContainers<
-			T extends Record<string, ContainerSchema<any, any, any>>,
-		>(
+		async withContainers<T extends Record<string, ContainerSchema<any, any, any>>>(
 			containers: T,
 		): Promise<
 			{
@@ -64,12 +62,7 @@ export function createClient(config: CosmosClientConfig) {
 			if (mode !== "skip") {
 				for (const [name, schema] of Object.entries(containers)) {
 					containerNames.add(name);
-					await ensureContainer(
-						client,
-						name,
-						schema as ContainerSchema<any, any, any>,
-						mode,
-					);
+					await ensureContainer(client, name, schema as ContainerSchema<any, any, any>, mode);
 				}
 			}
 
@@ -77,15 +70,20 @@ export function createClient(config: CosmosClientConfig) {
 			const result: any = {};
 
 			for (const [name, schema] of Object.entries(containers)) {
-				result[name] = new ContainerClient(client, schema);
+				// Override the schema's name with the actual container name (the object key)
+				// because the schema's name might be different from the object key
+				const schemaWithCorrectName = Object.assign(
+					Object.create(Object.getPrototypeOf(schema)),
+					schema,
+					{ name },
+				) as ContainerSchema<any, any, any>;
+				result[name] = new ContainerClient(client, schemaWithCorrectName);
 			}
 
 			// Step 4: Add container management methods
 			result.listOrphanedContainers = async () => {
 				const allContainers = await client.listContainers();
-				return allContainers
-					.map((c) => c.id)
-					.filter((id) => !containerNames.has(id));
+				return allContainers.map((c) => c.id).filter((id) => !containerNames.has(id));
 			};
 
 			result.deleteContainers = async (names: string[]) => {
@@ -96,9 +94,7 @@ export function createClient(config: CosmosClientConfig) {
 
 			result.pruneContainers = async (options?: { confirm: boolean }) => {
 				if (!options?.confirm) {
-					throw new Error(
-						"pruneContainers requires confirm: true to prevent accidental deletion",
-					);
+					throw new Error("pruneContainers requires confirm: true to prevent accidental deletion");
 				}
 				const orphaned = await result.listOrphanedContainers();
 				await result.deleteContainers(orphaned);

@@ -33,9 +33,7 @@ describe("cosmosql Azure CosmosDB auth", () => {
 	// Skip tests if no connection string is provided
 	beforeAll(() => {
 		if (!connectionString) {
-			console.warn(
-				"Skipping Azure CosmosDB integration tests: COSMOSDB_CONNECTION_STRING not set",
-			);
+			console.warn("Skipping Azure CosmosDB integration tests: COSMOSDB_CONNECTION_STRING not set");
 		}
 	});
 

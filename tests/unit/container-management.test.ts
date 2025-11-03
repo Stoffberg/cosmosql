@@ -1,17 +1,6 @@
 import { CosmosClient } from "../../src/client/cosmos-client";
 import { container, field } from "../../src/schema";
 
-// Mock undici's fetch
-jest.mock("undici", () => ({
-	...jest.requireActual("undici"),
-	fetch: jest.fn(),
-	Pool: jest.fn().mockImplementation(() => ({
-		close: jest.fn(),
-	})),
-}));
-
-import { fetch } from "undici";
-
 describe("Container Management", () => {
 	beforeEach(() => {
 		jest.clearAllMocks();
@@ -45,9 +34,7 @@ describe("Container Management", () => {
 			expect(posts.config?.indexing).toBeDefined();
 			expect(posts.config?.indexing?.automatic).toBe(true);
 			expect(posts.config?.indexing?.excludedPaths).toHaveLength(1);
-			expect(posts.config?.indexing?.excludedPaths?.[0].path).toBe(
-				"/content/?",
-			);
+			expect(posts.config?.indexing?.excludedPaths?.[0].path).toBe("/content/?");
 		});
 
 		test("supports chaining configuration methods", () => {
@@ -281,11 +268,7 @@ describe("Container Management", () => {
 
 		test("listContainers returns all containers", async () => {
 			const response = {
-				DocumentCollections: [
-					{ id: "users" },
-					{ id: "posts" },
-					{ id: "comments" },
-				],
+				DocumentCollections: [{ id: "users" }, { id: "posts" }, { id: "comments" }],
 			};
 
 			(fetch as jest.Mock).mockResolvedValueOnce({
@@ -302,11 +285,7 @@ describe("Container Management", () => {
 
 			const containers = await client.listContainers();
 			expect(containers).toHaveLength(3);
-			expect(containers.map((c) => c.id)).toEqual([
-				"users",
-				"posts",
-				"comments",
-			]);
+			expect(containers.map((c) => c.id)).toEqual(["users", "posts", "comments"]);
 		});
 
 		test("deleteContainer deletes a container", async () => {

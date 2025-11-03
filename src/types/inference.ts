@@ -15,10 +15,7 @@ type InferFieldTypeFromDef<TDef extends FieldDef<any, any, any, any, any>> =
 							? Array<InferFieldTypeFromDef<TDef["_array"]>>
 							: never
 						: TDef["_type"] extends "object"
-							? TDef["_objectSchema"] extends Record<
-									string,
-									FieldDef<any, any, any, any, any>
-								>
+							? TDef["_objectSchema"] extends Record<string, FieldDef<any, any, any, any, any>>
 								? {
 										[K in keyof TDef["_objectSchema"]]: InferSchemaTypeFromDef<
 											TDef["_objectSchema"][K]
@@ -55,9 +52,7 @@ export type InferFieldType<T extends FieldConfig> = T extends {
 						: T["type"] extends "object"
 							? T["objectSchema"] extends Record<string, FieldConfig>
 								? {
-										[K in keyof T["objectSchema"]]: InferSchemaType<
-											T["objectSchema"][K]
-										>;
+										[K in keyof T["objectSchema"]]: InferSchemaType<T["objectSchema"][K]>;
 									}
 								: never
 							: never;
@@ -75,10 +70,7 @@ export type InferSchemaType<T extends FieldConfig> = T extends {
 
 // Infer full schema type from builders
 export type InferSchema<
-	S extends Record<
-		string,
-		FieldConfig | { readonly _def: FieldDef<any, any, any, any, any> }
-	>,
+	S extends Record<string, FieldConfig | { readonly _def: FieldDef<any, any, any, any, any> }>,
 > = {
 	[K in keyof S]: S[K] extends {
 		readonly _def: infer D extends FieldDef<any, any, any, any, any>;
@@ -91,10 +83,7 @@ export type InferSchema<
 
 // Required vs optional fields
 export type RequiredKeys<
-	S extends Record<
-		string,
-		FieldConfig | { readonly _def: FieldDef<any, any, any, any, any> }
-	>,
+	S extends Record<string, FieldConfig | { readonly _def: FieldDef<any, any, any, any, any> }>,
 > = {
 	[K in keyof S]: S[K] extends {
 		readonly _def: infer D extends FieldDef<any, any, any, any, any>;
@@ -114,10 +103,7 @@ export type RequiredKeys<
 }[keyof S];
 
 export type OptionalKeys<
-	S extends Record<
-		string,
-		FieldConfig | { readonly _def: FieldDef<any, any, any, any, any> }
-	>,
+	S extends Record<string, FieldConfig | { readonly _def: FieldDef<any, any, any, any, any> }>,
 > = {
 	[K in keyof S]: S[K] extends {
 		readonly _def: infer D extends FieldDef<any, any, any, any, any>;
@@ -138,10 +124,7 @@ export type OptionalKeys<
 
 // Create/Update input types
 export type CreateInput<
-	S extends Record<
-		string,
-		FieldConfig | { readonly _def: FieldDef<any, any, any, any, any> }
-	>,
+	S extends Record<string, FieldConfig | { readonly _def: FieldDef<any, any, any, any, any> }>,
 > = {
 	[K in RequiredKeys<S>]: InferSchema<S>[K];
 } & {
@@ -149,8 +132,5 @@ export type CreateInput<
 };
 
 export type UpdateInput<
-	S extends Record<
-		string,
-		FieldConfig | { readonly _def: FieldDef<any, any, any, any, any> }
-	>,
+	S extends Record<string, FieldConfig | { readonly _def: FieldDef<any, any, any, any, any> }>,
 > = Partial<InferSchema<S>>;

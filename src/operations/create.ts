@@ -11,9 +11,24 @@ export class CreateOperations<
 		private schema: ContainerSchema<any, TSchema, TPartitionKey>,
 	) {}
 
-	async create(args: {
-		data: CreateInput<TSchema>;
-	}): Promise<InferSchema<TSchema>> {
+	async create(args: { data: CreateInput<TSchema> }): Promise<InferSchema<TSchema>> {
+		const { data } = args;
+
+		// Apply defaults
+		const document = this.applyDefaults(data);
+
+		const path = `/dbs/${this.client.getDatabase()}/colls/${this.schema.name}/docs`;
+
+		const partitionKeyValue = this.schema.partitionKeyField
+			? (document as any)[this.schema.partitionKeyField]
+			: undefined;
+
+		const result = await this.client.request("POST", path, document, partitionKeyValue);
+
+		return result;
+	}
+
+	async upsert(args: { data: CreateInput<TSchema> }): Promise<InferSchema<TSchema>> {
 		const { data } = args;
 
 		// Apply defaults
@@ -30,6 +45,8 @@ export class CreateOperations<
 			path,
 			document,
 			partitionKeyValue,
+			undefined, // enableCrossPartitionQuery
+			{ "x-ms-documentdb-is-upsert": "true" }, // extraHeaders
 		);
 
 		return result;
@@ -48,9 +65,7 @@ export class CreateOperations<
 			);
 
 			if (!allSamePartition) {
-				throw new Error(
-					"All documents in createMany must share the same partition key",
-				);
+				throw new Error("All documents in createMany must share the same partition key");
 			}
 		}
 
@@ -62,12 +77,7 @@ export class CreateOperations<
 			resourceBody: this.applyDefaults(doc),
 		}));
 
-		const result = await this.client.request(
-			"POST",
-			path,
-			operations,
-			partitionKey,
-		);
+		const result = await this.client.request("POST", path, operations, partitionKey);
 
 		return result;
 	}
@@ -77,10 +87,7 @@ export class CreateOperations<
 
 		for (const [key, config] of Object.entries(this.schema.schema)) {
 			if (config.default !== undefined && result[key] === undefined) {
-				result[key] =
-					typeof config.default === "function"
-						? config.default()
-						: config.default;
+				result[key] = typeof config.default === "function" ? config.default() : config.default;
 			}
 		}
 

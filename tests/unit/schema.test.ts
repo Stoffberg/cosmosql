@@ -153,9 +153,7 @@ describe("Schema Definition", () => {
 
 			expect(config.type).toBe("object");
 			expect(config.objectSchema?.user.type).toBe("object");
-			expect(config.objectSchema?.user.objectSchema?.profile.type).toBe(
-				"object",
-			);
+			expect(config.objectSchema?.user.objectSchema?.profile.type).toBe("object");
 		});
 	});
 
@@ -229,10 +227,7 @@ describe("Schema Definition", () => {
 
 		test("sets default array", () => {
 			const defaultArray: string[] = [];
-			const config = field
-				.array(field.string())
-				.default(defaultArray)
-				.getConfig();
+			const config = field.array(field.string()).default(defaultArray).getConfig();
 			expect(config.default).toBe(defaultArray);
 		});
 
@@ -403,9 +398,7 @@ describe("Schema Definition", () => {
 			});
 
 			expect(schema.schema.items.optional).toBe(true);
-			expect(schema.schema.items.array?.objectSchema?.value.optional).toBe(
-				true,
-			);
+			expect(schema.schema.items.array?.objectSchema?.value.optional).toBe(true);
 		});
 	});
 

@@ -3,17 +3,17 @@ import { createHmac } from "node:crypto";
 export class CosmosAuth {
 	constructor(private masterKey: string) {}
 
-	generateAuthToken(
-		method: string,
-		resourceType: string,
-		resourceId: string,
-		date: Date,
-	): string {
+	generateAuthToken(method: string, resourceType: string, resourceId: string, date: Date): string {
+		// Azure Cosmos DB REST API auth string format:
+		// {method}\n{resourceType}\n{resourceId}\n{date}\n\n
+		// Note: method, resourceType, and date are lowercased, but resourceId is NOT
 		const text = `${method.toLowerCase()}\n${resourceType.toLowerCase()}\n${resourceId}\n${date.toUTCString().toLowerCase()}\n\n`;
 
 		const key = Buffer.from(this.masterKey, "base64");
 		const signature = createHmac("sha256", key).update(text).digest("base64");
 
+		// Azure Cosmos DB REST API Authorization header format
+		// Must be URL-encoded to match Azure SDK behavior
 		return encodeURIComponent(`type=master&ver=1.0&sig=${signature}`);
 	}
 
