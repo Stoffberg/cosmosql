@@ -160,20 +160,22 @@ console.log(user.name); // ✓ TypeScript knows this exists`}
           <div className="rounded-lg border border-fd-border overflow-hidden bg-fd-card shadow-sm">
             <div className="border-b border-fd-border bg-fd-accent/50">
               <div className="flex">
-                {["create", "find", "update", "delete"].map((tab) => (
-                  <button
-                    key={tab}
-                    onClick={() => setActiveTab(tab)}
-                    className={`flex-1 px-4 py-3 text-sm font-medium transition-colors ${
-                      activeTab === tab
-                        ? "bg-fd-card text-fd-foreground border-b-2 border-fd-foreground"
-                        : "text-fd-muted-foreground hover:text-fd-foreground hover:bg-fd-accent"
-                    }`}
-                    type="button"
-                  >
-                    {tab.charAt(0).toUpperCase() + tab.slice(1)}
-                  </button>
-                ))}
+                {["create", "find", "update", "delete", "aggregate"].map(
+                  (tab) => (
+                    <button
+                      key={tab}
+                      onClick={() => setActiveTab(tab)}
+                      className={`flex-1 px-4 py-3 text-sm font-medium transition-colors ${
+                        activeTab === tab
+                          ? "bg-fd-card text-fd-foreground border-b-2 border-fd-foreground"
+                          : "text-fd-muted-foreground hover:text-fd-foreground hover:bg-fd-accent"
+                      }`}
+                      type="button"
+                    >
+                      {tab.charAt(0).toUpperCase() + tab.slice(1)}
+                    </button>
+                  ),
+                )}
               </div>
             </div>
 
@@ -296,6 +298,33 @@ const deletedCount = await db.users.deleteMany({
     createdAt: { lt: new Date('2023-01-01') }
   }
 });`}
+                </SyntaxHighlighter>
+              )}
+
+              {activeTab === "aggregate" && (
+                <SyntaxHighlighter
+                  language="typescript"
+                  style={oneDark}
+                  customStyle={{
+                    margin: 0,
+                    padding: "1.5rem",
+                    fontSize: "14px",
+                    lineHeight: "1.6",
+                  }}
+                >
+                  {`// Get customer analytics with full type safety
+const stats = await db.orders.aggregate({
+  partitionKey: 'customer-123',
+  where: { status: 'completed' },
+  _count: true,
+  _sum: { amount: true },
+  _avg: { amount: true },
+  _min: { createdAt: true },
+  _max: { createdAt: true }
+});
+
+// TypeScript knows all types: stats._count is number
+// stats._sum.amount is number | null, etc.`}
                 </SyntaxHighlighter>
               )}
             </div>

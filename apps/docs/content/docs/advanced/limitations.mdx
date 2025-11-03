@@ -19,38 +19,7 @@ CosmosQL focuses on core CRUD operations and common query patterns that cover th
 
 ### Missing Features
 
-#### 1. Aggregation Operations
-
-CosmosQL does not currently provide built-in aggregation methods like `count()`, `sum()`, `avg()`, `min()`, or `max()`.
-
-**Workaround:** Use raw SQL queries for aggregations:
-
-```typescript
-// Count documents
-const result = await db.users.query<{ total: number }>({
-  sql: 'SELECT COUNT(1) as total FROM c WHERE c.isActive = @active',
-  parameters: [{ name: '@active', value: true }],
-  partitionKey: 'john@example.com'
-});
-
-// Sum values
-const result = await db.orders.query<{ total: number }>({
-  sql: 'SELECT SUM(c.amount) as total FROM c WHERE c.status = @status',
-  parameters: [{ name: '@status', value: 'completed' }],
-  partitionKey: 'user_123'
-});
-
-// Average
-const result = await db.scores.query<{ avg: number }>({
-  sql: 'SELECT AVG(c.score) as avg FROM c WHERE c.subject = @subject',
-  parameters: [{ name: '@subject', value: 'math' }],
-  partitionKey: 'student_123'
-});
-```
-
-**Future Plans:** Native aggregation methods are planned for future releases.
-
-#### 2. Advanced Pagination
+#### 1. Advanced Pagination
 
 CosmosQL currently only supports offset-based pagination using `take` and `skip`. Cursor-based pagination and continuation tokens are not yet supported.
 
@@ -85,7 +54,7 @@ const page2 = await db.posts.findMany({
 
 **Future Plans:** Cursor-based pagination and continuation token support are planned.
 
-#### 3. Transaction Support
+#### 2. Transaction Support
 
 CosmosQL does not support:
 
@@ -121,7 +90,7 @@ await db.posts.createMany({
 
 **Future Plans:** Transaction support is under consideration for future releases.
 
-#### 5. Cross-Partition Query Limitations
+#### 3. Cross-Partition Query Limitations
 
 **Azure CosmosDB Restriction:** Cross-partition queries are limited on empty containers. This is a CosmosDB limitation, not a CosmosQL limitation.
 
@@ -129,7 +98,7 @@ When attempting cross-partition queries on empty containers, CosmosDB returns an
 
 **Workaround:** Ensure containers have at least one document before running cross-partition queries, or use partition-scoped queries when possible.
 
-#### 6. Advanced Query Features
+#### 4. Advanced Query Features
 
 The following CosmosDB features are not yet supported:
 
@@ -161,7 +130,7 @@ const result = await db.locations.query({
 
 **Future Plans:** Advanced query features may be added based on community demand.
 
-#### 7. Performance Optimizations
+#### 5. Performance Optimizations
 
 Missing performance-related features:
 
@@ -179,7 +148,7 @@ Missing performance-related features:
 
 **Future Plans:** Performance monitoring and optimization tools may be added.
 
-#### 8. Change Feed
+#### 6. Change Feed
 
 CosmosQL does not support:
 
@@ -208,7 +177,7 @@ const changeFeedProcessor = container.items
 
 **Future Plans:** Change feed support is being considered for future releases.
 
-#### 9. Multi-Database Operations
+#### 7. Multi-Database Operations
 
 CosmosQL works with a single database per client instance. Cross-database operations are not supported.
 
@@ -234,7 +203,7 @@ const analyticsDb = await createClient({
 |---------|----------|-----------|--------|
 | Type Safety | ✅ Full | ❌ Limited | CosmosQL advantage |
 | CRUD Operations | ✅ Complete | ✅ Complete | Equivalent |
-| Aggregations | ⚠️ Raw SQL only | ✅ Native | SDK advantage |
+| Aggregations | ✅ Type-safe | ✅ Native | Equivalent |
 | Transactions | ⚠️ Single partition | ✅ Full support | SDK advantage |
 | Change Feed | ❌ Not supported | ✅ Supported | SDK advantage |
 | Database Management | ✅ Container management | ✅ Full management | Equivalent |
@@ -269,7 +238,7 @@ You can use CosmosQL alongside the Azure SDK for different use cases within the 
 
 1. ✅ Core CRUD operations (Completed)
 2. ✅ Type-safe query builder (Completed)
-3. 🔄 Aggregation functions (Planned)
+3. ✅ Aggregation functions (Completed)
 4. 🔄 Cursor pagination (Planned)
 5. 🔄 Batch operations (Planned)
 

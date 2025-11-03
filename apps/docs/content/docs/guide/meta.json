@@ -8,6 +8,7 @@
     "read",
     "update",
     "delete",
+    "aggregations",
     "common-patterns",
     "advanced-patterns"
   ]

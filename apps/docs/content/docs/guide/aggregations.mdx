@@ -1,0 +1,1107 @@
+---
+title: Aggregations
+description: Complete guide to using aggregation functions in CosmosQL - count, sum, average, min, max, and group by operations with full type safety.
+---
+
+Complete guide to using aggregation functions in CosmosQL - count, sum, average, min, max, and group by operations with full type safety.
+
+## Table of Contents
+
+- [Overview](#overview)
+- [Count Operations](#count-operations)
+- [Aggregate Operations](#aggregate-operations)
+- [Group By Operations](#group-by-operations)
+- [Convenience Methods](#convenience-methods)
+- [Type Safety](#type-safety)
+- [Real-World Examples](#real-world-examples)
+- [Performance & Best Practices](#performance--best-practices)
+
+---
+
+## Overview
+
+CosmosQL provides a complete set of aggregation functions that are:
+- ✅ **Fully type-safe** - TypeScript infers exact result types
+- ✅ **SQL-compatible** - Translates to efficient Cosmos DB SQL
+- ✅ **Partition-aware** - Optimized for Cosmos DB's partitioning
+- ✅ **Composable** - Combine multiple aggregations in one query
+
+### Available Aggregations
+
+| Operation | Description | Works With |
+|-----------|-------------|------------|
+| `_count` | Count documents | All fields |
+| `_sum` | Sum values | Number fields |
+| `_avg` | Average values | Number fields |
+| `_min` | Find minimum | All fields |
+| `_max` | Find maximum | All fields |
+
+---
+
+## Count Operations
+
+### Basic Count
+
+Count documents in a partition:
+
+```typescript
+import { createClient, container, field } from 'cosmosql';
+
+const orderSchema = container('orders', {
+  id: field.string(),
+  customerId: field.string(),
+  amount: field.number(),
+  status: field.string(),
+}).partitionKey('customerId');
+
+const client = createClient({
+  connectionString: process.env.COSMOS_CONNECTION_STRING!,
+  database: 'mydb',
+});
+
+const db = await client.withContainers({ orders: orderSchema });
+
+// Count orders for a customer
+const count = await db.orders.count({
+  partitionKey: 'customer-123',
+});
+// Result: 42
+```
+
+### Count with Filters
+
+Add WHERE conditions to count specific documents:
+
+```typescript
+// Count only completed orders
+const completedCount = await db.orders.count({
+  partitionKey: 'customer-123',
+  where: {
+    status: 'completed',
+  },
+});
+
+// Count with complex filters
+const recentHighValueCount = await db.orders.count({
+  partitionKey: 'customer-123',
+  where: {
+    status: 'completed',
+    amount: { gte: 100 },
+    createdAt: { gte: new Date('2024-01-01') },
+  },
+});
+```
+
+### Cross-Partition Count
+
+⚠️ **Use sparingly** - Cross-partition queries are expensive in Cosmos DB.
+
+```typescript
+// Count ALL orders across all customers
+const totalOrders = await db.orders.count({
+  enableCrossPartitionQuery: true,
+});
+
+// Cross-partition count with filter
+const allCompletedOrders = await db.orders.count({
+  enableCrossPartitionQuery: true,
+  where: { status: 'completed' },
+});
+```
+
+### Count Specific Fields
+
+Count non-null values in specific fields:
+
+```typescript
+const result = await db.orders.aggregate({
+  partitionKey: 'customer-123',
+  _count: {
+    select: {
+      amount: true,        // Count orders with amount
+      discount: true,      // Count orders with discount (might be optional)
+      trackingNumber: true,
+    },
+  },
+});
+
+// Result type is inferred:
+// {
+//   _count: {
+//     amount: number;
+//     discount: number;
+//     trackingNumber: number;
+//   }
+// }
+```
+
+---
+
+## Aggregate Operations
+
+### Single Aggregation
+
+```typescript
+// Sum all order amounts for a customer
+const result = await db.orders.aggregate({
+  partitionKey: 'customer-123',
+  _sum: {
+    amount: true,
+  },
+});
+
+// Result: { _sum: { amount: 1250.50 | null } }
+```
+
+### Multiple Aggregations
+
+Combine multiple operations in one query (more efficient than separate queries):
+
+```typescript
+const stats = await db.orders.aggregate({
+  partitionKey: 'customer-123',
+  _count: true,                    // Total count
+  _sum: { amount: true },          // Total revenue
+  _avg: { amount: true },          // Average order value
+  _min: { amount: true },          // Smallest order
+  _max: { amount: true },          // Largest order
+});
+
+// Result type (fully inferred):
+// {
+//   _count: number;
+//   _sum: { amount: number | null };
+//   _avg: { amount: number | null };
+//   _min: { amount: number | null };
+//   _max: { amount: number | null };
+// }
+
+console.log(`
+  Orders: ${stats._count}
+  Total Revenue: $${stats._sum.amount}
+  Average Order: $${stats._avg.amount}
+  Range: $${stats._min.amount} - $${stats._max.amount}
+`);
+```
+
+### Aggregations with Filters
+
+```typescript
+// Stats for completed orders only
+const completedStats = await db.orders.aggregate({
+  partitionKey: 'customer-123',
+  where: { status: 'completed' },
+  _count: true,
+  _sum: { amount: true },
+  _avg: { amount: true },
+});
+
+// Year-to-date statistics
+const ytdStats = await db.orders.aggregate({
+  partitionKey: 'customer-123',
+  where: {
+    createdAt: { gte: new Date('2024-01-01') },
+  },
+  _sum: { amount: true, tax: true, shipping: true },
+  _count: true,
+});
+```
+
+### Multiple Field Aggregations
+
+```typescript
+const productSchema = container('products', {
+  id: field.string(),
+  category: field.string(),
+  price: field.number(),
+  cost: field.number(),
+  stock: field.number(),
+  weight: field.number(),
+}).partitionKey('category');
+
+const stats = await db.products.aggregate({
+  partitionKey: 'electronics',
+  _sum: {
+    stock: true,    // Total inventory
+    price: true,    // Total value at retail
+    cost: true,     // Total cost basis
+  },
+  _avg: {
+    price: true,    // Average price
+    weight: true,   // Average weight
+  },
+  _min: {
+    price: true,    // Cheapest product
+  },
+  _max: {
+    price: true,    // Most expensive product
+  },
+});
+
+// Calculate profit margin
+const totalProfit = stats._sum.price! - stats._sum.cost!;
+const margin = (totalProfit / stats._sum.price!) * 100;
+console.log(`Profit margin: ${margin.toFixed(2)}%`);
+```
+
+---
+
+## Group By Operations
+
+Group By is the most powerful aggregation feature - it splits data into groups and performs aggregations on each group.
+
+### Group by Single Field
+
+```typescript
+const salesSchema = container('sales', {
+  id: field.string(),
+  storeId: field.string(),
+  category: field.string(),
+  amount: field.number(),
+  quantity: field.number(),
+}).partitionKey('storeId');
+
+// Sales by category
+const categoryStats = await db.sales.groupBy({
+  by: 'category',
+  enableCrossPartitionQuery: true,
+  _count: true,
+  _sum: { amount: true, quantity: true },
+  _avg: { amount: true },
+});
+
+// Result type (fully inferred):
+// Array<{
+//   category: string;
+//   _count: number;
+//   _sum: { amount: number | null; quantity: number | null };
+//   _avg: { amount: number | null };
+// }>
+
+// Use the results
+for (const group of categoryStats) {
+  console.log(`${group.category}:
+    Sales: $${group._sum.amount}
+    Units: ${group._sum.quantity}
+    Avg: $${group._avg.amount}
+  `);
+}
+```
+
+### Group by Multiple Fields
+
+Use an array to group by multiple fields:
+
+```typescript
+// Sales by store AND category
+const detailedStats = await db.sales.groupBy({
+  by: ['storeId', 'category'] as const,  // 'as const' for better type inference
+  enableCrossPartitionQuery: true,
+  _count: true,
+  _sum: { amount: true },
+});
+
+// Result type:
+// Array<{
+//   storeId: string;
+//   category: string;
+//   _count: number;
+//   _sum: { amount: number | null };
+// }>
+
+// Find best performing store-category combination
+const topPerformer = detailedStats.reduce((max, group) => 
+  (group._sum.amount || 0) > (max._sum.amount || 0) ? group : max
+);
+
+console.log(`Top: ${topPerformer.storeId} - ${topPerformer.category}`);
+```
+
+### Group By with Ordering
+
+Sort results by aggregation values:
+
+```typescript
+// Top categories by revenue
+const topCategories = await db.sales.groupBy({
+  by: 'category',
+  enableCrossPartitionQuery: true,
+  _count: true,
+  _sum: { amount: true },
+  orderBy: {
+    _sum_amount: 'desc',  // Order by aggregated field
+  },
+  take: 10,  // Top 10
+});
+
+// Categories with most transactions
+const popularCategories = await db.sales.groupBy({
+  by: 'category',
+  enableCrossPartitionQuery: true,
+  _count: true,
+  orderBy: {
+    _count: 'desc',
+  },
+  take: 5,
+});
+```
+
+### Group By with Pagination
+
+```typescript
+// Paginated category report
+const page1 = await db.sales.groupBy({
+  by: 'category',
+  enableCrossPartitionQuery: true,
+  _sum: { amount: true },
+  orderBy: { category: 'asc' },
+  take: 20,
+  skip: 0,
+});
+
+const page2 = await db.sales.groupBy({
+  by: 'category',
+  enableCrossPartitionQuery: true,
+  _sum: { amount: true },
+  orderBy: { category: 'asc' },
+  take: 20,
+  skip: 20,
+});
+```
+
+### Group By with Filters
+
+Combine WHERE clauses with GROUP BY:
+
+```typescript
+const userSchema = container('analytics', {
+  id: field.string(),
+  userId: field.string(),
+  eventType: field.string(),
+  country: field.string(),
+  timestamp: field.date(),
+  duration: field.number(),
+}).partitionKey('userId');
+
+// Events by type for a specific user in the last 30 days
+const recentEvents = await db.analytics.groupBy({
+  by: 'eventType',
+  partitionKey: 'user-123',
+  where: {
+    timestamp: { gte: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000) },
+  },
+  _count: true,
+  _avg: { duration: true },
+});
+
+// Cross-partition: Events by country for premium users
+const countryStats = await db.analytics.groupBy({
+  by: 'country',
+  enableCrossPartitionQuery: true,
+  where: {
+    eventType: 'purchase',
+  },
+  _count: true,
+  _sum: { duration: true },
+});
+```
+
+---
+
+## Convenience Methods
+
+For simple single-field aggregations, use convenience methods:
+
+### sum()
+
+```typescript
+// Quick sum - cleaner than aggregate()
+const totalRevenue = await db.orders.sum('amount', {
+  partitionKey: 'customer-123',
+});
+// Returns: number | null
+
+// With filter
+const completedRevenue = await db.orders.sum('amount', {
+  partitionKey: 'customer-123',
+  where: { status: 'completed' },
+});
+```
+
+### avg()
+
+```typescript
+// Average order value
+const avgOrderValue = await db.orders.avg('amount', {
+  partitionKey: 'customer-123',
+});
+// Returns: number | null
+
+// Average rating for a product
+const avgRating = await db.reviews.avg('rating', {
+  partitionKey: 'product-456',
+  where: { verified: true },
+});
+```
+
+### min()
+
+```typescript
+// Find cheapest product
+const cheapestPrice = await db.products.min('price', {
+  partitionKey: 'electronics',
+});
+// Returns: number | null
+
+// Earliest order date
+const firstOrder = await db.orders.min('createdAt', {
+  partitionKey: 'customer-123',
+});
+// Returns: Date | null (type inferred from field!)
+```
+
+### max()
+
+```typescript
+// Most expensive product
+const highestPrice = await db.products.max('price', {
+  partitionKey: 'electronics',
+});
+
+// Latest activity
+const lastSeen = await db.users.max('lastLoginAt', {
+  partitionKey: 'tenant-1',
+});
+// Returns: Date | null
+```
+
+---
+
+## Type Safety
+
+CosmosQL provides complete type inference for all aggregation operations.
+
+### Automatic Type Inference
+
+```typescript
+const orderSchema = container('orders', {
+  id: field.string(),
+  customerId: field.string(),
+  amount: field.number(),
+  tax: field.number().optional(),
+  status: field.string(),
+  createdAt: field.date(),
+}).partitionKey('customerId');
+
+// TypeScript knows exact types
+const stats = await db.orders.aggregate({
+  partitionKey: 'customer-123',
+  _count: true,
+  _sum: { amount: true, tax: true },
+  _min: { createdAt: true },
+  _max: { createdAt: true },
+});
+
+// ✅ All these are correctly typed:
+const count: number = stats._count;
+const total: number | null = stats._sum.amount;
+const taxTotal: number | null = stats._sum.tax;
+const firstOrder: Date | null = stats._min.createdAt;
+const lastOrder: Date | null = stats._max.createdAt;
+
+// ❌ TypeScript errors:
+// stats._sum.status;  // Error: 'status' is not a number field
+// stats._avg.createdAt;  // Error: 'createdAt' is not a number field
+```
+
+### Group By Type Inference
+
+```typescript
+// Single field grouping
+const result1 = await db.orders.groupBy({
+  by: 'status',
+  enableCrossPartitionQuery: true,
+  _count: true,
+  _sum: { amount: true },
+});
+// Type: Array<{ status: string; _count: number; _sum: { amount: number | null } }>
+
+// Multiple field grouping
+const result2 = await db.orders.groupBy({
+  by: ['customerId', 'status'] as const,
+  enableCrossPartitionQuery: true,
+  _count: true,
+});
+// Type: Array<{ customerId: string; status: string; _count: number }>
+
+// Access fields with full type safety
+for (const group of result1) {
+  console.log(group.status);      // ✅ string
+  console.log(group._count);      // ✅ number
+  console.log(group._sum.amount); // ✅ number | null
+}
+```
+
+### Optional Fields
+
+```typescript
+const productSchema = container('products', {
+  id: field.string(),
+  category: field.string(),
+  price: field.number(),
+  salePrice: field.number().optional(),  // Optional field
+}).partitionKey('category');
+
+// TypeScript knows salePrice might be undefined
+const result = await db.products.aggregate({
+  partitionKey: 'electronics',
+  _sum: { price: true, salePrice: true },  // ✅ Works with optional fields
+  _avg: { salePrice: true },
+});
+
+// All aggregation results are nullable
+const total: number | null = result._sum.price;
+const saleTotal: number | null = result._sum.salePrice;
+```
+
+### Type-Safe Field Selection
+
+```typescript
+// Only number fields can be summed/averaged
+await db.orders.aggregate({
+  partitionKey: 'customer-123',
+  _sum: {
+    amount: true,    // ✅ number field
+    // status: true,  // ❌ Error: 'status' is not a number
+  },
+  _avg: {
+    amount: true,    // ✅ number field
+    // createdAt: true,  // ❌ Error: dates can't be averaged
+  },
+});
+
+// Any field can be used with min/max/count
+await db.orders.aggregate({
+  partitionKey: 'customer-123',
+  _min: {
+    amount: true,     // ✅ number
+    status: true,     // ✅ string
+    createdAt: true,  // ✅ date
+  },
+});
+```
+
+---
+
+## Real-World Examples
+
+### E-Commerce Analytics Dashboard
+
+```typescript
+// Schema
+const orderSchema = container('orders', {
+  id: field.string(),
+  customerId: field.string(),
+  status: field.string(),
+  totalAmount: field.number(),
+  itemCount: field.number(),
+  discount: field.number().optional(),
+  createdAt: field.date(),
+}).partitionKey('customerId');
+
+// Customer lifetime value
+async function getCustomerLTV(customerId: string) {
+  const stats = await db.orders.aggregate({
+    partitionKey: customerId,
+    where: { status: 'completed' },
+    _count: true,
+    _sum: { totalAmount: true, itemCount: true, discount: true },
+    _avg: { totalAmount: true },
+    _min: { createdAt: true },
+    _max: { createdAt: true },
+  });
+
+  return {
+    totalOrders: stats._count,
+    lifetimeValue: stats._sum.totalAmount || 0,
+    totalItems: stats._sum.itemCount || 0,
+    totalSavings: stats._sum.discount || 0,
+    avgOrderValue: stats._avg.totalAmount || 0,
+    firstOrderDate: stats._min.createdAt,
+    lastOrderDate: stats._max.createdAt,
+    customerSince: stats._min.createdAt 
+      ? Math.floor((Date.now() - stats._min.createdAt.getTime()) / (1000 * 60 * 60 * 24))
+      : 0,
+  };
+}
+
+// Sales by status report
+async function getSalesStatusReport() {
+  const statusReport = await db.orders.groupBy({
+    by: 'status',
+    enableCrossPartitionQuery: true,
+    _count: true,
+    _sum: { totalAmount: true, itemCount: true },
+    _avg: { totalAmount: true },
+  });
+
+  return statusReport.map(group => ({
+    status: group.status,
+    count: group._count,
+    revenue: group._sum.totalAmount || 0,
+    items: group._sum.itemCount || 0,
+    avgValue: group._avg.totalAmount || 0,
+  }));
+}
+
+// Top customers
+async function getTopCustomers(limit: number = 10) {
+  const customers = await db.orders.groupBy({
+    by: 'customerId',
+    enableCrossPartitionQuery: true,
+    _count: true,
+    _sum: { totalAmount: true },
+    orderBy: { _sum_totalAmount: 'desc' },
+    take: limit,
+  });
+
+  return customers.map(c => ({
+    customerId: c.customerId,
+    orders: c._count,
+    spent: c._sum.totalAmount || 0,
+  }));
+}
+```
+
+### Analytics Platform
+
+```typescript
+const eventSchema = container('events', {
+  id: field.string(),
+  userId: field.string(),
+  eventType: field.string(),
+  page: field.string(),
+  duration: field.number(),
+  timestamp: field.date(),
+}).partitionKey('userId');
+
+// User engagement metrics
+async function getUserEngagement(userId: string, days: number = 30) {
+  const since = new Date(Date.now() - days * 24 * 60 * 60 * 1000);
+  
+  const metrics = await db.events.aggregate({
+    partitionKey: userId,
+    where: { timestamp: { gte: since } },
+    _count: true,
+    _sum: { duration: true },
+    _avg: { duration: true },
+  });
+
+  const eventBreakdown = await db.events.groupBy({
+    by: 'eventType',
+    partitionKey: userId,
+    where: { timestamp: { gte: since } },
+    _count: true,
+    _avg: { duration: true },
+  });
+
+  return {
+    totalEvents: metrics._count,
+    totalTime: metrics._sum.duration || 0,
+    avgSessionTime: metrics._avg.duration || 0,
+    eventTypes: eventBreakdown,
+  };
+}
+
+// Platform-wide statistics
+async function getPlatformStats() {
+  // Events by type
+  const eventTypes = await db.events.groupBy({
+    by: 'eventType',
+    enableCrossPartitionQuery: true,
+    where: {
+      timestamp: { gte: new Date(Date.now() - 24 * 60 * 60 * 1000) },
+    },
+    _count: true,
+    _avg: { duration: true },
+    orderBy: { _count: 'desc' },
+  });
+
+  // Page engagement
+  const pages = await db.events.groupBy({
+    by: 'page',
+    enableCrossPartitionQuery: true,
+    where: {
+      timestamp: { gte: new Date(Date.now() - 24 * 60 * 60 * 1000) },
+    },
+    _count: true,
+    _sum: { duration: true },
+    orderBy: { _count: 'desc' },
+    take: 10,
+  });
+
+  return { eventTypes, topPages: pages };
+}
+```
+
+### Inventory Management
+
+```typescript
+const productSchema = container('products', {
+  id: field.string(),
+  warehouseId: field.string(),
+  category: field.string(),
+  stock: field.number(),
+  reorderPoint: field.number(),
+  cost: field.number(),
+  price: field.number(),
+}).partitionKey('warehouseId');
+
+// Warehouse inventory summary
+async function getWarehouseSummary(warehouseId: string) {
+  const summary = await db.products.aggregate({
+    partitionKey: warehouseId,
+    _count: true,
+    _sum: { stock: true, cost: true, price: true },
+  });
+
+  const categoryBreakdown = await db.products.groupBy({
+    by: 'category',
+    partitionKey: warehouseId,
+    _count: true,
+    _sum: { stock: true },
+    _avg: { price: true },
+  });
+
+  const inventoryValue = (summary._sum.cost || 0) * (summary._sum.stock || 0);
+  const retailValue = (summary._sum.price || 0) * (summary._sum.stock || 0);
+
+  return {
+    totalProducts: summary._count,
+    totalStock: summary._sum.stock || 0,
+    inventoryValue,
+    retailValue,
+    potentialProfit: retailValue - inventoryValue,
+    byCategory: categoryBreakdown,
+  };
+}
+
+// Low stock alerts
+async function getLowStockItems(warehouseId: string) {
+  const items = await db.products.findMany({
+    partitionKey: warehouseId,
+    where: {
+      stock: { lte: field.number() }, // Stock <= reorderPoint
+    },
+  });
+
+  // Get summary stats
+  const stats = await db.products.aggregate({
+    partitionKey: warehouseId,
+    where: {
+      stock: { lte: field.number() },
+    },
+    _count: true,
+    _sum: { stock: true },
+  });
+
+  return {
+    items,
+    totalLowStockItems: stats._count,
+    totalLowStockUnits: stats._sum.stock || 0,
+  };
+}
+```
+
+---
+
+## Performance & Best Practices
+
+### ✅ DO: Use Partition Keys
+
+Always provide a partition key when possible:
+
+```typescript
+// ✅ GOOD - Single partition query (fast & cheap)
+const count = await db.orders.count({
+  partitionKey: 'customer-123',
+});
+
+// ⚠️ AVOID - Cross-partition query (slow & expensive)
+const count = await db.orders.count({
+  enableCrossPartitionQuery: true,
+});
+```
+
+### ✅ DO: Combine Multiple Aggregations
+
+More efficient to get multiple aggregations in one query:
+
+```typescript
+// ✅ GOOD - Single query
+const stats = await db.orders.aggregate({
+  partitionKey: 'customer-123',
+  _count: true,
+  _sum: { amount: true },
+  _avg: { amount: true },
+});
+
+// ❌ BAD - Three separate queries
+const count = await db.orders.count({ partitionKey: 'customer-123' });
+const sum = await db.orders.sum('amount', { partitionKey: 'customer-123' });
+const avg = await db.orders.avg('amount', { partitionKey: 'customer-123' });
+```
+
+### ✅ DO: Use WHERE Clauses
+
+Filter data to reduce computation:
+
+```typescript
+// ✅ GOOD - Only aggregate what you need
+const completedStats = await db.orders.aggregate({
+  partitionKey: 'customer-123',
+  where: { status: 'completed' },
+  _sum: { amount: true },
+});
+
+// ⚠️ AVOID - Aggregating everything then filtering
+const allStats = await db.orders.aggregate({
+  partitionKey: 'customer-123',
+  _sum: { amount: true },
+});
+// Then filtering in application code
+```
+
+### ✅ DO: Use Pagination for Large Results
+
+```typescript
+// ✅ GOOD - Paginate large group by results
+async function* getAllGroups() {
+  let skip = 0;
+  const pageSize = 100;
+  
+  while (true) {
+    const page = await db.sales.groupBy({
+      by: 'category',
+      enableCrossPartitionQuery: true,
+      _sum: { amount: true },
+      take: pageSize,
+      skip,
+    });
+    
+    if (page.length === 0) break;
+    yield* page;
+    skip += pageSize;
+  }
+}
+```
+
+### ⚠️ AVOID: Unnecessary Cross-Partition Queries
+
+```typescript
+// ❌ BAD - Expensive cross-partition query
+const total = await db.orders.sum('amount', {
+  enableCrossPartitionQuery: true,
+});
+
+// ✅ BETTER - Store aggregates separately if needed frequently
+// Use a separate container or materialized views
+```
+
+### ⚠️ AVOID: Aggregating Large Date Ranges Without Filters
+
+```typescript
+// ❌ BAD - Scanning entire history
+const allTimeStats = await db.orders.aggregate({
+  enableCrossPartitionQuery: true,
+  _sum: { amount: true },
+});
+
+// ✅ BETTER - Limit to relevant time period
+const recentStats = await db.orders.aggregate({
+  enableCrossPartitionQuery: true,
+  where: {
+    createdAt: { gte: new Date('2024-01-01') },
+  },
+  _sum: { amount: true },
+});
+```
+
+### Understanding NULL Results
+
+Aggregations return `null` when there are no rows:
+
+```typescript
+const stats = await db.orders.aggregate({
+  partitionKey: 'new-customer',
+  _sum: { amount: true },
+  _avg: { amount: true },
+});
+
+// stats._sum.amount might be null (no orders)
+// Always handle null case:
+const total = stats._sum.amount ?? 0;
+const average = stats._avg.amount ?? 0;
+
+// Or use nullish coalescing in display:
+console.log(`Total: $${stats._sum.amount || 0}`);
+```
+
+### Cosmos DB RU Costs
+
+Aggregation operations consume Request Units (RUs):
+
+- **Single Partition**: ~2-5 RUs (very efficient)
+- **Cross-Partition**: 5-100+ RUs depending on data size
+- **Group By**: Higher RU cost, especially cross-partition
+
+Monitor your RU consumption and optimize queries accordingly.
+
+---
+
+## Advanced Patterns
+
+### Combining Aggregations with Find
+
+```typescript
+// Get both detail and summary
+async function getOrderReport(customerId: string) {
+  const [orders, stats] = await Promise.all([
+    db.orders.findMany({
+      partitionKey: customerId,
+      orderBy: { createdAt: 'desc' },
+      take: 10,
+    }),
+    db.orders.aggregate({
+      partitionKey: customerId,
+      _count: true,
+      _sum: { amount: true },
+      _avg: { amount: true },
+    }),
+  ]);
+
+  return { recentOrders: orders, summary: stats };
+}
+```
+
+### Calculating Percentages
+
+```typescript
+const statusBreakdown = await db.orders.groupBy({
+  by: 'status',
+  enableCrossPartitionQuery: true,
+  _count: true,
+});
+
+const total = statusBreakdown.reduce((sum, g) => sum + g._count, 0);
+
+const withPercentages = statusBreakdown.map(group => ({
+  status: group.status,
+  count: group._count,
+  percentage: ((group._count / total) * 100).toFixed(2) + '%',
+}));
+```
+
+### Time-Series Aggregations
+
+```typescript
+// Daily sales for last 30 days
+async function getDailySales(days: number = 30) {
+  const results = [];
+  
+  for (let i = 0; i < days; i++) {
+    const date = new Date();
+    date.setDate(date.getDate() - i);
+    const startOfDay = new Date(date.setHours(0, 0, 0, 0));
+    const endOfDay = new Date(date.setHours(23, 59, 59, 999));
+
+    const stats = await db.orders.aggregate({
+      enableCrossPartitionQuery: true,
+      where: {
+        createdAt: { gte: startOfDay, lte: endOfDay },
+        status: 'completed',
+      },
+      _count: true,
+      _sum: { amount: true },
+    });
+
+    results.push({
+      date: startOfDay,
+      orders: stats._count,
+      revenue: stats._sum.amount || 0,
+    });
+  }
+
+  return results;
+}
+```
+
+---
+
+## Error Handling
+
+```typescript
+import { CosmosError } from 'cosmosql';
+
+try {
+  const stats = await db.orders.aggregate({
+    // partitionKey missing!
+    _sum: { amount: true },
+  });
+} catch (error) {
+  if (error instanceof CosmosError) {
+    if (error.statusCode === 429) {
+      // Rate limited - retry with backoff
+      console.log('Rate limited, retry after:', error.retryAfter);
+    } else if (error.code === 'PARTITION_KEY_REQUIRED') {
+      // Missing partition key
+      console.error('Must provide partition key or enable cross-partition query');
+    }
+  }
+  throw error;
+}
+```
+
+---
+
+## Migration from Raw Cosmos DB
+
+If you're migrating from raw Cosmos DB SDK:
+
+### Before (Raw SDK)
+```typescript
+const querySpec = {
+  query: 'SELECT COUNT(1) as count, SUM(c.amount) as total FROM c WHERE c.customerId = @customerId',
+  parameters: [{ name: '@customerId', value: 'customer-123' }],
+};
+
+const { resources } = await container.items.query(querySpec).fetchAll();
+const result = resources[0];
+```
+
+### After (CosmosQL)
+```typescript
+const result = await db.orders.aggregate({
+  partitionKey: 'customer-123',
+  _count: true,
+  _sum: { amount: true },
+});
+// Result is fully typed!
+```
+
+---
+
+## Summary
+
+CosmosQL's aggregation functions provide:
+
+1. **Type Safety** - Full TypeScript inference for all operations
+2. **Clean API** - Intuitive, composable operations
+3. **Performance** - Optimized queries with partition awareness  
+4. **Flexibility** - From simple counts to complex group by operations
+5. **Developer Experience** - IntelliSense, autocompletion, and compile-time checks
+
+Start with simple `count()` operations, then explore `aggregate()` for multiple operations, and finally `groupBy()` for advanced analytics. Always consider partition keys and cross-partition costs when designing your queries.
+
+For more examples, see the API reference or join our community for support.
+
