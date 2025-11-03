@@ -11,7 +11,7 @@
   ],
   "scripts": {
     "build": "tsc -p tsconfig.build.json && bun run scripts/minify.ts",
-    "test": "bun test && bun run test:integration",
+    "test": "bun test",
     "test:unit": "bun test tests/unit",
     "test:integration": "bun test tests/integration",
     "test:integration:parallel": "bun test tests/integration --parallel",
@@ -63,5 +63,5 @@
     "bun": ">=1.0.0"
   },
   "packageManager": "bun@1.0.0",
-  "private": true
+  "private": false
 }
