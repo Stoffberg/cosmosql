@@ -110,29 +110,6 @@ console.log('Created user:', newUser.name);
 console.log('Found user:', user?.name);
 ```
 
-## Key Features
-
-### ✅ 100% Type-Safe
-Compile-time error catching for all operations. TypeScript enforces partition keys, field types, and query validity.
-
-### ✅ Zero Overhead
-Direct REST API calls, minimal bundle size (43.6 kB packed). No runtime dependencies beyond Node.js.
-
-### ✅ Partition Key Aware
-Enforces partition key usage to avoid expensive cross-partition queries. Prevents $2,400/month mistakes.
-
-### ✅ Zero Dependencies
-Only TypeScript required, works with Node.js 18+ and Bun 1.0+.
-
-### ✅ Complete Operations
-- **CRUD**: `create`, `findUnique`, `findMany`, `update`, `upsert`, `delete`
-- **Aggregations**: `count`, `sum`, `avg`, `min`, `max`
-- **Advanced**: `groupBy`, raw SQL queries, batch operations
-- **Filtering**: Rich where clauses with operators (`gt`, `lt`, `contains`, etc.)
-
-### ✅ Production Ready
-Used in production by teams handling real traffic. Comprehensive test coverage ensures reliability.
-
 ## API Overview
 
 ### Schema Definition
