@@ -206,7 +206,7 @@ const analyticsDb = await createClient({
 | Aggregations | ✅ Type-safe | ✅ Native | Equivalent |
 | Transactions | ⚠️ Single partition | ✅ Full support | SDK advantage |
 | Change Feed | ❌ Not supported | ✅ Supported | SDK advantage |
-| Database Management | ✅ Container management | ✅ Full management | Equivalent |
+| Database Management | ✅ Full management | ✅ Full management | Equivalent |
 | Zero Dependencies | ✅ Yes | ❌ 50+ packages | CosmosQL advantage |
 | Query Builder | ✅ Type-safe | ❌ SQL strings | CosmosQL advantage |
 
@@ -219,11 +219,11 @@ const analyticsDb = await createClient({
 - ✅ Your use cases fit core CRUD operations
 - ✅ You want compile-time guarantees for partition keys
 - ✅ You're building new TypeScript applications
+- ✅ You need database and container management (with `auto-create`, `verify`, or `skip` modes)
 
 **Use Azure SDK when:**
 
 - ✅ You need advanced features (change feed, stored procedures)
-- ✅ You require database-level management APIs (database creation/deletion)
 - ✅ You need cross-partition transactions
 - ✅ You're working with JavaScript (not TypeScript)
 - ✅ You need geospatial queries or full-text search
