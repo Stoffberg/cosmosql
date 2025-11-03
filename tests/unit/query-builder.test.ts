@@ -9,7 +9,7 @@ describe("QueryBuilder", () => {
 		const { query, parameters } = builder.build();
 
 		expect(query).toContain("WHERE");
-		expect(query).toContain("c["age"]");
+		expect(query).toMatch(/c\["age"\]/);
 		expect(parameters).toHaveLength(1);
 		expect(parameters[0].value).toBe(18);
 	});
@@ -31,7 +31,7 @@ describe("QueryBuilder", () => {
 
 		const { query } = builder.build();
 
-		expect(query).toContain("ORDER BY c["age"] DESC");
+		expect(query).toMatch(/ORDER BY c\["age"\] DESC/);
 	});
 
 	test("adds OFFSET and LIMIT together", () => {
@@ -51,7 +51,7 @@ describe("QueryBuilder", () => {
 
 			const { query, parameters } = builder.build();
 
-			expect(query).toContain("c["name"] = @param0");
+			expect(query).toMatch(/c\["name"\] = @param0/);
 			expect(parameters[0].value).toBe("John");
 		});
 
@@ -61,7 +61,7 @@ describe("QueryBuilder", () => {
 
 			const { query, parameters } = builder.build();
 
-			expect(query).toContain("c["age"] > @param0");
+			expect(query).toMatch(/c\["age"\] > @param0/);
 			expect(parameters[0].value).toBe(18);
 		});
 
@@ -71,7 +71,7 @@ describe("QueryBuilder", () => {
 
 			const { query, parameters } = builder.build();
 
-			expect(query).toContain("c["age"] >= @param0");
+			expect(query).toMatch(/c\["age"\] >= @param0/);
 			expect(parameters[0].value).toBe(18);
 		});
 
@@ -81,7 +81,7 @@ describe("QueryBuilder", () => {
 
 			const { query, parameters } = builder.build();
 
-			expect(query).toContain("c["age"] < @param0");
+			expect(query).toMatch(/c\["age"\] < @param0/);
 			expect(parameters[0].value).toBe(65);
 		});
 
@@ -91,7 +91,7 @@ describe("QueryBuilder", () => {
 
 			const { query, parameters } = builder.build();
 
-			expect(query).toContain("c["age"] <= @param0");
+			expect(query).toMatch(/c\["age"\] <= @param0/);
 			expect(parameters[0].value).toBe(65);
 		});
 
@@ -101,7 +101,7 @@ describe("QueryBuilder", () => {
 
 			const { query, parameters } = builder.build();
 
-			expect(query).toContain("CONTAINS(c["email"], @param0)");
+			expect(query).toMatch(/CONTAINS\(c\["email"\], @param0\)/);
 			expect(parameters[0].value).toBe("@example.com");
 		});
 
@@ -111,7 +111,7 @@ describe("QueryBuilder", () => {
 
 			const { query, parameters } = builder.build();
 
-			expect(query).toContain("STARTSWITH(c["name"], @param0)");
+			expect(query).toMatch(/STARTSWITH\(c\["name"\], @param0\)/);
 			expect(parameters[0].value).toBe("John");
 		});
 
@@ -121,7 +121,7 @@ describe("QueryBuilder", () => {
 
 			const { query, parameters } = builder.build();
 
-			expect(query).toContain("ENDSWITH(c["email"], @param0)");
+			expect(query).toMatch(/ENDSWITH\(c\["email"\], @param0\)/);
 			expect(parameters[0].value).toBe(".com");
 		});
 
@@ -131,8 +131,8 @@ describe("QueryBuilder", () => {
 
 			const { query, parameters } = builder.build();
 
-			expect(query).toContain("c["age"] >= @param0");
-			expect(query).toContain("c["age"] <= @param1");
+			expect(query).toMatch(/c\["age"\] >= @param0/);
+			expect(query).toMatch(/c\["age"\] <= @param1/);
 			expect(query).toContain("AND");
 			expect(parameters).toHaveLength(2);
 		});
@@ -143,8 +143,8 @@ describe("QueryBuilder", () => {
 
 			const { query, parameters } = builder.build();
 
-			expect(query).toContain("c["age"] = @param0");
-			expect(query).toContain("c["name"] = @param1");
+			expect(query).toMatch(/c\["age"\] = @param0/);
+			expect(query).toMatch(/c\["name"\] = @param1/);
 			expect(query).toContain("AND");
 			expect(parameters).toHaveLength(2);
 		});
@@ -172,7 +172,7 @@ describe("QueryBuilder", () => {
 			const { query, parameters } = builder.build();
 
 			expect(parameters).toHaveLength(0);
-			expect(query).not.toContain("c["name"]");
+			expect(query).not.toMatch(/c\["name"\]/);
 			expect(query).toBe("SELECT * FROM c");
 		});
 
@@ -183,7 +183,7 @@ describe("QueryBuilder", () => {
 			const { query, parameters } = builder.build();
 
 			expect(parameters).toHaveLength(0);
-			expect(query).not.toContain("c["name"]");
+			expect(query).not.toMatch(/c\["name"\]/);
 			expect(query).toBe("SELECT * FROM c");
 		});
 
@@ -198,9 +198,9 @@ describe("QueryBuilder", () => {
 			const { query, parameters } = builder.build();
 
 			expect(parameters).toHaveLength(2);
-			expect(query).toContain("c["name"]");
-			expect(query).toContain("c["email"]");
-			expect(query).not.toContain("c["age"]");
+			expect(query).toMatch(/c\["name"\]/);
+			expect(query).toMatch(/c\["email"\]/);
+			expect(query).not.toMatch(/c\["age"\]/);
 		});
 
 		test("empty where clause", () => {
@@ -221,7 +221,7 @@ describe("QueryBuilder", () => {
 
 			expect(parameters).toHaveLength(1);
 			expect(parameters[0].value).toBe(0);
-			expect(query).toContain("c["count"] = @param0");
+			expect(query).toMatch(/c\["count"\] = @param0/);
 		});
 
 		test("empty string values are included", () => {
@@ -232,7 +232,7 @@ describe("QueryBuilder", () => {
 
 			expect(parameters).toHaveLength(1);
 			expect(parameters[0].value).toBe("");
-			expect(query).toContain("c["name"] = @param0");
+			expect(query).toMatch(/c\["name"\] = @param0/);
 		});
 
 		test("false values are included", () => {
@@ -243,7 +243,7 @@ describe("QueryBuilder", () => {
 
 			expect(parameters).toHaveLength(1);
 			expect(parameters[0].value).toBe(false);
-			expect(query).toContain("c["active"] = @param0");
+			expect(query).toMatch(/c\["active"\] = @param0/);
 		});
 	});
 
@@ -262,7 +262,7 @@ describe("QueryBuilder", () => {
 
 			const { query } = builder.build();
 
-			expect(query).toContain("SELECT c["name"], c["email"]");
+			expect(query).toContain("SELECT c.name, c.email");
 			expect(query).not.toContain("*");
 		});
 
@@ -282,9 +282,9 @@ describe("QueryBuilder", () => {
 			const { query } = builder.build();
 
 			expect(query).toContain("c.id");
-			expect(query).toContain("c["name"]");
-			expect(query).toContain("c["email"]");
-			expect(query).toContain("c["age"]");
+			expect(query).toContain("c.name");
+			expect(query).toContain("c.email");
+			expect(query).toContain("c.age");
 		});
 
 		test("empty select defaults to all", () => {
@@ -304,7 +304,7 @@ describe("QueryBuilder", () => {
 
 			const { query } = builder.build();
 
-			expect(query).toContain("ORDER BY c["name"] ASC");
+			expect(query).toMatch(/ORDER BY c\["name"\] ASC/);
 		});
 
 		test("orders by single field descending", () => {
@@ -313,7 +313,7 @@ describe("QueryBuilder", () => {
 
 			const { query } = builder.build();
 
-			expect(query).toContain("ORDER BY c["age"] DESC");
+			expect(query).toMatch(/ORDER BY c\["age"\] DESC/);
 		});
 
 		test("orders by multiple fields", () => {
@@ -326,9 +326,9 @@ describe("QueryBuilder", () => {
 			const { query } = builder.build();
 
 			expect(query).toContain("ORDER BY");
-			expect(query).toContain("c["age"] DESC");
-			expect(query).toContain("c["name"] ASC");
-			expect(query).toMatch(/c\.age DESC.*c\.name ASC/);
+			expect(query).toMatch(/c\["age"\] DESC/);
+			expect(query).toMatch(/c\["name"\] ASC/);
+			expect(query).toMatch(/c\["age"\] DESC.*c\["name"\] ASC/);
 		});
 
 		test("no order by when not specified", () => {
@@ -416,10 +416,10 @@ describe("QueryBuilder", () => {
 
 			const { query, parameters } = builder.build();
 
-			expect(query).toContain("SELECT c["name"], c["age"]");
+			expect(query).toContain("SELECT c.name, c.age");
 			expect(query).toContain("FROM c");
-			expect(query).toContain("WHERE c["age"] >= @param0");
-			expect(query).toContain("ORDER BY c["age"] DESC");
+			expect(query).toMatch(/WHERE c\["age"\] >= @param0/);
+			expect(query).toMatch(/ORDER BY c\["age"\] DESC/);
 			expect(query).toContain("OFFSET 5");
 			expect(query).toContain("LIMIT 10");
 			expect(parameters).toHaveLength(1);

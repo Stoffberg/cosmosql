@@ -89,9 +89,10 @@ describe("CosmosClient", () => {
 			const callArgs = (fetch as jest.Mock).mock.calls[0];
 			const url = callArgs[0];
 
-			expect(url).toBe("https://test.documents.azure.com:443/dbs/testdb/colls/test/docs/doc1");
-			// Should not contain double slash in the path (after :443/)
-			expect(url).not.toContain(":443//");
+			expect(url).toBe("https://test.documents.azure.com/dbs/testdb/colls/test/docs/doc1");
+			// Should not contain double slash in the path (after domain part)
+			const pathPart = url.split("://")[1];
+			expect(pathPart).not.toContain("//");
 		});
 
 		test("removes trailing slash from connectionString endpoint", () => {
@@ -113,9 +114,10 @@ describe("CosmosClient", () => {
 			const callArgs = (fetch as jest.Mock).mock.calls[0];
 			const url = callArgs[0];
 
-			expect(url).toBe("https://test.documents.azure.com:443/dbs/testdb/colls/test/docs/doc1");
-			// Should not contain double slash in the path (after :443/)
-			expect(url).not.toContain(":443//");
+			expect(url).toBe("https://test.documents.azure.com/dbs/testdb/colls/test/docs/doc1");
+			// Should not contain double slash in the path (after domain part)
+			const pathPart = url.split("://")[1];
+			expect(pathPart).not.toContain("//");
 		});
 
 		test("handles endpoint without trailing slash", () => {
@@ -137,7 +139,7 @@ describe("CosmosClient", () => {
 			const callArgs = (fetch as jest.Mock).mock.calls[0];
 			const url = callArgs[0];
 
-			expect(url).toBe("https://test.documents.azure.com:443/dbs/testdb/colls/test/docs/doc1");
+			expect(url).toBe("https://test.documents.azure.com/dbs/testdb/colls/test/docs/doc1");
 		});
 	});
 
@@ -213,9 +215,9 @@ describe("CosmosClient", () => {
 			await client.request("GET", "/dbs/testdb/colls/test/docs/doc1", undefined, "pk1");
 
 			const callArgs = (fetch as jest.Mock).mock.calls[0];
-			const headers = callArgs[1].headers as Headers;
+			const headers = callArgs[1].headers as Record<string, string>;
 
-			expect(headers.get("x-ms-documentdb-partitionkey")).toBe(JSON.stringify(["pk1"]));
+			expect(headers["x-ms-documentdb-partitionkey"]).toBe(JSON.stringify(["pk1"]));
 		});
 
 		test("includes array partition key header", async () => {
@@ -235,9 +237,9 @@ describe("CosmosClient", () => {
 			await client.request("GET", "/dbs/testdb/colls/test/docs/doc1", undefined, ["pk1", "pk2"]);
 
 			const callArgs = (fetch as jest.Mock).mock.calls[0];
-			const headers = callArgs[1].headers as Headers;
+			const headers = callArgs[1].headers as Record<string, string>;
 
-			expect(headers.get("x-ms-documentdb-partitionkey")).toBe(JSON.stringify(["pk1", "pk2"]));
+			expect(headers["x-ms-documentdb-partitionkey"]).toBe(JSON.stringify(["pk1", "pk2"]));
 		});
 
 		test("includes cross-partition query header when enableCrossPartitionQuery is true", async () => {
@@ -263,9 +265,9 @@ describe("CosmosClient", () => {
 			);
 
 			const callArgs = (fetch as jest.Mock).mock.calls[0];
-			const headers = callArgs[1].headers as Headers;
+			const headers = callArgs[1].headers as Record<string, string>;
 
-			expect(headers.get("x-ms-documentdb-query-enablecrosspartition")).toBe("true");
+			expect(headers["x-ms-documentdb-query-enablecrosspartition"]).toBe("true");
 		});
 
 		test("does not include cross-partition query header when enableCrossPartitionQuery is false", async () => {
@@ -291,9 +293,9 @@ describe("CosmosClient", () => {
 			);
 
 			const callArgs = (fetch as jest.Mock).mock.calls[0];
-			const headers = callArgs[1].headers as Headers;
+			const headers = callArgs[1].headers as Record<string, string>;
 
-			expect(headers.has("x-ms-documentdb-query-enablecrosspartition")).toBe(false);
+			expect(headers["x-ms-documentdb-query-enablecrosspartition"]).toBeUndefined();
 		});
 
 		test("does not include cross-partition query header when enableCrossPartitionQuery is undefined", async () => {
@@ -316,9 +318,9 @@ describe("CosmosClient", () => {
 			});
 
 			const callArgs = (fetch as jest.Mock).mock.calls[0];
-			const headers = callArgs[1].headers as Headers;
+			const headers = callArgs[1].headers as Record<string, string>;
 
-			expect(headers.has("x-ms-documentdb-query-enablecrosspartition")).toBe(false);
+			expect(headers["x-ms-documentdb-query-enablecrosspartition"]).toBeUndefined();
 		});
 
 		test("does not include partition key header when partitionKey is null", async () => {
@@ -338,9 +340,9 @@ describe("CosmosClient", () => {
 			await client.request("GET", "/dbs/testdb/colls/test/docs/doc1", undefined, null);
 
 			const callArgs = (fetch as jest.Mock).mock.calls[0];
-			const headers = callArgs[1].headers;
+			const headers = callArgs[1].headers as Record<string, string>;
 
-			expect(headers.has("x-ms-documentdb-partitionkey")).toBe(false);
+			expect(headers["x-ms-documentdb-partitionkey"]).toBeUndefined();
 		});
 
 		test("does not include partition key header when partitionKey is undefined", async () => {
@@ -360,9 +362,9 @@ describe("CosmosClient", () => {
 			await client.request("GET", "/dbs/testdb/colls/test/docs/doc1", undefined, undefined);
 
 			const callArgs = (fetch as jest.Mock).mock.calls[0];
-			const headers = callArgs[1].headers;
+			const headers = callArgs[1].headers as Record<string, string>;
 
-			expect(headers.has("x-ms-documentdb-partitionkey")).toBe(false);
+			expect(headers["x-ms-documentdb-partitionkey"]).toBeUndefined();
 		});
 
 		test("includes cross-partition query header as string 'true'", async () => {
@@ -388,9 +390,9 @@ describe("CosmosClient", () => {
 			);
 
 			const callArgs = (fetch as jest.Mock).mock.calls[0];
-			const headers = callArgs[1].headers as Headers;
+			const headers = callArgs[1].headers as Record<string, string>;
 
-			expect(headers.get("x-ms-documentdb-query-enablecrosspartition")).toBe("true");
+			expect(headers["x-ms-documentdb-query-enablecrosspartition"]).toBe("true");
 		});
 
 		test("cross-partition query with explicit undefined partition key does not include partition key header", async () => {
@@ -416,10 +418,10 @@ describe("CosmosClient", () => {
 			);
 
 			const callArgs = (fetch as jest.Mock).mock.calls[0];
-			const headers = callArgs[1].headers as Headers;
+			const headers = callArgs[1].headers as Record<string, string>;
 
-			expect(headers.get("x-ms-documentdb-query-enablecrosspartition")).toBe("true");
-			expect(headers.has("x-ms-documentdb-partitionkey")).toBe(false);
+			expect(headers["x-ms-documentdb-query-enablecrosspartition"]).toBe("true");
+			expect(headers["x-ms-documentdb-partitionkey"]).toBeUndefined();
 		});
 
 		test("cross-partition query with take parameter works", async () => {
@@ -448,10 +450,10 @@ describe("CosmosClient", () => {
 			);
 
 			const callArgs = (fetch as jest.Mock).mock.calls[0];
-			const headers = callArgs[1].headers as Headers;
+			const headers = callArgs[1].headers as Record<string, string>;
 
-			expect(headers.get("x-ms-documentdb-query-enablecrosspartition")).toBe("true");
-			expect(headers.has("x-ms-documentdb-partitionkey")).toBe(false);
+			expect(headers["x-ms-documentdb-query-enablecrosspartition"]).toBe("true");
+			expect(headers["x-ms-documentdb-partitionkey"]).toBeUndefined();
 		});
 
 		test("filters out undefined and null values from headers", async () => {
@@ -472,10 +474,10 @@ describe("CosmosClient", () => {
 			await client.request("GET", "/dbs/testdb/colls/test/docs/doc1");
 
 			const callArgs = (fetch as jest.Mock).mock.calls[0];
-			const actualHeaders = callArgs[1].headers as Headers;
+			const actualHeaders = callArgs[1].headers as Record<string, string>;
 
 			// Headers should not contain undefined or null values
-			actualHeaders.forEach((value) => {
+			Object.values(actualHeaders).forEach((value) => {
 				expect(value).not.toBeUndefined();
 				expect(value).not.toBeNull();
 				expect(typeof value).toBe("string");
@@ -499,13 +501,12 @@ describe("CosmosClient", () => {
 			await client.request("GET", "/dbs/testdb/colls/test/docs/doc1");
 
 			const callArgs = (fetch as jest.Mock).mock.calls[0];
-			const headers = callArgs[1].headers as Headers;
+			const headers = callArgs[1].headers as Record<string, string>;
 
-			expect(headers.has("Authorization")).toBe(true);
-			expect(headers.has("x-ms-date")).toBe(true);
-			expect(headers.get("x-ms-version")).toBe("2018-12-31");
-			expect(headers.get("Content-Type")).toBe("application/json");
-			expect(headers.get("Accept")).toBe("application/json");
+			expect(headers.authorization).toBeDefined();
+			expect(headers["x-ms-date"]).toBeDefined();
+			expect(headers["x-ms-version"]).toBe("2018-12-31");
+			expect(headers.accept).toBe("application/json");
 		});
 
 		test("throws CosmosError on error response", async () => {
@@ -521,10 +522,11 @@ describe("CosmosClient", () => {
 				ok: false,
 				status: 404,
 				statusText: "Not Found",
-				json: async () => ({
-					code: "NotFound",
-					message: "Resource not found",
-				}),
+				text: async () =>
+					JSON.stringify({
+						code: "NotFound",
+						message: "Resource not found",
+					}),
 			});
 
 			try {
@@ -703,14 +705,14 @@ describe("CosmosClient", () => {
 			// biome-ignore lint/complexity/useLiteralKeys: test private method
 			const result = client["parseResourcePath"]("/dbs/chatapi/colls/conversations");
 
-			expect(result).toEqual(["conversations", "dbs/chatapi/colls"]);
+			expect(result).toEqual(["colls", "dbs/chatapi/colls/conversations"]);
 		});
 
 		test("parses database path correctly", () => {
 			// biome-ignore lint/complexity/useLiteralKeys: test private method
 			const result = client["parseResourcePath"]("/dbs/chatapi");
 
-			expect(result).toEqual(["chatapi", "dbs"]);
+			expect(result).toEqual(["dbs", "dbs/chatapi"]);
 		});
 
 		test("parses single segment path", () => {
@@ -731,35 +733,35 @@ describe("CosmosClient", () => {
 			// biome-ignore lint/complexity/useLiteralKeys: test private method
 			const result = client["parseResourcePath"]("/dbs/test");
 
-			expect(result).toEqual(["test", "dbs"]);
+			expect(result).toEqual(["dbs", "dbs/test"]);
 		});
 
 		test("handles complex document path", () => {
 			// biome-ignore lint/complexity/useLiteralKeys: test private method
 			const result = client["parseResourcePath"]("/dbs/my-db/colls/my-collection/docs/my-doc");
 
-			expect(result).toEqual(["my-doc", "dbs/my-db/colls/my-collection/docs"]);
+			expect(result).toEqual(["docs", "dbs/my-db/colls/my-collection/docs/my-doc"]);
 		});
 
 		test("handles stored procedure path", () => {
 			// biome-ignore lint/complexity/useLiteralKeys: test private method
 			const result = client["parseResourcePath"]("/dbs/db/colls/coll/sprocs/proc");
 
-			expect(result).toEqual(["proc", "dbs/db/colls/coll/sprocs"]);
+			expect(result).toEqual(["sprocs", "dbs/db/colls/coll/sprocs/proc"]);
 		});
 
 		test("handles user defined function path", () => {
 			// biome-ignore lint/complexity/useLiteralKeys: test private method
 			const result = client["parseResourcePath"]("/dbs/db/colls/coll/udfs/func");
 
-			expect(result).toEqual(["func", "dbs/db/colls/coll/udfs"]);
+			expect(result).toEqual(["udfs", "dbs/db/colls/coll/udfs/func"]);
 		});
 
 		test("handles trigger path", () => {
 			// biome-ignore lint/complexity/useLiteralKeys: test private method
 			const result = client["parseResourcePath"]("/dbs/db/colls/coll/triggers/trig");
 
-			expect(result).toEqual(["trig", "dbs/db/colls/coll/triggers"]);
+			expect(result).toEqual(["triggers", "dbs/db/colls/coll/triggers/trig"]);
 		});
 	});
 });

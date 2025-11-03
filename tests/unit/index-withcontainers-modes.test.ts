@@ -89,6 +89,7 @@ describe("withContainers Modes", () => {
 				.mockResolvedValueOnce({
 					ok: true,
 					status: 200,
+					json: async () => ({ DocumentCollections: [] }),
 				})
 				.mockResolvedValueOnce({
 					ok: false,
@@ -129,10 +130,12 @@ describe("withContainers Modes", () => {
 				.mockResolvedValueOnce({
 					ok: true,
 					status: 200,
+					json: async () => ({ DocumentCollections: [] }),
 				})
 				.mockResolvedValueOnce({
 					ok: true,
 					status: 200,
+					json: async () => containerInfo,
 				})
 				.mockResolvedValueOnce({
 					ok: true,
@@ -172,10 +175,12 @@ describe("withContainers Modes", () => {
 				.mockResolvedValueOnce({
 					ok: true,
 					status: 200,
+					json: async () => ({ DocumentCollections: [] }),
 				})
 				.mockResolvedValueOnce({
 					ok: true,
 					status: 200,
+					json: async () => containerInfo,
 				})
 				.mockResolvedValueOnce({
 					ok: true,
@@ -218,10 +223,12 @@ describe("withContainers Modes", () => {
 				.mockResolvedValueOnce({
 					ok: true,
 					status: 200,
+					json: async () => ({ DocumentCollections: [] }),
 				})
 				.mockResolvedValueOnce({
 					ok: true,
 					status: 200,
+					json: async () => containerInfo,
 				})
 				.mockResolvedValueOnce({
 					ok: true,
@@ -308,6 +315,7 @@ describe("withContainers Modes", () => {
 				.mockResolvedValueOnce({
 					ok: true,
 					status: 200,
+					json: async () => ({ DocumentCollections: [] }),
 				})
 				.mockResolvedValueOnce({
 					ok: false,
@@ -353,10 +361,12 @@ describe("withContainers Modes", () => {
 				.mockResolvedValueOnce({
 					ok: true,
 					status: 200,
+					json: async () => ({ DocumentCollections: [] }),
 				})
 				.mockResolvedValueOnce({
 					ok: true,
 					status: 200,
+					json: async () => containerInfo,
 				})
 				.mockResolvedValueOnce({
 					ok: true,
@@ -411,6 +421,7 @@ describe("withContainers Modes", () => {
 				.mockResolvedValueOnce({
 					ok: true,
 					status: 200,
+					json: async () => ({ DocumentCollections: [] }),
 				})
 				.mockResolvedValueOnce({
 					ok: false,
@@ -454,6 +465,7 @@ describe("withContainers Modes", () => {
 				.mockResolvedValueOnce({
 					ok: true,
 					status: 200,
+					json: async () => ({ DocumentCollections: [] }),
 				})
 				.mockResolvedValueOnce({
 					ok: false,
@@ -505,6 +517,7 @@ describe("withContainers Modes", () => {
 			(fetch as jest.Mock).mockResolvedValueOnce({
 				ok: true,
 				status: 200,
+				json: async () => ({ DocumentCollections: [] }),
 			});
 
 			const config: CosmosClientConfig = {

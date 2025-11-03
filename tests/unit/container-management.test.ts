@@ -61,7 +61,7 @@ describe("Container Management", () => {
 			(fetch as jest.Mock).mockResolvedValueOnce({
 				ok: true,
 				status: 200,
-				json: async () => ({}),
+				json: async () => ({ DocumentCollections: [] }),
 			});
 
 			const client = new CosmosClient({
@@ -73,8 +73,8 @@ describe("Container Management", () => {
 			const exists = await client.databaseExists();
 			expect(exists).toBe(true);
 			expect(fetch).toHaveBeenCalledWith(
-				expect.stringContaining("/dbs/testdb"),
-				expect.objectContaining({ method: "HEAD" }),
+				expect.stringContaining("/dbs/testdb/colls"),
+				expect.objectContaining({ method: "GET" }),
 			);
 		});
 
@@ -123,7 +123,7 @@ describe("Container Management", () => {
 			(fetch as jest.Mock).mockResolvedValueOnce({
 				ok: true,
 				status: 200,
-				json: async () => ({}),
+				json: async () => ({ id: "users" }),
 			});
 
 			const client = new CosmosClient({
@@ -136,7 +136,7 @@ describe("Container Management", () => {
 			expect(exists).toBe(true);
 			expect(fetch).toHaveBeenCalledWith(
 				expect.stringContaining("/dbs/testdb/colls/users"),
-				expect.objectContaining({ method: "HEAD" }),
+				expect.objectContaining({ method: "GET" }),
 			);
 		});
 

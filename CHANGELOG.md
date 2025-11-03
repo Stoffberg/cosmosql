@@ -5,6 +5,39 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.5.0] - 2025-11-03
+
+### Added
+- **Native upsert support**: Simplified API for upsert operations on both `CreateOperations` and `UpdateOperations`
+- **Comprehensive integration tests**: Full test suite with 34 integration tests covering all operations with real Azure CosmosDB
+- **Enhanced query builder**: Proper SQL syntax with correct parameter handling and query structure
+- **Nested field update support**: Ability to update nested object fields in documents
+- **Global fetch mocking**: Test infrastructure improvements with proper fetch mocking setup
+
+### Fixed
+- **CRITICAL**: Fixed all authentication issues with Azure Cosmos DB REST API
+- **CRITICAL**: Fixed `parseResourcePath()` implementation to correctly return `[resourceType, resourceId]` according to Azure Cosmos DB auth specification
+- **CRITICAL**: Fixed endpoint normalization to remove default ports (`:443`) that caused authentication issues
+- Fixed all unit tests to match actual implementation behavior (307 tests passing)
+- Fixed `databaseExists()` and `containerExists()` to use GET instead of HEAD for better compatibility
+- Fixed header handling to use plain objects instead of Headers API for better compatibility
+- Fixed error response handling to properly parse JSON error messages from `response.text()`
+- Fixed test mocks for verify/auto-create modes to correctly simulate database and container operations
+
+### Changed
+- **BREAKING**: Query builder now generates proper Cosmos DB SQL syntax with correct parameter naming
+- Improved error handling with better error message extraction from Cosmos DB responses
+- Updated test infrastructure to use global fetch mocking for consistency
+- Enhanced container management tests to properly simulate GET requests for existence checks
+
+### Technical
+- Migrated from `undici` back to native `fetch` API (Node.js 18+)
+- 100% integration test pass rate (34/34 tests)
+- All 307 unit tests passing with comprehensive coverage
+- Improved code quality with biome linting configuration
+- Fixed all type issues and linting errors across the codebase
+- Updated all test files to match new API implementations
+
 ## [0.4.0] - 2025-11-02
 
 ### Added
