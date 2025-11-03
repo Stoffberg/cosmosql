@@ -9,6 +9,7 @@ Reading data is the most common operation. CosmosQL provides three methods optim
 - [Point Read](#point-read-fastest) - By ID and partition key
 - [Query Within Partition](#query-within-partition) - Filtering and sorting
 - [Cross-Partition Query](#cross-partition-query) - Admin and analytics
+- [Aggregations with findMany](#aggregations-with-findmany) - Data + statistics in one query
 
 ---
 
@@ -62,6 +63,70 @@ const posts = await db.posts.findMany({
 });
 // Returns: Post[]
 ```
+
+### findMany with Aggregations
+
+`findMany` can also return aggregations alongside your data - perfect for paginated lists with counts or statistics.
+
+**Example: Pagination with total count**
+
+```typescript
+const result = await db.posts.findMany({
+  partitionKey: 'user_123',
+  where: { isPublished: true },
+  orderBy: { createdAt: 'desc' },
+  take: 10,
+  skip: 0,
+  aggregate: {
+    _count: true  // Count ALL matching posts
+  }
+});
+
+console.log(`Showing ${result.data.length} of ${result._count} posts`);
+console.log(`Page 1 of ${Math.ceil(result._count / 10)}`);
+// Returns: { data: Post[], _count: number }
+```
+
+**Example: Data with statistics**
+
+```typescript
+const result = await db.orders.findMany({
+  partitionKey: 'customer-123',
+  where: { status: 'completed' },
+  take: 5,  // Last 5 orders
+  orderBy: { createdAt: 'desc' },
+  aggregate: {
+    _count: true,
+    _sum: { amount: true },
+    _avg: { amount: true },
+    _min: { createdAt: true },
+    _max: { createdAt: true }
+  }
+});
+
+// Access both data and stats
+console.log(`Recent orders:`, result.data);
+console.log(`Total completed orders: ${result._count}`);
+console.log(`Total revenue: $${result._sum.amount}`);
+console.log(`Average order value: $${result._avg.amount}`);
+console.log(`Customer since: ${result._min.createdAt}`);
+// Returns: { 
+//   data: Order[],
+//   _count: number,
+//   _sum: { amount: number | null },
+//   _avg: { amount: number | null },
+//   _min: { createdAt: Date | null },
+//   _max: { createdAt: Date | null }
+// }
+```
+
+**How it works:**
+- Data query and aggregation execute in parallel
+- Both use the same `where` filter
+- Pagination (`take`/`skip`) only applies to `data`, not aggregations
+- Full type safety: TypeScript infers the complete return type
+
+See [full aggregations documentation](#aggregations-with-findmany) below for more examples.
 
 ## Cross-Partition Query
 
@@ -204,7 +269,7 @@ await db.posts.findMany({
 
 **Use when**: The query builder doesn't support your use case.
 
-**Example**: Aggregations, complex joins, CosmosDB-specific functions.
+**Example**: Complex joins, CosmosDB-specific functions.
 
 ```typescript
 const result = await db.users.query<{ count: number }>({
@@ -221,6 +286,85 @@ const result = await db.users.query<{ count: number }>({
   partitionKey: 'john@example.com' // Optional: for partition-scoped query
 });
 ```
+
+## Aggregations with findMany
+
+**Use when**: You need both data and statistics in a single query.
+
+**Benefit**: Combines data retrieval with aggregations efficiently.
+
+`findMany` now supports aggregations, allowing you to fetch documents and calculate statistics (count, sum, avg, min, max) in a single query with full type safety.
+
+### Basic Example
+
+```typescript
+const result = await db.orders.findMany({
+  partitionKey: 'customer-123',
+  where: { status: 'completed' },
+  aggregate: {
+    _count: true,
+    _sum: { amount: true },
+    _avg: { amount: true }
+  }
+});
+
+console.log(`Found ${result._count} orders`);
+console.log(`Total: $${result._sum.amount}`);
+console.log(`Average: $${result._avg.amount}`);
+console.log(`Orders:`, result.data);
+```
+
+### Return Type Changes
+
+**Without aggregations:**
+```typescript
+const orders = await db.orders.findMany({ partitionKey: 'customer-123' });
+// Type: Order[]
+```
+
+**With aggregations:**
+```typescript
+const result = await db.orders.findMany({
+  partitionKey: 'customer-123',
+  aggregate: { _count: true }
+});
+// Type: { data: Order[], _count: number }
+```
+
+### Pagination with Total Count
+
+Perfect for building paginated UIs:
+
+```typescript
+const result = await db.users.findMany({
+  partitionKey: 'tenant-1',
+  take: 20,
+  skip: 0,
+  aggregate: { _count: true }  // Counts ALL matching records
+});
+
+console.log(`Page 1 of ${Math.ceil(result._count / 20)}`);
+console.log(`Showing ${result.data.length} of ${result._count} users`);
+```
+
+### Available Aggregations
+
+All aggregation operations are supported:
+
+```typescript
+const result = await db.products.findMany({
+  partitionKey: 'category-electronics',
+  aggregate: {
+    _count: true,                         // Count all records
+    _sum: { price: true, stock: true },   // Sum numeric fields
+    _avg: { price: true },                // Average values
+    _min: { price: true, createdAt: true }, // Minimum values
+    _max: { price: true, createdAt: true }  // Maximum values
+  }
+});
+```
+
+**See the [Aggregations Guide](/docs/guide/aggregations#findmany-with-aggregations) for complete documentation.**
 
 ## Performance Best Practices
 

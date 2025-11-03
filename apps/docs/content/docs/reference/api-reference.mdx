@@ -153,11 +153,12 @@ const user = await db.users.findUnique({
 
 **`findMany(options)`**
 
-Queries multiple documents with filtering, sorting, and pagination.
+Queries multiple documents with filtering, sorting, and pagination. Optionally include aggregations to get both data and statistics in a single query.
 
 ```typescript
+// Without aggregations
 const users = await db.users.findMany({
-  partitionKey: 'john@example.com', // Required for partition-scoped queries
+  partitionKey: 'john@example.com',
   where: {
     isActive: true,
     age: { gte: 18 }
@@ -168,7 +169,30 @@ const users = await db.users.findMany({
   skip: 0
 });
 // Returns: Array<{ id: string; name: string }>
+
+// With aggregations
+const result = await db.users.findMany({
+  partitionKey: 'john@example.com',
+  where: { isActive: true },
+  aggregate: {
+    _count: true,
+    _avg: { age: true },
+    _sum: { score: true },
+    _min: { createdAt: true },
+    _max: { createdAt: true }
+  }
+});
+// Returns: { 
+//   data: User[],
+//   _count: number,
+//   _avg: { age: number | null },
+//   _sum: { score: number | null },
+//   _min: { createdAt: Date | null },
+//   _max: { createdAt: Date | null }
+// }
 ```
+
+See [Aggregations Guide](/docs/guide/aggregations#findmany-with-aggregations) for complete documentation.
 
 **`query<T>(options)`**
 
@@ -272,6 +296,93 @@ await db.users.delete({
   }
 });
 ```
+
+#### Aggregation Operations
+
+**`count(options)`**
+
+Count documents matching criteria.
+
+```typescript
+const count = await db.users.count({
+  partitionKey: 'john@example.com',
+  where: { isActive: true }
+});
+// Returns: number
+```
+
+**`aggregate(options)`**
+
+Perform aggregation operations (count, sum, avg, min, max).
+
+```typescript
+const stats = await db.orders.aggregate({
+  partitionKey: 'customer-123',
+  where: { status: 'completed' },
+  _count: true,
+  _sum: { amount: true, tax: true },
+  _avg: { amount: true },
+  _min: { createdAt: true },
+  _max: { amount: true }
+});
+// Returns: {
+//   _count: number,
+//   _sum: { amount: number | null, tax: number | null },
+//   _avg: { amount: number | null },
+//   _min: { createdAt: Date | null },
+//   _max: { amount: number | null }
+// }
+```
+
+**`groupBy(options)`**
+
+Group data and perform aggregations on each group.
+
+```typescript
+const salesByCategory = await db.sales.groupBy({
+  by: 'category',
+  enableCrossPartitionQuery: true,
+  _count: true,
+  _sum: { amount: true },
+  _avg: { amount: true },
+  orderBy: { _sum_amount: 'desc' },
+  take: 10
+});
+// Returns: Array<{
+//   category: string,
+//   _count: number,
+//   _sum: { amount: number | null },
+//   _avg: { amount: number | null }
+// }>
+```
+
+**Convenience Methods:**
+
+```typescript
+// Quick aggregations for single fields
+const totalRevenue = await db.orders.sum('amount', {
+  partitionKey: 'customer-123',
+  where: { status: 'completed' }
+});
+// Returns: number | null
+
+const avgAge = await db.users.avg('age', {
+  partitionKey: 'tenant-1'
+});
+// Returns: number | null
+
+const minPrice = await db.products.min('price', {
+  partitionKey: 'category-electronics'
+});
+// Returns: number | null
+
+const maxPrice = await db.products.max('price', {
+  partitionKey: 'category-electronics'
+});
+// Returns: number | null
+```
+
+See [Aggregations Guide](/docs/guide/aggregations) for complete documentation.
 
 ### Query Operators
 
