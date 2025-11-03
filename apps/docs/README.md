@@ -27,7 +27,7 @@ This documentation site provides comprehensive guides, API references, and examp
 
 ```bash
 # Clone the repository
-git clone https://github.com/your-org/cosmosql-docs
+git clone https://github.com/stoffberg/cosmosql-docs
 cd cosmosql-docs
 
 # Install dependencies
@@ -363,4 +363,4 @@ We welcome contributions to improve the CosmosQL documentation! See our [Contrib
 
 ---
 
-**Questions?** Join our [GitHub Discussions](https://github.com/your-org/cosmosql-docs/discussions) or open an [issue](https://github.com/your-org/cosmosql-docs/issues).
+**Questions?** Join our [GitHub Discussions](https://github.com/stoffberg/cosmosql-docs/discussions) or open an [issue](https://github.com/stoffberg/cosmosql-docs/issues).
