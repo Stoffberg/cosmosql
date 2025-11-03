@@ -21,6 +21,6 @@ export function baseOptions(): BaseLayoutProps {
         url: "/docs/reference/api-reference",
       },
     ],
-    githubUrl: "https://github.com/cosmosql/cosmosql",
+    githubUrl: "https://github.com/Stoffberg/cosmosql",
   };
 }
