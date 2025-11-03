@@ -121,18 +121,33 @@ export class FindOperations<
 		const { query, parameters } = builder.build();
 		const path = `/dbs/${this.client.getDatabase()}/colls/${this.schema.name}/docs`;
 
-		const result = await this.client.request(
-			"POST",
-			path,
-			{
-				query,
-				parameters,
-			},
-			partitionKey,
-			enableCrossPartitionQuery,
-		);
+		try {
+			const result = await this.client.request(
+				"POST",
+				path,
+				{
+					query,
+					parameters,
+				},
+				partitionKey,
+				enableCrossPartitionQuery,
+			);
 
-		return result.Documents || [];
+			return result.Documents || [];
+		} catch (error: any) {
+			// Provide better error message for cross-partition query errors
+			if (
+				error.code === "CROSS_PARTITION_QUERY_ERROR" ||
+				error.message?.includes("cross partition")
+			) {
+				throw new Error(
+					`Cross-partition query failed: ${error.message}. ` +
+						"This often occurs with empty containers. Consider using a partition key instead, " +
+						"or ensure the container has data before performing cross-partition queries.",
+				);
+			}
+			throw error;
+		}
 	}
 
 	async query<TResult = InferSchema<TSchema>>(args: {

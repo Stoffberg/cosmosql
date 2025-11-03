@@ -1,9 +1,20 @@
+import { afterEach, beforeEach, describe, expect, jest, test } from "bun:test";
 import { CosmosClient } from "../../src/client/cosmos-client";
 import { container, field } from "../../src/schema";
 
+// Store the real fetch
+const realFetch = global.fetch;
+
 describe("Container Management", () => {
 	beforeEach(() => {
+		// Mock fetch for each test
+		global.fetch = jest.fn() as any;
 		jest.clearAllMocks();
+	});
+
+	afterEach(() => {
+		// Restore real fetch after each test
+		global.fetch = realFetch;
 	});
 
 	describe("ContainerSchema Configuration", () => {
@@ -58,7 +69,7 @@ describe("Container Management", () => {
 
 	describe("CosmosClient Container Management", () => {
 		test("databaseExists returns true when database exists", async () => {
-			(fetch as jest.Mock).mockResolvedValueOnce({
+			(fetch as unknown as jest.Mock).mockResolvedValueOnce({
 				ok: true,
 				status: 200,
 				json: async () => ({ DocumentCollections: [] }),
@@ -79,7 +90,7 @@ describe("Container Management", () => {
 		});
 
 		test("databaseExists returns false when database does not exist", async () => {
-			(fetch as jest.Mock).mockResolvedValueOnce({
+			(fetch as unknown as jest.Mock).mockResolvedValueOnce({
 				ok: false,
 				status: 404,
 				json: async () => ({ code: "NotFound" }),
@@ -96,7 +107,7 @@ describe("Container Management", () => {
 		});
 
 		test("createDatabase creates a new database", async () => {
-			(fetch as jest.Mock).mockResolvedValueOnce({
+			(fetch as unknown as jest.Mock).mockResolvedValueOnce({
 				ok: true,
 				status: 201,
 				json: async () => ({ id: "testdb" }),
@@ -120,7 +131,7 @@ describe("Container Management", () => {
 		});
 
 		test("containerExists returns true when container exists", async () => {
-			(fetch as jest.Mock).mockResolvedValueOnce({
+			(fetch as unknown as jest.Mock).mockResolvedValueOnce({
 				ok: true,
 				status: 200,
 				json: async () => ({ id: "users" }),
@@ -141,7 +152,7 @@ describe("Container Management", () => {
 		});
 
 		test("containerExists returns false when container does not exist", async () => {
-			(fetch as jest.Mock).mockResolvedValueOnce({
+			(fetch as unknown as jest.Mock).mockResolvedValueOnce({
 				ok: false,
 				status: 404,
 				json: async () => ({ code: "NotFound" }),
@@ -166,7 +177,7 @@ describe("Container Management", () => {
 				_self: "/self",
 			};
 
-			(fetch as jest.Mock).mockResolvedValueOnce({
+			(fetch as unknown as jest.Mock).mockResolvedValueOnce({
 				ok: true,
 				status: 200,
 				json: async () => containerInfo,
@@ -183,7 +194,7 @@ describe("Container Management", () => {
 		});
 
 		test("getContainer returns null when container does not exist", async () => {
-			(fetch as jest.Mock).mockResolvedValueOnce({
+			(fetch as unknown as jest.Mock).mockResolvedValueOnce({
 				ok: false,
 				status: 404,
 				json: async () => ({ code: "NotFound" }),
@@ -200,7 +211,7 @@ describe("Container Management", () => {
 		});
 
 		test("createContainer creates a new container", async () => {
-			(fetch as jest.Mock).mockResolvedValueOnce({
+			(fetch as unknown as jest.Mock).mockResolvedValueOnce({
 				ok: true,
 				status: 201,
 				json: async () => ({ id: "users" }),
@@ -238,7 +249,7 @@ describe("Container Management", () => {
 				_self: "/self",
 			};
 
-			(fetch as jest.Mock).mockResolvedValueOnce({
+			(fetch as unknown as jest.Mock).mockResolvedValueOnce({
 				ok: true,
 				status: 200,
 				json: async () => existingContainer,
@@ -271,7 +282,7 @@ describe("Container Management", () => {
 				DocumentCollections: [{ id: "users" }, { id: "posts" }, { id: "comments" }],
 			};
 
-			(fetch as jest.Mock).mockResolvedValueOnce({
+			(fetch as unknown as jest.Mock).mockResolvedValueOnce({
 				ok: true,
 				status: 200,
 				json: async () => response,
@@ -289,7 +300,7 @@ describe("Container Management", () => {
 		});
 
 		test("deleteContainer deletes a container", async () => {
-			(fetch as jest.Mock).mockResolvedValueOnce({
+			(fetch as unknown as jest.Mock).mockResolvedValueOnce({
 				ok: true,
 				status: 204,
 				json: async () => ({}),

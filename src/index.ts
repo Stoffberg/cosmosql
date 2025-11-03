@@ -167,7 +167,6 @@ async function ensureContainer(
 		const currentPolicy = containerInfo.indexingPolicy;
 		const expectedPolicy = schema.config.indexing;
 		if (!arePoliciesEqual(currentPolicy, expectedPolicy)) {
-			// eslint-disable-next-line no-console
 			console.warn(
 				`Indexing policy mismatch for container "${name}". Update manually or use mode: "auto-create"`,
 			);

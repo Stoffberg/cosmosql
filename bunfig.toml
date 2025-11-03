@@ -1,0 +1,5 @@
+[test]
+# Preload setup file before running tests
+# This runs before all test files to set up global mocks and environment
+preload = ["./tests/setup.ts"]
+

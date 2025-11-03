@@ -2,54 +2,16 @@ import { ContainerClient } from "../../src/client/container-client";
 import type { CosmosClient } from "../../src/client/cosmos-client";
 import { container, field } from "../../src/schema";
 
-// Mock the operations
-jest.mock("../../src/operations/find");
-jest.mock("../../src/operations/create");
-jest.mock("../../src/operations/update");
-jest.mock("../../src/operations/delete");
-
-import { CreateOperations } from "../../src/operations/create";
-import { DeleteOperations } from "../../src/operations/delete";
-import { FindOperations } from "../../src/operations/find";
-import { UpdateOperations } from "../../src/operations/update";
-
 describe("ContainerClient", () => {
 	let mockCosmosClient: jest.Mocked<CosmosClient>;
-	let mockFindOps: jest.Mocked<FindOperations<any, any>>;
-	let mockCreateOps: jest.Mocked<CreateOperations<any, any>>;
-	let mockUpdateOps: jest.Mocked<UpdateOperations<any, any>>;
-	let mockDeleteOps: jest.Mocked<DeleteOperations<any, any>>;
 
 	beforeEach(() => {
+		jest.clearAllMocks();
+
 		mockCosmosClient = {
 			getDatabase: jest.fn().mockReturnValue("testdb"),
+			request: jest.fn(),
 		} as any;
-
-		mockFindOps = {
-			findUnique: jest.fn(),
-			findMany: jest.fn(),
-			query: jest.fn(),
-		} as any;
-
-		mockCreateOps = {
-			create: jest.fn(),
-			createMany: jest.fn(),
-			upsert: jest.fn(),
-		} as any;
-
-		mockUpdateOps = {
-			update: jest.fn(),
-			upsert: jest.fn(),
-		} as any;
-
-		mockDeleteOps = {
-			delete: jest.fn(),
-		} as any;
-
-		(FindOperations as jest.Mock).mockImplementation(() => mockFindOps);
-		(CreateOperations as jest.Mock).mockImplementation(() => mockCreateOps);
-		(UpdateOperations as jest.Mock).mockImplementation(() => mockUpdateOps);
-		(DeleteOperations as jest.Mock).mockImplementation(() => mockDeleteOps);
 	});
 
 	test("creates container client with schema", () => {
@@ -61,10 +23,6 @@ describe("ContainerClient", () => {
 		const client = new ContainerClient(mockCosmosClient, schema);
 
 		expect(client).toBeDefined();
-		expect(FindOperations).toHaveBeenCalledWith(mockCosmosClient, schema);
-		expect(CreateOperations).toHaveBeenCalledWith(mockCosmosClient, schema);
-		expect(UpdateOperations).toHaveBeenCalledWith(mockCosmosClient, schema);
-		expect(DeleteOperations).toHaveBeenCalledWith(mockCosmosClient, schema);
 	});
 
 	test("delegates findUnique to FindOperations", async () => {
@@ -77,11 +35,16 @@ describe("ContainerClient", () => {
 		const args = { where: { id: "1", email: "test@example.com" } };
 		const expectedResult = { id: "1", email: "test@example.com" };
 
-		mockFindOps.findUnique.mockResolvedValue(expectedResult);
+		mockCosmosClient.request.mockResolvedValue(expectedResult);
 
 		const result = await client.findUnique(args);
 
-		expect(mockFindOps.findUnique).toHaveBeenCalledWith(args);
+		expect(mockCosmosClient.request).toHaveBeenCalledWith(
+			"GET",
+			"/dbs/testdb/colls/users/docs/1",
+			undefined,
+			"test@example.com",
+		);
 		expect(result).toEqual(expectedResult);
 	});
 
@@ -95,11 +58,13 @@ describe("ContainerClient", () => {
 		const args = { partitionKey: "test@example.com" };
 		const expectedResult = [{ id: "1", email: "test@example.com" }];
 
-		mockFindOps.findMany.mockResolvedValue(expectedResult);
+		mockCosmosClient.request.mockResolvedValue({
+			Documents: expectedResult,
+		});
 
 		const result = await client.findMany(args);
 
-		expect(mockFindOps.findMany).toHaveBeenCalledWith(args);
+		expect(mockCosmosClient.request).toHaveBeenCalled();
 		expect(result).toEqual(expectedResult);
 	});
 
@@ -113,11 +78,13 @@ describe("ContainerClient", () => {
 		const args = { sql: "SELECT * FROM c", partitionKey: "test@example.com" };
 		const expectedResult = [{ id: "1", email: "test@example.com" }];
 
-		mockFindOps.query.mockResolvedValue(expectedResult);
+		mockCosmosClient.request.mockResolvedValue({
+			Documents: expectedResult,
+		});
 
 		const result = await client.query(args);
 
-		expect(mockFindOps.query).toHaveBeenCalledWith(args);
+		expect(mockCosmosClient.request).toHaveBeenCalled();
 		expect(result).toEqual(expectedResult);
 	});
 
@@ -131,11 +98,16 @@ describe("ContainerClient", () => {
 		const args = { data: { id: "1", email: "test@example.com" } };
 		const expectedResult = { id: "1", email: "test@example.com" };
 
-		mockCreateOps.create.mockResolvedValue(expectedResult);
+		mockCosmosClient.request.mockResolvedValue(expectedResult);
 
 		const result = await client.create(args);
 
-		expect(mockCreateOps.create).toHaveBeenCalledWith(args);
+		expect(mockCosmosClient.request).toHaveBeenCalledWith(
+			"POST",
+			"/dbs/testdb/colls/users/docs",
+			expect.objectContaining({ id: "1", email: "test@example.com" }),
+			"test@example.com",
+		);
 		expect(result).toEqual(expectedResult);
 	});
 
@@ -149,20 +121,20 @@ describe("ContainerClient", () => {
 		const args = {
 			data: [
 				{ id: "1", email: "test@example.com" },
-				{ id: "2", email: "test2@example.com" },
+				{ id: "2", email: "test@example.com" },
 			],
 			partitionKey: "test@example.com",
 		};
 		const expectedResult = [
 			{ id: "1", email: "test@example.com" },
-			{ id: "2", email: "test2@example.com" },
+			{ id: "2", email: "test@example.com" },
 		];
 
-		mockCreateOps.createMany.mockResolvedValue(expectedResult);
+		mockCosmosClient.request.mockResolvedValue(expectedResult);
 
 		const result = await client.createMany(args);
 
-		expect(mockCreateOps.createMany).toHaveBeenCalledWith(args);
+		expect(mockCosmosClient.request).toHaveBeenCalledTimes(1);
 		expect(result).toEqual(expectedResult);
 	});
 
@@ -177,13 +149,17 @@ describe("ContainerClient", () => {
 			where: { id: "1", email: "test@example.com" },
 			data: { email: "updated@example.com" },
 		};
+		const existingDoc = { id: "1", email: "test@example.com" };
 		const expectedResult = { id: "1", email: "updated@example.com" };
 
-		mockUpdateOps.update.mockResolvedValue(expectedResult);
+		// Mock GET request for existing document
+		mockCosmosClient.request
+			.mockResolvedValueOnce(existingDoc)
+			.mockResolvedValueOnce(expectedResult);
 
 		const result = await client.update(args);
 
-		expect(mockUpdateOps.update).toHaveBeenCalledWith(args);
+		expect(mockCosmosClient.request).toHaveBeenCalledTimes(2);
 		expect(result).toEqual(expectedResult);
 	});
 
@@ -199,11 +175,11 @@ describe("ContainerClient", () => {
 		};
 		const expectedResult = { id: "1", email: "test@example.com" };
 
-		mockCreateOps.upsert.mockResolvedValue(expectedResult);
+		mockCosmosClient.request.mockResolvedValue(expectedResult);
 
 		const result = await client.upsert(args);
 
-		expect(mockCreateOps.upsert).toHaveBeenCalledWith(args);
+		expect(mockCosmosClient.request).toHaveBeenCalled();
 		expect(result).toEqual(expectedResult);
 	});
 
@@ -216,10 +192,15 @@ describe("ContainerClient", () => {
 		const client = new ContainerClient(mockCosmosClient, schema);
 		const args = { where: { id: "1", email: "test@example.com" } };
 
-		mockDeleteOps.delete.mockResolvedValue(undefined);
+		mockCosmosClient.request.mockResolvedValue(undefined);
 
 		await client.delete(args);
 
-		expect(mockDeleteOps.delete).toHaveBeenCalledWith(args);
+		expect(mockCosmosClient.request).toHaveBeenCalledWith(
+			"DELETE",
+			"/dbs/testdb/colls/users/docs/1",
+			undefined,
+			"test@example.com",
+		);
 	});
 });

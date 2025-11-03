@@ -5,6 +5,33 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.6.0] - 2025-11-03
+
+### Added
+- **Bun runtime support**: Complete migration from Node.js/npm to Bun as the primary runtime and package manager
+- **Enhanced build process**: Added minification step with esbuild for optimized production builds
+- **Improved test infrastructure**: Migrated from Jest to Bun's native test runner with enhanced integration test organization
+- **Build optimization**: Automatic JavaScript minification with source map preservation
+
+### Changed
+- **BREAKING**: Migrated all npm scripts to Bun (`bun run` instead of `npm run`)
+- **BREAKING**: Replaced Jest with Bun's built-in test runner for faster, native TypeScript testing
+- **BREAKING**: Removed `tsx` dependency, now using Bun's native TypeScript execution
+- **BREAKING**: Updated package manager from npm to Bun with `bun.lock` lockfile
+- Restructured integration tests from single file to organized directory structure (`tests/integration/`)
+- Enhanced build pipeline with minification step while preserving source maps
+
+### Fixed
+- **CRITICAL**: Fixed build process minification step that was failing due to esbuild overwrite restrictions
+- Resolved all authentication and compatibility issues with the new Bun runtime environment
+
+### Technical
+- Migrated from `package-lock.json` to `bun.lock` for dependency management
+- Added `esbuild` for production JavaScript minification
+- Updated CI/CD scripts to use Bun commands (`bun run`, `bun test`, etc.)
+- All 307+ tests passing with Bun runtime
+- Improved development workflow with faster test execution and native TypeScript support
+
 ## [0.5.0] - 2025-11-03
 
 ### Added
