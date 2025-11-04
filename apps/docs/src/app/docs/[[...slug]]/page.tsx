@@ -9,7 +9,7 @@ import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { getPageImage, source } from "@/lib/source";
 import { getMDXComponents } from "@/mdx-components";
-import { AllPagesNavigation } from "@/lib/navigation";
+import { PreviousNextNavigation } from "@/lib/navigation";
 
 export default async function Page(props: PageProps<"/docs/[[...slug]]">) {
   const params = await props.params;
@@ -29,7 +29,7 @@ export default async function Page(props: PageProps<"/docs/[[...slug]]">) {
             a: createRelativeLink(source, page),
           })}
         />
-        <AllPagesNavigation />
+        <PreviousNextNavigation currentPage={page} />
       </DocsBody>
     </DocsPage>
   );
