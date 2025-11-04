@@ -133,7 +133,8 @@ export class ManagementOperations {
 			storage: {
 				totalSizeGB: totalSizeKB / (1024 * 1024),
 				documentsSizeGB: totalSizeKB / (1024 * 1024),
-				indexSizeGB: containers.reduce((sum, c) => sum + c.statistics.indexSizeKB, 0) / (1024 * 1024),
+				indexSizeGB:
+					containers.reduce((sum, c) => sum + c.statistics.indexSizeKB, 0) / (1024 * 1024),
 				totalDocuments: totalDocs,
 			},
 			region: "unknown",
@@ -236,7 +237,10 @@ export class ManagementOperations {
 	/**
 	 * Delete specific containers (DESTRUCTIVE)
 	 */
-	async deleteContainers(names: string[], options: DeleteContainersOptions): Promise<DeleteContainersResult> {
+	async deleteContainers(
+		names: string[],
+		options: DeleteContainersOptions,
+	): Promise<DeleteContainersResult> {
 		if (!options.confirm) {
 			throw new Error("Must set confirm: true to delete containers. This action cannot be undone.");
 		}
@@ -376,4 +380,3 @@ export class ManagementOperations {
 		return result;
 	}
 }
-

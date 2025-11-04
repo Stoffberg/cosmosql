@@ -285,4 +285,3 @@ export interface SchemaDiff {
 	};
 	requiresAction: boolean;
 }
-

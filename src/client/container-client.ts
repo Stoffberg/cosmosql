@@ -26,21 +26,26 @@ import type {
 	SelectInput,
 	UpdateInput,
 } from "../types";
-import type { BulkDeleteOptions, BulkDeleteResult, BulkUpdateOptions, BulkUpdateResult } from "../types/bulk-operations";
+import type {
+	BulkDeleteOptions,
+	BulkDeleteResult,
+	BulkUpdateOptions,
+	BulkUpdateResult,
+} from "../types/bulk-operations";
 import type { CosmosClient } from "./cosmos-client";
 
 /**
  * Container client for type-safe CRUD operations on Azure Cosmos DB containers.
- * 
+ *
  * This class provides a complete API for interacting with Cosmos DB containers including:
  * - CRUD operations (create, read, update, delete)
  * - Query operations (find, filter, sort, paginate)
  * - Aggregations (count, sum, avg, min, max, groupBy)
  * - Bulk operations (updateMany, deleteMany)
- * 
+ *
  * @template TSchema - The schema definition for documents in this container
  * @template TPartitionKey - The partition key field name from the schema
- * 
+ *
  * @example
  * ```typescript
  * const users = defineContainer('users', {
@@ -48,7 +53,7 @@ import type { CosmosClient } from "./cosmos-client";
  *   name: field.string(),
  *   age: field.number()
  * }, 'email');
- * 
+ *
  * const db = new CosmosClient({ connectionString, database: 'mydb' });
  * const container = db.container(users);
  * ```
@@ -67,10 +72,10 @@ export class ContainerClient<
 
 	/**
 	 * Creates a new ContainerClient instance.
-	 * 
+	 *
 	 * @param client - The CosmosClient instance to use for requests
 	 * @param schema - The container schema definition
-	 * 
+	 *
 	 * @internal This constructor is typically called by CosmosClient.container()
 	 */
 	constructor(client: CosmosClient, schema: ContainerSchema<any, TSchema, TPartitionKey>) {
@@ -85,23 +90,23 @@ export class ContainerClient<
 
 	/**
 	 * Finds a single document by its ID and partition key.
-	 * 
+	 *
 	 * This is the most efficient way to retrieve a document as it uses direct document access.
 	 * Both the document ID and partition key value are required.
-	 * 
+	 *
 	 * @template S - Optional select projection to return only specific fields
 	 * @param args - Query arguments including where clause and optional select
 	 * @param args.where - Must include both 'id' and the partition key field
 	 * @param args.select - Optional object specifying which fields to return
 	 * @returns The document if found, or null if not found
-	 * 
+	 *
 	 * @example
 	 * ```typescript
 	 * // Find user by ID and partition key
 	 * const user = await db.users.findUnique({
 	 *   where: { id: '123', email: 'user@example.com' }
 	 * });
-	 * 
+	 *
 	 * // With field selection
 	 * const user = await db.users.findUnique({
 	 *   where: { id: '123', email: 'user@example.com' },
@@ -119,10 +124,10 @@ export class ContainerClient<
 
 	/**
 	 * Queries multiple documents with filtering, sorting, pagination, and optional aggregations.
-	 * 
+	 *
 	 * Supports a rich query API with type-safe filters, projections, and aggregations.
 	 * Requires either a partitionKey or enableCrossPartitionQuery: true.
-	 * 
+	 *
 	 * @template S - Optional select projection to return only specific fields
 	 * @template A - Optional aggregation operations to perform
 	 * @param args - Query arguments
@@ -135,7 +140,7 @@ export class ContainerClient<
 	 * @param args.enableCrossPartitionQuery - Allow cross-partition queries (can be expensive)
 	 * @param args.aggregate - Aggregation operations to perform alongside the query
 	 * @returns Array of documents (or object with data + aggregations if aggregate is specified)
-	 * 
+	 *
 	 * @example
 	 * ```typescript
 	 * // Basic query
@@ -143,7 +148,7 @@ export class ContainerClient<
 	 *   where: { age: { gte: 18 } },
 	 *   partitionKey: 'active-users'
 	 * });
-	 * 
+	 *
 	 * // With sorting and pagination
 	 * const users = await db.users.findMany({
 	 *   where: { status: 'active' },
@@ -152,13 +157,13 @@ export class ContainerClient<
 	 *   skip: 40,
 	 *   enableCrossPartitionQuery: true
 	 * });
-	 * 
+	 *
 	 * // With field selection
 	 * const users = await db.users.findMany({
 	 *   select: { name: true, email: true },
 	 *   partitionKey: 'tenant-123'
 	 * });
-	 * 
+	 *
 	 * // With aggregations
 	 * const result = await db.users.findMany({
 	 *   where: { age: { gte: 18 } },
@@ -183,17 +188,17 @@ export class ContainerClient<
 
 	/**
 	 * Executes a raw SQL query against the container.
-	 * 
+	 *
 	 * Use this for custom queries that aren't supported by the query builder.
 	 * Supports parameterized queries to prevent injection attacks.
-	 * 
+	 *
 	 * @template TResult - The expected return type of the query results
 	 * @param args - Query arguments
 	 * @param args.sql - Raw SQL query string
 	 * @param args.parameters - Query parameters (use @paramName in SQL)
 	 * @param args.partitionKey - Optional partition key to scope the query
 	 * @returns Array of query results
-	 * 
+	 *
 	 * @example
 	 * ```typescript
 	 * // Simple raw query
@@ -202,7 +207,7 @@ export class ContainerClient<
 	 *   parameters: [{ name: '@minAge', value: 18 }],
 	 *   partitionKey: 'active-users'
 	 * });
-	 * 
+	 *
 	 * // Complex aggregation
 	 * const stats = await db.orders.query<{ total: number, avgAmount: number }>({
 	 *   sql: 'SELECT COUNT(1) as total, AVG(c.amount) as avgAmount FROM c',
@@ -220,14 +225,14 @@ export class ContainerClient<
 
 	/**
 	 * Creates a new document in the container.
-	 * 
+	 *
 	 * The document ID will be auto-generated if not provided.
 	 * Schema defaults will be applied to missing fields.
-	 * 
+	 *
 	 * @param args - Creation arguments
 	 * @param args.data - The document data to create (must include partition key field)
 	 * @returns The created document with generated ID and metadata
-	 * 
+	 *
 	 * @example
 	 * ```typescript
 	 * const user = await db.users.create({
@@ -245,15 +250,15 @@ export class ContainerClient<
 
 	/**
 	 * Creates multiple documents in a single batch operation.
-	 * 
+	 *
 	 * All documents must share the same partition key for batch operations.
 	 * This is more efficient than calling create() multiple times.
-	 * 
+	 *
 	 * @param args - Batch creation arguments
 	 * @param args.data - Array of documents to create
 	 * @param args.partitionKey - The partition key value shared by all documents
 	 * @returns Result of the batch operation
-	 * 
+	 *
 	 * @example
 	 * ```typescript
 	 * await db.users.createMany({
@@ -275,15 +280,15 @@ export class ContainerClient<
 
 	/**
 	 * Updates an existing document by ID and partition key.
-	 * 
+	 *
 	 * Performs a read-modify-write operation. Only the specified fields are updated;
 	 * other fields remain unchanged. Supports nested field updates using dot notation.
-	 * 
+	 *
 	 * @param args - Update arguments
 	 * @param args.where - Must include both 'id' and the partition key field
 	 * @param args.data - Partial document with fields to update
 	 * @returns The updated document
-	 * 
+	 *
 	 * @example
 	 * ```typescript
 	 * // Update specific fields
@@ -291,7 +296,7 @@ export class ContainerClient<
 	 *   where: { id: '123', email: 'user@example.com' },
 	 *   data: { age: 31, lastLogin: new Date() }
 	 * });
-	 * 
+	 *
 	 * // Update nested fields
 	 * await db.users.update({
 	 *   where: { id: '123', email: 'user@example.com' },
@@ -314,14 +319,14 @@ export class ContainerClient<
 
 	/**
 	 * Creates a document or updates it if it already exists (based on ID).
-	 * 
+	 *
 	 * Uses Cosmos DB's upsert functionality to perform an efficient
 	 * create-or-replace operation without needing to check existence first.
-	 * 
+	 *
 	 * @param args - Upsert arguments
 	 * @param args.data - Complete document data (must include ID if updating)
 	 * @returns The created or updated document
-	 * 
+	 *
 	 * @example
 	 * ```typescript
 	 * // Will create new document or replace existing one with same ID
@@ -341,14 +346,14 @@ export class ContainerClient<
 
 	/**
 	 * Deletes a document by ID and partition key.
-	 * 
+	 *
 	 * This operation is permanent and cannot be undone.
 	 * Both the document ID and partition key value are required.
-	 * 
+	 *
 	 * @param args - Delete arguments
 	 * @param args.where - Must include both 'id' and the partition key field
 	 * @returns Void on success
-	 * 
+	 *
 	 * @example
 	 * ```typescript
 	 * await db.users.delete({
@@ -370,23 +375,23 @@ export class ContainerClient<
 
 	/**
 	 * Counts the number of documents matching the filter criteria.
-	 * 
+	 *
 	 * Requires either a partitionKey or enableCrossPartitionQuery: true.
 	 * Efficient operation that doesn't load document contents.
-	 * 
+	 *
 	 * @param options - Count options
 	 * @param options.where - Optional filter conditions
 	 * @param options.partitionKey - Partition key value to scope the count
 	 * @param options.enableCrossPartitionQuery - Allow cross-partition counting
 	 * @returns The count of matching documents
-	 * 
+	 *
 	 * @example
 	 * ```typescript
 	 * // Count all users
 	 * const total = await db.users.count({
 	 *   partitionKey: 'active-users'
 	 * });
-	 * 
+	 *
 	 * // Count with filter
 	 * const adults = await db.users.count({
 	 *   where: { age: { gte: 18 } },
@@ -400,10 +405,10 @@ export class ContainerClient<
 
 	/**
 	 * Performs multiple aggregation operations in a single query.
-	 * 
+	 *
 	 * Supports count, sum, avg, min, and max operations across numeric and comparable fields.
 	 * More efficient than running separate aggregation queries.
-	 * 
+	 *
 	 * @template Opts - The aggregation options type
 	 * @param options - Aggregation options
 	 * @param options.where - Optional filter conditions
@@ -415,7 +420,7 @@ export class ContainerClient<
 	 * @param options._min - Find minimum values
 	 * @param options._max - Find maximum values
 	 * @returns Object containing the requested aggregation results
-	 * 
+	 *
 	 * @example
 	 * ```typescript
 	 * const stats = await db.orders.aggregate({
@@ -446,10 +451,10 @@ export class ContainerClient<
 
 	/**
 	 * Groups documents by one or more fields and performs aggregations on each group.
-	 * 
+	 *
 	 * Similar to SQL's GROUP BY clause. Each group can have aggregations like count, sum, avg, etc.
 	 * Useful for analytics and reporting queries.
-	 * 
+	 *
 	 * @template K - The field(s) to group by
 	 * @template Opts - The group by options type
 	 * @param options - Group by options
@@ -463,7 +468,7 @@ export class ContainerClient<
 	 * @param options._min - Find minimum values per group
 	 * @param options._max - Find maximum values per group
 	 * @returns Array of groups with aggregated values
-	 * 
+	 *
 	 * @example
 	 * ```typescript
 	 * // Group by single field
@@ -477,7 +482,7 @@ export class ContainerClient<
 	 * //   { status: 'pending', _count: 50, _sum: { amount: 5000 } },
 	 * //   { status: 'completed', _count: 150, _sum: { amount: 15000 } }
 	 * // ]
-	 * 
+	 *
 	 * // Group by multiple fields
 	 * const byStatusAndRegion = await db.orders.groupBy({
 	 *   by: ['status', 'region'] as const,
@@ -511,17 +516,17 @@ export class ContainerClient<
 
 	/**
 	 * Calculates the sum of a numeric field across matching documents.
-	 * 
+	 *
 	 * Convenience method for summing a single field. For multiple aggregations,
 	 * use the aggregate() method instead.
-	 * 
+	 *
 	 * @param field - The numeric field to sum
 	 * @param options - Query options
 	 * @param options.where - Optional filter conditions
 	 * @param options.partitionKey - Partition key value to scope the sum
 	 * @param options.enableCrossPartitionQuery - Allow cross-partition sum
 	 * @returns The sum, or null if no matching documents
-	 * 
+	 *
 	 * @example
 	 * ```typescript
 	 * const totalRevenue = await db.orders.sum('amount', {
@@ -539,17 +544,17 @@ export class ContainerClient<
 
 	/**
 	 * Calculates the average of a numeric field across matching documents.
-	 * 
+	 *
 	 * Convenience method for averaging a single field. For multiple aggregations,
 	 * use the aggregate() method instead.
-	 * 
+	 *
 	 * @param field - The numeric field to average
 	 * @param options - Query options
 	 * @param options.where - Optional filter conditions
 	 * @param options.partitionKey - Partition key value to scope the average
 	 * @param options.enableCrossPartitionQuery - Allow cross-partition average
 	 * @returns The average, or null if no matching documents
-	 * 
+	 *
 	 * @example
 	 * ```typescript
 	 * const avgAge = await db.users.avg('age', {
@@ -567,10 +572,10 @@ export class ContainerClient<
 
 	/**
 	 * Finds the minimum value of a field across matching documents.
-	 * 
+	 *
 	 * Works with numeric, string, and date fields. For multiple aggregations,
 	 * use the aggregate() method instead.
-	 * 
+	 *
 	 * @template K - The field type
 	 * @param field - The field to find minimum value for
 	 * @param options - Query options
@@ -578,13 +583,13 @@ export class ContainerClient<
 	 * @param options.partitionKey - Partition key value to scope the query
 	 * @param options.enableCrossPartitionQuery - Allow cross-partition query
 	 * @returns The minimum value, or null if no matching documents
-	 * 
+	 *
 	 * @example
 	 * ```typescript
 	 * const earliestOrder = await db.orders.min('createdAt', {
 	 *   partitionKey: 'store-123'
 	 * });
-	 * 
+	 *
 	 * const lowestPrice = await db.products.min('price', {
 	 *   where: { category: 'electronics' },
 	 *   enableCrossPartitionQuery: true
@@ -600,10 +605,10 @@ export class ContainerClient<
 
 	/**
 	 * Finds the maximum value of a field across matching documents.
-	 * 
+	 *
 	 * Works with numeric, string, and date fields. For multiple aggregations,
 	 * use the aggregate() method instead.
-	 * 
+	 *
 	 * @template K - The field type
 	 * @param field - The field to find maximum value for
 	 * @param options - Query options
@@ -611,13 +616,13 @@ export class ContainerClient<
 	 * @param options.partitionKey - Partition key value to scope the query
 	 * @param options.enableCrossPartitionQuery - Allow cross-partition query
 	 * @returns The maximum value, or null if no matching documents
-	 * 
+	 *
 	 * @example
 	 * ```typescript
 	 * const latestOrder = await db.orders.max('createdAt', {
 	 *   partitionKey: 'store-123'
 	 * });
-	 * 
+	 *
 	 * const highestPrice = await db.products.max('price', {
 	 *   where: { category: 'electronics' },
 	 *   enableCrossPartitionQuery: true
@@ -633,7 +638,7 @@ export class ContainerClient<
 
 	/**
 	 * Update multiple documents matching the where clause
-	 * 
+	 *
 	 * @example
 	 * // Static update
 	 * await db.users.updateMany({
@@ -641,7 +646,7 @@ export class ContainerClient<
 	 *   data: { status: 'archived' },
 	 *   partitionKey: 'user@email.com'
 	 * });
-	 * 
+	 *
 	 * @example
 	 * // Dynamic update with function
 	 * await db.users.updateMany({
@@ -662,7 +667,7 @@ export class ContainerClient<
 
 	/**
 	 * Delete multiple documents matching the where clause
-	 * 
+	 *
 	 * @example
 	 * await db.users.deleteMany({
 	 *   where: { createdAt: { lt: oneYearAgo } },

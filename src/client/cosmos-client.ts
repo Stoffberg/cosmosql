@@ -38,12 +38,12 @@ export interface CosmosClientConfig {
 
 /**
  * Main client for interacting with Azure Cosmos DB.
- * 
+ *
  * This client handles authentication, HTTP requests, and provides methods
  * for database and container management. It implements automatic retry logic
  * for rate-limited requests and supports both connection string and
  * endpoint/key authentication.
- * 
+ *
  * @example
  * ```typescript
  * // Using connection string
@@ -51,7 +51,7 @@ export interface CosmosClientConfig {
  *   connectionString: process.env.COSMOS_CONNECTION_STRING,
  *   database: 'mydb'
  * });
- * 
+ *
  * // Using endpoint and key
  * const client = new CosmosClient({
  *   endpoint: 'https://myaccount.documents.azure.com',
@@ -72,7 +72,7 @@ export class CosmosClient {
 
 	/**
 	 * Creates a new CosmosClient instance.
-	 * 
+	 *
 	 * @param config - Client configuration
 	 * @throws {Error} If neither connectionString nor (endpoint + key) is provided
 	 */
@@ -98,7 +98,7 @@ export class CosmosClient {
 
 	/**
 	 * Normalizes the endpoint URL by removing trailing slashes and default ports.
-	 * 
+	 *
 	 * @param endpoint - The raw endpoint URL
 	 * @returns The normalized endpoint URL
 	 * @internal
@@ -120,9 +120,9 @@ export class CosmosClient {
 
 	/**
 	 * Executes an HTTP request to the Cosmos DB REST API.
-	 * 
+	 *
 	 * Handles authentication, header generation, and automatic retries for rate-limited requests.
-	 * 
+	 *
 	 * @template T - The expected response type
 	 * @param method - HTTP method (GET, POST, PUT, DELETE, etc.)
 	 * @param path - API path (e.g., /dbs/mydb/colls/mycoll/docs)
@@ -154,9 +154,9 @@ export class CosmosClient {
 
 	/**
 	 * Internal method that implements request retry logic.
-	 * 
+	 *
 	 * Automatically retries rate-limited requests (429) with exponential backoff.
-	 * 
+	 *
 	 * @template T - The expected response type
 	 * @param method - HTTP method
 	 * @param path - API path
@@ -290,7 +290,7 @@ export class CosmosClient {
 
 	/**
 	 * Sleeps for the specified duration.
-	 * 
+	 *
 	 * @param ms - Duration in milliseconds
 	 * @returns Promise that resolves after the duration
 	 * @internal
@@ -301,9 +301,9 @@ export class CosmosClient {
 
 	/**
 	 * Parses a Cosmos DB REST API path to extract resource type and ID.
-	 * 
+	 *
 	 * This is used for generating proper authentication signatures.
-	 * 
+	 *
 	 * @param path - The API path to parse
 	 * @returns Tuple of [resourceType, resourceId]
 	 * @internal
@@ -390,9 +390,9 @@ export class CosmosClient {
 
 	/**
 	 * Handles error responses from the Cosmos DB API.
-	 * 
+	 *
 	 * Parses error details and creates appropriate CosmosError instances.
-	 * 
+	 *
 	 * @param response - The error response from fetch
 	 * @returns A CosmosError instance
 	 * @internal
@@ -444,7 +444,7 @@ export class CosmosClient {
 
 	/**
 	 * Gets the current database name.
-	 * 
+	 *
 	 * @returns The database name
 	 */
 	getDatabase(): string {
@@ -453,7 +453,7 @@ export class CosmosClient {
 
 	/**
 	 * Checks if the configured database exists.
-	 * 
+	 *
 	 * @returns True if the database exists, false otherwise
 	 * @throws {CosmosError} If the check fails for reasons other than 404
 	 */
@@ -473,7 +473,7 @@ export class CosmosClient {
 
 	/**
 	 * Creates the configured database.
-	 * 
+	 *
 	 * @throws {CosmosError} If the database already exists or creation fails
 	 */
 	async createDatabase(): Promise<void> {
@@ -484,7 +484,7 @@ export class CosmosClient {
 
 	/**
 	 * Checks if a container exists in the database.
-	 * 
+	 *
 	 * @param name - The container name to check
 	 * @returns True if the container exists, false otherwise
 	 * @throws {CosmosError} If the check fails for reasons other than 404
@@ -505,7 +505,7 @@ export class CosmosClient {
 
 	/**
 	 * Gets detailed information about a container.
-	 * 
+	 *
 	 * @param name - The container name
 	 * @returns Container information, or null if not found
 	 * @throws {CosmosError} If the request fails for reasons other than 404
@@ -523,7 +523,7 @@ export class CosmosClient {
 
 	/**
 	 * Creates a new container in the database.
-	 * 
+	 *
 	 * @param body - Container creation configuration
 	 * @throws {CosmosError} If the container already exists or creation fails
 	 */
@@ -533,7 +533,7 @@ export class CosmosClient {
 
 	/**
 	 * Updates an existing container's configuration.
-	 * 
+	 *
 	 * @param name - The container name
 	 * @param body - Updated container configuration
 	 * @throws {CosmosError} If the container doesn't exist or update fails
@@ -544,7 +544,7 @@ export class CosmosClient {
 
 	/**
 	 * Lists all containers in the database.
-	 * 
+	 *
 	 * @returns Array of container information
 	 * @throws {CosmosError} If the request fails
 	 */
@@ -557,9 +557,9 @@ export class CosmosClient {
 
 	/**
 	 * Deletes a container from the database.
-	 * 
+	 *
 	 * This operation is permanent and cannot be undone.
-	 * 
+	 *
 	 * @param name - The container name to delete
 	 * @throws {CosmosError} If the container doesn't exist or deletion fails
 	 */
@@ -616,7 +616,7 @@ export interface CreateContainerBody {
 
 /**
  * Configuration for updating an existing container.
- * 
+ *
  * Extends CreateContainerBody with additional Cosmos DB metadata fields.
  */
 export interface UpdateContainerBody extends CreateContainerBody {

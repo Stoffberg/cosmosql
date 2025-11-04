@@ -3,7 +3,12 @@ import { CosmosError } from "../errors/cosmos-error";
 import { QueryBuilder } from "../query/query-builder";
 import type { ContainerSchema } from "../schema/container";
 import type { InferSchema } from "../types";
-import type { BulkDeleteOptions, BulkDeleteResult, BulkError, BulkProgressStats } from "../types/bulk-operations";
+import type {
+	BulkDeleteOptions,
+	BulkDeleteResult,
+	BulkError,
+	BulkProgressStats,
+} from "../types/bulk-operations";
 import {
 	chunkArray,
 	getPartitionKeyValue,
@@ -14,11 +19,11 @@ import {
 
 /**
  * Handles bulk delete operations for a Cosmos DB container.
- * 
+ *
  * Provides efficient batch processing with concurrency control, retry logic,
  * progress tracking, and detailed error reporting. Requires explicit confirmation
  * to prevent accidental mass deletions.
- * 
+ *
  * @internal This class is used internally by ContainerClient
  */
 export class BulkDeleteOperations<
@@ -32,11 +37,11 @@ export class BulkDeleteOperations<
 
 	/**
 	 * Deletes multiple documents matching the where clause.
-	 * 
+	 *
 	 * This is a destructive operation that cannot be undone. Requires explicit
 	 * confirmation via `confirm: true` to prevent accidental deletions.
 	 * Efficiently processes documents in batches with configurable concurrency.
-	 * 
+	 *
 	 * @param options - Bulk delete options
 	 * @param options.where - Filter to select documents to delete
 	 * @param options.confirm - Must be true to execute deletion (safety check)
@@ -180,7 +185,8 @@ export class BulkDeleteOperations<
 						percentage: Math.round((processed / total) * 100),
 						ruConsumed: result.performance.ruConsumed,
 						durationMs: Date.now() - startTime,
-						avgRuPerDocument: result.deleted > 0 ? result.performance.ruConsumed / result.deleted : 0,
+						avgRuPerDocument:
+							result.deleted > 0 ? result.performance.ruConsumed / result.deleted : 0,
 						documentsPerSecond:
 							result.deleted > 0 ? result.deleted / ((Date.now() - startTime) / 1000) : 0,
 						currentBatch: batchIndex + 1,
@@ -204,10 +210,10 @@ export class BulkDeleteOperations<
 
 	/**
 	 * Extracts Request Unit (RU) charge from a Cosmos DB response.
-	 * 
+	 *
 	 * Checks multiple possible locations where RU charge might be stored
 	 * depending on SDK version and response format.
-	 * 
+	 *
 	 * @param response - The Cosmos DB response object
 	 * @returns The RU charge, or 0 if not found
 	 * @internal
@@ -231,4 +237,3 @@ export class BulkDeleteOperations<
 		return 0;
 	}
 }
-

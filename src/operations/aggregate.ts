@@ -15,10 +15,10 @@ import type {
 
 /**
  * Handles aggregation operations for a Cosmos DB container.
- * 
+ *
  * Provides count, sum, avg, min, max, and groupBy operations with
  * type-safe query building and result parsing.
- * 
+ *
  * @internal This class is used internally by ContainerClient
  */
 export class AggregateOps<
@@ -38,10 +38,10 @@ export class AggregateOps<
 
 	/**
 	 * Counts the number of documents matching the filter criteria.
-	 * 
+	 *
 	 * Requires either a partitionKey or enableCrossPartitionQuery: true.
 	 * Efficient operation that doesn't load document contents.
-	 * 
+	 *
 	 * @param options - Count options including where clause and partition key
 	 * @returns The count of matching documents
 	 * @throws {Error} If neither partitionKey nor enableCrossPartitionQuery is provided
@@ -68,10 +68,10 @@ export class AggregateOps<
 
 	/**
 	 * Performs multiple aggregation operations in a single query.
-	 * 
+	 *
 	 * Supports count, sum, avg, min, and max operations across numeric and comparable fields.
 	 * More efficient than running separate aggregation queries.
-	 * 
+	 *
 	 * @template Opts - The aggregation options type
 	 * @param options - Aggregation options including operations to perform
 	 * @returns Object containing the requested aggregation results
@@ -112,10 +112,10 @@ export class AggregateOps<
 
 	/**
 	 * Groups documents by one or more fields and performs aggregations on each group.
-	 * 
+	 *
 	 * Similar to SQL's GROUP BY clause. Each group can have aggregations like count, sum, avg, etc.
 	 * Useful for analytics and reporting queries.
-	 * 
+	 *
 	 * @template By - The field(s) to group by
 	 * @template Opts - The group by options type
 	 * @param options - Group by options including grouping fields and aggregations
@@ -151,10 +151,10 @@ export class AggregateOps<
 
 	/**
 	 * Calculates the sum of a numeric field across matching documents.
-	 * 
+	 *
 	 * Convenience method for summing a single field. For multiple aggregations,
 	 * use the aggregate() method instead.
-	 * 
+	 *
 	 * @param field - The numeric field to sum
 	 * @param options - Query options including where clause and partition key
 	 * @returns The sum, or null if no matching documents
@@ -175,10 +175,10 @@ export class AggregateOps<
 
 	/**
 	 * Calculates the average of a numeric field across matching documents.
-	 * 
+	 *
 	 * Convenience method for averaging a single field. For multiple aggregations,
 	 * use the aggregate() method instead.
-	 * 
+	 *
 	 * @param field - The numeric field to average
 	 * @param options - Query options including where clause and partition key
 	 * @returns The average, or null if no matching documents
@@ -199,10 +199,10 @@ export class AggregateOps<
 
 	/**
 	 * Finds the minimum value of a field across matching documents.
-	 * 
+	 *
 	 * Works with numeric, string, and date fields. For multiple aggregations,
 	 * use the aggregate() method instead.
-	 * 
+	 *
 	 * @template K - The field type
 	 * @param field - The field to find minimum value for
 	 * @param options - Query options including where clause and partition key
@@ -224,10 +224,10 @@ export class AggregateOps<
 
 	/**
 	 * Finds the maximum value of a field across matching documents.
-	 * 
+	 *
 	 * Works with numeric, string, and date fields. For multiple aggregations,
 	 * use the aggregate() method instead.
-	 * 
+	 *
 	 * @template K - The field type
 	 * @param field - The field to find maximum value for
 	 * @param options - Query options including where clause and partition key
@@ -249,7 +249,7 @@ export class AggregateOps<
 
 	/**
 	 * Validates that either a partition key or cross-partition query flag is provided.
-	 * 
+	 *
 	 * @param options - Options containing partition key configuration
 	 * @throws {Error} If neither partition key nor cross-partition query is enabled
 	 * @internal
@@ -270,7 +270,7 @@ export class AggregateOps<
 
 	/**
 	 * Executes a query and returns the results.
-	 * 
+	 *
 	 * @template R - The result type
 	 * @param options - Query execution options
 	 * @returns Array of query results

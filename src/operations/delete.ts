@@ -4,7 +4,7 @@ import type { InferSchema, PartitionKeyMissingError } from "../types";
 
 /**
  * Handles document deletion operations for a Cosmos DB container.
- * 
+ *
  * @internal This class is used internally by ContainerClient
  */
 export class DeleteOperations<
@@ -18,10 +18,10 @@ export class DeleteOperations<
 
 	/**
 	 * Deletes a document by ID and partition key.
-	 * 
+	 *
 	 * This operation is permanent and cannot be undone.
 	 * Both the document ID and partition key value are required.
-	 * 
+	 *
 	 * @param args - Delete arguments
 	 * @param args.where - Must include both 'id' and the partition key field
 	 * @returns Void on success

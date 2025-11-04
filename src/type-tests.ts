@@ -573,7 +573,8 @@ function testBulkUpdateMany() {
 		enableCrossPartitionQuery: true,
 	};
 
-	const staticUpdateResult: Promise<BulkUpdateResult> = containerClient.updateMany(staticUpdateOptions);
+	const staticUpdateResult: Promise<BulkUpdateResult> =
+		containerClient.updateMany(staticUpdateOptions);
 
 	// Test dynamic function update
 	const dynamicUpdateOptions: BulkUpdateOptions<ComplexType> = {
@@ -599,7 +600,8 @@ function testBulkUpdateMany() {
 		},
 	};
 
-	const dynamicUpdateResult: Promise<BulkUpdateResult> = containerClient.updateMany(dynamicUpdateOptions);
+	const dynamicUpdateResult: Promise<BulkUpdateResult> =
+		containerClient.updateMany(dynamicUpdateOptions);
 
 	// Verify result types
 	staticUpdateResult.then((result) => {
@@ -949,10 +951,7 @@ function testHealthCheck() {
 		overallHealth: "warning",
 		timestamp: new Date(),
 		containers: [containerHealth],
-		recommendations: [
-			"Consider adding indexes",
-			"Review partition key strategy",
-		],
+		recommendations: ["Consider adding indexes", "Review partition key strategy"],
 		costAnalysis: {
 			currentMonthlyEstimate: 100.0,
 			potentialSavings: [
@@ -992,9 +991,7 @@ function testSchemaDiff() {
 							actual: 800,
 						},
 						indexing: {
-							differences: [
-								"Missing composite index on (field1, field2)",
-							],
+							differences: ["Missing composite index on (field1, field2)"],
 						},
 						fields: {
 							inSchemaOnly: ["newField"],

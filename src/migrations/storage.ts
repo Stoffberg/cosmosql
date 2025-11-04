@@ -170,4 +170,3 @@ export class MigrationTracker {
 		return currentChecksum === record.checksum;
 	}
 }
-

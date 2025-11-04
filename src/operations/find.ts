@@ -16,7 +16,7 @@ import type {
 
 /**
  * Arguments for finding a unique document by ID and partition key.
- * 
+ *
  * @template T - The document type
  * @template PK - The partition key field name
  * @template S - Optional select projection
@@ -34,7 +34,7 @@ export interface FindUniqueArgs<
 
 /**
  * Arguments for finding multiple documents with filtering, sorting, and pagination.
- * 
+ *
  * @template T - The document type
  * @template S - Optional select projection
  * @template PK - The partition key field name
@@ -66,7 +66,7 @@ export interface FindManyArgs<
 
 /**
  * Result type for findMany that includes both data and optional aggregations.
- * 
+ *
  * @template T - The document type
  * @template S - Optional select projection
  * @template A - Optional aggregation operations
@@ -85,7 +85,7 @@ export type FindManyResult<
 
 /**
  * Handles document query and retrieval operations for a Cosmos DB container.
- * 
+ *
  * @internal This class is used internally by ContainerClient
  */
 export class FindOperations<
@@ -105,10 +105,10 @@ export class FindOperations<
 
 	/**
 	 * Finds a single document by its ID and partition key.
-	 * 
+	 *
 	 * This is the most efficient way to retrieve a document as it uses direct document access.
 	 * Both the document ID and partition key value are required.
-	 * 
+	 *
 	 * @template S - Optional select projection
 	 * @param args - Query arguments
 	 * @returns The document if found, or null if not found
@@ -157,10 +157,10 @@ export class FindOperations<
 
 	/**
 	 * Queries multiple documents with filtering, sorting, pagination, and optional aggregations.
-	 * 
+	 *
 	 * Supports a rich query API with type-safe filters, projections, and aggregations.
 	 * Requires either a partitionKey or enableCrossPartitionQuery: true.
-	 * 
+	 *
 	 * @template S - Optional select projection
 	 * @template A - Optional aggregation operations
 	 * @param args - Query arguments
@@ -327,10 +327,10 @@ export class FindOperations<
 
 	/**
 	 * Executes a raw SQL query against the container.
-	 * 
+	 *
 	 * Use this for custom queries that aren't supported by the query builder.
 	 * Supports parameterized queries to prevent injection attacks.
-	 * 
+	 *
 	 * @template TResult - The expected return type of the query results
 	 * @param args - Query arguments
 	 * @param args.sql - Raw SQL query string
@@ -360,7 +360,7 @@ export class FindOperations<
 
 	/**
 	 * Applies field selection/projection to a document.
-	 * 
+	 *
 	 * @template T - The document type
 	 * @template S - The select projection type
 	 * @param data - The source document

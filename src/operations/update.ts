@@ -5,7 +5,7 @@ import { CreateOperations } from "./create";
 
 /**
  * Handles document update operations for a Cosmos DB container.
- * 
+ *
  * @internal This class is used internally by ContainerClient
  */
 export class UpdateOperations<
@@ -19,10 +19,10 @@ export class UpdateOperations<
 
 	/**
 	 * Updates an existing document by ID and partition key.
-	 * 
+	 *
 	 * Performs a read-modify-write operation. Only the specified fields are updated;
 	 * other fields remain unchanged. Supports nested field updates using dot notation.
-	 * 
+	 *
 	 * @param args - Update arguments
 	 * @param args.where - Must include both 'id' and the partition key field
 	 * @param args.data - Partial document with fields to update
@@ -81,9 +81,9 @@ export class UpdateOperations<
 
 	/**
 	 * Updates a document if it exists, creates it if it doesn't.
-	 * 
+	 *
 	 * Attempts to update first. If the document doesn't exist (404), creates it instead.
-	 * 
+	 *
 	 * @param args - Upsert arguments
 	 * @param args.where - Must include both 'id' and the partition key field
 	 * @param args.create - Data to use if creating a new document

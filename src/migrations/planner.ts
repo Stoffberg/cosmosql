@@ -37,7 +37,9 @@ export class MigrationPlanner {
 		}
 
 		if (totalEstimatedRU > 10000) {
-			warnings.push(`Estimated RU consumption: ${totalEstimatedRU}. This may incur significant costs.`);
+			warnings.push(
+				`Estimated RU consumption: ${totalEstimatedRU}. This may incur significant costs.`,
+			);
 		}
 
 		// Check for missing down() methods
@@ -79,4 +81,3 @@ export class MigrationPlanner {
 		return `${minutes}m ${remainingSeconds}s`;
 	}
 }
-

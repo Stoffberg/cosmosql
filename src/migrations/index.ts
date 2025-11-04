@@ -2,15 +2,15 @@ import type { MigrationDefinition } from "./types";
 
 /**
  * Define a migration
- * 
+ *
  * @example
  * export const migration = defineMigration({
  *   version: 1,
  *   name: 'add-user-preferences',
- *   
+ *
  *   async up({ db, logger, progress }) {
  *     logger.info('Adding preferences field to all users');
- *     
+ *
  *     await db.users.updateMany({
  *       where: {},
  *       data: (doc) => ({
@@ -23,7 +23,7 @@ import type { MigrationDefinition } from "./types";
  *       onProgress: progress.track('users')
  *     });
  *   },
- *   
+ *
  *   async down({ db }) {
  *     await db.users.updateMany({
  *       where: {},
@@ -64,4 +64,3 @@ export type {
 	ProgressTracker,
 	RollbackOptions,
 } from "./types";
-

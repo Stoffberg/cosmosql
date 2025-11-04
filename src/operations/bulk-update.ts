@@ -3,7 +3,12 @@ import { CosmosError } from "../errors/cosmos-error";
 import { QueryBuilder } from "../query/query-builder";
 import type { ContainerSchema } from "../schema/container";
 import type { InferSchema } from "../types";
-import type { BulkError, BulkProgressStats, BulkUpdateOptions, BulkUpdateResult } from "../types/bulk-operations";
+import type {
+	BulkError,
+	BulkProgressStats,
+	BulkUpdateOptions,
+	BulkUpdateResult,
+} from "../types/bulk-operations";
 import {
 	chunkArray,
 	getPartitionKeyValue,
@@ -14,10 +19,10 @@ import {
 
 /**
  * Handles bulk update operations for a Cosmos DB container.
- * 
+ *
  * Provides efficient batch processing with concurrency control, retry logic,
  * progress tracking, and detailed error reporting.
- * 
+ *
  * @internal This class is used internally by ContainerClient
  */
 export class BulkUpdateOperations<
@@ -31,11 +36,11 @@ export class BulkUpdateOperations<
 
 	/**
 	 * Updates multiple documents matching the where clause.
-	 * 
+	 *
 	 * Efficiently processes documents in batches with configurable concurrency.
 	 * Supports both static updates and dynamic updates via function.
 	 * Provides progress callbacks and detailed error tracking.
-	 * 
+	 *
 	 * @param options - Bulk update options
 	 * @param options.where - Filter to select documents to update
 	 * @param options.data - Static update data or function to compute updates per document
@@ -136,20 +141,17 @@ export class BulkUpdateOperations<
 							// Execute update with retry
 							const docPath = `/dbs/${this.client.getDatabase()}/colls/${this.schema.name}/docs/${doc.id}`;
 
-							await retryOperation(
-								async () => {
-									const response = await this.client.request(
-										"PUT",
-										docPath,
-										mergedDoc,
-										docPartitionKey,
-									);
+							await retryOperation(async () => {
+								const response = await this.client.request(
+									"PUT",
+									docPath,
+									mergedDoc,
+									docPartitionKey,
+								);
 
-									// Track RU consumption from response headers
-									result.performance.ruConsumed += this.extractRUCharge(response);
-								},
-								maxRetries,
-							);
+								// Track RU consumption from response headers
+								result.performance.ruConsumed += this.extractRUCharge(response);
+							}, maxRetries);
 
 							result.updated++;
 						} catch (error) {
@@ -190,7 +192,8 @@ export class BulkUpdateOperations<
 						percentage: Math.round((processed / total) * 100),
 						ruConsumed: result.performance.ruConsumed,
 						durationMs: Date.now() - startTime,
-						avgRuPerDocument: result.updated > 0 ? result.performance.ruConsumed / result.updated : 0,
+						avgRuPerDocument:
+							result.updated > 0 ? result.performance.ruConsumed / result.updated : 0,
 						documentsPerSecond:
 							result.updated > 0 ? result.updated / ((Date.now() - startTime) / 1000) : 0,
 						currentBatch: batchIndex + 1,
@@ -219,10 +222,10 @@ export class BulkUpdateOperations<
 
 	/**
 	 * Extracts Request Unit (RU) charge from a Cosmos DB response.
-	 * 
+	 *
 	 * Checks multiple possible locations where RU charge might be stored
 	 * depending on SDK version and response format.
-	 * 
+	 *
 	 * @param response - The Cosmos DB response object
 	 * @returns The RU charge, or 0 if not found
 	 * @internal
@@ -246,4 +249,3 @@ export class BulkUpdateOperations<
 		return 0;
 	}
 }
-

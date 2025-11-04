@@ -111,4 +111,3 @@ export interface RollbackOptions {
 	confirm?: boolean; // Safety confirmation (default: false)
 	onProgress?: (progress: MigrationProgress) => void;
 }
-

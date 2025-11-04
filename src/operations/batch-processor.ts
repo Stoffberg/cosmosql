@@ -102,4 +102,3 @@ export function getPartitionKeyValue(doc: any, partitionKeyPath: string): any {
 
 	return value;
 }
-

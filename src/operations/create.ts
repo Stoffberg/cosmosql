@@ -4,7 +4,7 @@ import type { CreateInput, InferSchema } from "../types";
 
 /**
  * Handles document creation operations for a Cosmos DB container.
- * 
+ *
  * @internal This class is used internally by ContainerClient
  */
 export class CreateOperations<
@@ -18,9 +18,9 @@ export class CreateOperations<
 
 	/**
 	 * Creates a new document in the container.
-	 * 
+	 *
 	 * Applies schema defaults to missing fields and auto-generates document ID if not provided.
-	 * 
+	 *
 	 * @param args - Creation arguments
 	 * @param args.data - The document data to create
 	 * @returns The created document with ID and Cosmos DB metadata
@@ -45,9 +45,9 @@ export class CreateOperations<
 
 	/**
 	 * Creates a document or replaces it if it already exists (based on ID).
-	 * 
+	 *
 	 * Uses Cosmos DB's native upsert functionality for efficient create-or-replace.
-	 * 
+	 *
 	 * @param args - Upsert arguments
 	 * @param args.data - Complete document data (must include ID if updating)
 	 * @returns The created or updated document
@@ -79,10 +79,10 @@ export class CreateOperations<
 
 	/**
 	 * Creates multiple documents in a single batch operation.
-	 * 
+	 *
 	 * All documents must belong to the same partition key.
 	 * This is more efficient than calling create() multiple times.
-	 * 
+	 *
 	 * @param args - Batch creation arguments
 	 * @param args.data - Array of documents to create
 	 * @param args.partitionKey - The partition key value shared by all documents
@@ -122,7 +122,7 @@ export class CreateOperations<
 
 	/**
 	 * Applies schema default values to fields that are undefined.
-	 * 
+	 *
 	 * @param data - The document data
 	 * @returns Document data with defaults applied
 	 * @internal

@@ -47,7 +47,7 @@ export class MigrationClient {
 
 	/**
 	 * Get current migration status
-	 * 
+	 *
 	 * @example
 	 * const status = await db.migrations.status();
 	 * console.log(`Current version: ${status.current?.version}`);
@@ -83,13 +83,15 @@ export class MigrationClient {
 
 	/**
 	 * Plan migrations (dry-run)
-	 * 
+	 *
 	 * @example
 	 * const plan = await db.migrations.plan({ target: 'latest', dryRun: true });
 	 * console.log(`Will apply ${plan.migrationsToApply.length} migrations`);
 	 * console.log(`Estimated cost: ${plan.totalEstimatedRU} RU`);
 	 */
-	async plan(options: { target?: number | "latest"; dryRun?: boolean } = {}): Promise<MigrationPlan> {
+	async plan(
+		options: { target?: number | "latest"; dryRun?: boolean } = {},
+	): Promise<MigrationPlan> {
 		const { target = "latest" } = options;
 		const status = await this.status();
 
@@ -110,7 +112,7 @@ export class MigrationClient {
 
 	/**
 	 * Apply pending migrations
-	 * 
+	 *
 	 * @example
 	 * const result = await db.migrations.apply({
 	 *   target: 'latest',
@@ -147,7 +149,7 @@ export class MigrationClient {
 
 	/**
 	 * Rollback to a specific version
-	 * 
+	 *
 	 * @example
 	 * await db.migrations.rollback({
 	 *   to: 3,
@@ -186,4 +188,3 @@ export class MigrationClient {
 		return this.runner.rollbackMigrations(toRollback, { onProgress });
 	}
 }
-

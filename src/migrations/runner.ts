@@ -97,7 +97,7 @@ export class MigrationRunner {
 
 					// Forward progress to caller
 					if (onProgress) {
-						const progress = Math.min(50 + (stats.percentage / 2), 99);
+						const progress = Math.min(50 + stats.percentage / 2, 99);
 						onProgress({
 							migration: {
 								version: migration.version,
@@ -203,7 +203,9 @@ export class MigrationRunner {
 
 			try {
 				if (!migration.down) {
-					throw new Error(`Migration ${migration.version} (${migration.name}) has no down() function`);
+					throw new Error(
+						`Migration ${migration.version} (${migration.name}) has no down() function`,
+					);
 				}
 
 				// Report progress: running
@@ -340,4 +342,3 @@ export class MigrationRunner {
 		};
 	}
 }
-
