@@ -5,6 +5,115 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.8.0] - 2025-11-04
+
+### Added - Bulk Operations
+- **🔥 Bulk updateMany**: Efficiently update thousands of documents with static data or dynamic functions
+- **🗑️ Bulk deleteMany**: Safely delete large numbers of documents with confirmation requirements
+- **📊 Real-time progress tracking**: Monitor updates/deletes with percentage, RU consumption, and performance metrics
+- **⚡ Concurrency control**: Configurable batch size and max concurrency for optimal performance
+- **🔄 Automatic retries**: Exponential backoff with retry logic for transient Cosmos DB errors (429, 503)
+- **🎯 Error handling**: Collect errors with context, distinguish retriable vs non-retriable errors, `continueOnError` option
+- **🔍 Flexible filtering**: Support for partition-scoped and cross-partition bulk operations
+- **✅ Type-safe updates**: Full TypeScript inference for both static `Partial<T>` and dynamic `(doc: T) => Partial<T>` updates
+
+### Added - Migrations System
+- **📦 Versioned migrations**: Define up/down migrations with version numbers for controlled schema evolution
+- **💾 Migration tracking**: Automatic storage of applied migrations in `_migrations` container with checksums
+- **🔐 Validation**: Enforce sequential migration versions and detect duplicate/missing migrations
+- **💰 Cost estimation**: Dry-run mode with estimated RU consumption and duration before applying
+- **📋 Migration planning**: Preview pending migrations and get recommendations before execution
+- **🔙 Rollback support**: Safely rollback migrations with automatic history management
+- **📈 Progress tracking**: Real-time progress callbacks during migration execution
+- **🛡️ Safety checks**: Confirmation required for destructive operations, checksum validation
+- **🔧 Flexible context**: Access to full database client, logger, progress tracker, and dry-run mode in migrations
+
+### Added - Database & Container Management
+- **📊 Database information**: Get detailed database info including storage, throughput, RU costs, and container statistics
+- **🏥 Health monitoring**: Comprehensive health checks detecting orphaned containers, missing indexes, large documents
+- **🔍 Schema diff**: Compare registered schemas with actual database state to detect drift
+- **🧹 Container pruning**: Identify and delete orphaned containers with dry-run and safety confirmations
+- **📦 Container operations**: Delete specific containers, list all containers, get container statistics
+- **💡 Recommendations**: Actionable recommendations for cost optimization and performance improvements
+- **💰 Cost analysis**: Monthly cost estimates with breakdown by storage and RU consumption
+- **⚙️ Container registration**: Automatic tracking of registered containers for drift detection
+
+### Added - Batch Processing Infrastructure
+- **⚡ Batch processor**: Efficient array chunking and concurrent batch processing
+- **🔄 Retry utilities**: Configurable retry logic with exponential backoff for transient errors
+- **🎯 Error classification**: Automatic detection of retriable Cosmos DB errors (429, 449, 500, 503)
+- **🔑 Partition key extraction**: Utility for extracting partition key values from documents
+- **⏱️ Delay utilities**: Sleep function for rate limiting and backoff strategies
+
+### Added - Comprehensive Testing
+- **✅ 100% test coverage**: All new features fully covered with unit and integration tests
+- **🧪 61+ new unit tests**: Covering batch processing, bulk operations, migrations, and management
+- **🔬 3 integration test suites**: Real Cosmos DB testing for bulk operations, migrations, and management
+- **📝 Enhanced type tests**: 600+ lines of new type inference tests for all new APIs
+- **🎯 461 total unit tests**: All passing with comprehensive coverage
+
+### Changed
+- **Removed dotenv dependency**: Bun automatically loads `.env` files natively, removing the need for dotenv package
+- **Simplified test setup**: Removed `tests/setup.ts` as Bun handles environment variables automatically
+- **Updated deployment scripts**: Removed `prepublishOnly` from deploy scripts for faster deployment workflow
+
+### Technical
+- Added `src/operations/batch-processor.ts` for shared batch processing utilities
+- Added `src/operations/bulk-update.ts` and `src/operations/bulk-delete.ts` for bulk operations
+- Added complete migrations system in `src/migrations/` directory (client, runner, planner, storage, types)
+- Added `src/operations/management.ts` for database and container management
+- Added comprehensive type definitions in `src/types/bulk-operations.ts` and `src/types/management.ts`
+- Integrated bulk operations into `ContainerClient` with `updateMany()` and `deleteMany()` methods
+- Added `migrations` property to client configuration for automatic migration registration
+- Created `.env.example` template for proper environment variable configuration
+- Enhanced error handling for Cosmos DB 409 (Conflict) and other edge cases
+
+### Performance
+- **Batch processing**: Process thousands of documents efficiently with configurable concurrency
+- **Parallel execution**: Multiple batches processed concurrently for optimal throughput
+- **Smart retries**: Automatic retry with exponential backoff reduces failed operations
+- **Progress monitoring**: Real-time tracking of RU consumption and operation progress
+
+### Documentation
+- Added comprehensive `ADVANCED_FEATURES.md` guide covering all new features
+- Added working examples in `examples/advanced-features.ts`
+- Enhanced type tests with detailed examples of all new APIs
+
+### Example Usage
+```typescript
+// Bulk update with progress tracking
+const result = await db.users.updateMany({
+  where: { isActive: false },
+  data: (user) => ({ status: 'inactive', lastUpdated: new Date() }),
+  enableCrossPartitionQuery: true,
+  batchSize: 50,
+  maxConcurrency: 5,
+  onProgress: (stats) => {
+    console.log(`Progress: ${stats.percentage}% (${stats.updated}/${stats.total})`);
+  }
+});
+
+// Define and apply migrations
+const migration = defineMigration({
+  version: 1,
+  name: 'add-user-status',
+  async up({ db }) {
+    await db.users.updateMany({
+      where: {},
+      data: { status: 'active' },
+      enableCrossPartitionQuery: true
+    });
+  }
+});
+
+await db.migrations.apply({ confirm: true });
+
+// Health check and management
+const health = await db.management.healthCheck();
+console.log(`Database health: ${health.overallHealth}`);
+console.log(`Monthly cost: $${health.costAnalysis.currentMonthlyEstimate}`);
+```
+
 ## [0.7.0] - 2025-11-03
 
 ### Added
