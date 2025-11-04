@@ -5,6 +5,9 @@ import {
 	type CosmosClientConfig,
 	type CreateContainerBody,
 } from "./client/cosmos-client";
+import { MigrationClient } from "./migrations/client";
+import type { MigrationDefinition } from "./migrations/types";
+import { ManagementOperations } from "./operations/management";
 import type { ContainerSchema, IndexingPolicy } from "./schema/container";
 
 export { CosmosError, isCosmosError } from "./errors/cosmos-error";
@@ -24,9 +27,57 @@ export type {
 	WhereInput,
 } from "./types";
 
-export function createClient(config: CosmosClientConfig) {
+// Bulk operations exports
+export type {
+	BulkDeleteOptions,
+	BulkDeleteResult,
+	BulkError,
+	BulkProgressStats,
+	BulkUpdateOptions,
+	BulkUpdateResult,
+} from "./types/bulk-operations";
+
+// Migration exports
+export { defineMigration } from "./migrations";
+export type {
+	MigrationApplyOptions,
+	MigrationContext,
+	MigrationDefinition,
+	MigrationLogger,
+	MigrationPlan,
+	MigrationProgress,
+	MigrationRecord,
+	MigrationResult,
+	MigrationStatus,
+	ProgressTracker,
+	RollbackOptions,
+} from "./migrations/types";
+
+// Management exports
+export type {
+	ContainerDiff,
+	ContainerHealthCheck,
+	ContainerInfo,
+	CopyDatabaseOptions,
+	CopyDatabaseResult,
+	CopyProgress,
+	DatabaseHealthReport,
+	DatabaseInfo,
+	DeleteContainersOptions,
+	DeleteContainersResult,
+	DetailedDatabaseInfo,
+	PruneContainersOptions,
+	PruneContainersResult,
+	SchemaDiff,
+} from "./types/management";
+
+export function createClient(config: CosmosClientConfig & { migrations?: MigrationDefinition[] }) {
 	const client = new CosmosClient(config);
 	const mode = config.mode ?? "verify";
+	const managementOps = new ManagementOperations(client);
+
+	// Initialize migrations if provided
+	const migrations = config.migrations ? new MigrationClient(client, config.migrations) : undefined;
 
 	return {
 		async withContainers<T extends Record<string, ContainerSchema<any, any, any>>>(
@@ -37,6 +88,8 @@ export function createClient(config: CosmosClientConfig) {
 					? ContainerClient<S, PK>
 					: never;
 			} & {
+				migrations?: MigrationClient;
+				management: ManagementOperations;
 				listOrphanedContainers: () => Promise<string[]>;
 				deleteContainers: (names: string[]) => Promise<void>;
 				pruneContainers: (options?: { confirm: boolean }) => Promise<string[]>;
@@ -80,9 +133,18 @@ export function createClient(config: CosmosClientConfig) {
 					{ name },
 				) as ContainerSchema<any, any, any>;
 				result[name] = new ContainerClient(client, schemaWithCorrectName);
+
+				// Register container with management operations
+				managementOps.registerContainer(name, schemaWithCorrectName);
 			}
 
-			// Step 4: Add container management methods
+			// Step 4: Add migrations and management
+			if (migrations) {
+				result.migrations = migrations;
+			}
+			result.management = managementOps;
+
+			// Step 5: Add container management methods (backwards compatibility)
 			result.listOrphanedContainers = async () => {
 				const allContainers = await client.listContainers();
 				return allContainers.map((c) => c.id).filter((id) => !containerNames.has(id));

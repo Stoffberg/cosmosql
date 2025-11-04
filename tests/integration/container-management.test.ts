@@ -8,7 +8,6 @@
 
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { CosmosClient as AzureCosmosClient } from "@azure/cosmos";
-import { config } from "dotenv";
 import { createClient } from "../../src";
 import { CosmosClient } from "../../src/client/cosmos-client";
 import { container, field } from "../../src/schema";
@@ -39,9 +38,6 @@ const withRateLimitRetry = async <T>(
 	}
 	throw new Error("Max retries exceeded");
 };
-
-// Load environment variables
-config();
 
 const connectionString = process.env.COSMOS_CONNECTION_STRING;
 const databaseName = "cosmosql-test";

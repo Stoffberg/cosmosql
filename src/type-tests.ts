@@ -5,6 +5,9 @@
  * This file tests:
  * - All field types (string, number, boolean, date, array, object)
  * - All ContainerClient methods
+ * - Bulk operations (updateMany, deleteMany)
+ * - Migrations (defineMigration, MigrationClient, MigrationContext)
+ * - Management operations (health checks, schema diff, container management)
  * - Complex nested structures
  * - Optional vs required fields
  * - Select operations
@@ -15,6 +18,30 @@
 import { ContainerClient } from "./client/container-client";
 import { container, field } from "./schema";
 import type { InferSchema } from "./types";
+import type {
+	BulkUpdateOptions,
+	BulkUpdateResult,
+	BulkDeleteOptions,
+	BulkDeleteResult,
+	BulkProgressStats,
+	BulkError,
+} from "./types/bulk-operations";
+import {
+	defineMigration,
+	type MigrationDefinition,
+	type MigrationContext,
+	type MigrationStatus,
+	type MigrationPlan,
+	type MigrationResult,
+} from "./migrations";
+import type {
+	DatabaseInfo,
+	DetailedDatabaseInfo,
+	DatabaseHealthReport,
+	ContainerHealthCheck,
+	SchemaDiff,
+	PruneContainersResult,
+} from "./types/management";
 
 // =============================================================================
 // SCHEMA DEFINITIONS - Test every possible field type and combination
@@ -531,6 +558,626 @@ function testRuntimeTypeValidation() {
 }
 
 // =============================================================================
+// BULK OPERATIONS TYPE TESTS
+// =============================================================================
+
+// Test 7: Bulk updateMany operations
+function testBulkUpdateMany() {
+	const client = {} as any;
+	const containerClient = new ContainerClient(client, complexSchema);
+
+	// Test static data update
+	const staticUpdateOptions: BulkUpdateOptions<ComplexType> = {
+		where: { role: "user" },
+		data: { tokens: 100 },
+		enableCrossPartitionQuery: true,
+	};
+
+	const staticUpdateResult: Promise<BulkUpdateResult> = containerClient.updateMany(staticUpdateOptions);
+
+	// Test dynamic function update
+	const dynamicUpdateOptions: BulkUpdateOptions<ComplexType> = {
+		where: { role: "user" },
+		data: (doc) => ({
+			tokens: doc.tokens ? doc.tokens + 10 : 10,
+			updatedAt: new Date(),
+		}),
+		partitionKey: "test",
+		batchSize: 50,
+		maxConcurrency: 5,
+		onProgress: (stats: BulkProgressStats) => {
+			const _percentage: number = stats.percentage;
+			const _ruConsumed: number = stats.ruConsumed;
+			void _percentage;
+			void _ruConsumed;
+		},
+		onError: (error: BulkError) => {
+			const _docId: string = error.documentId;
+			const _retriable: boolean = error.retriable;
+			void _docId;
+			void _retriable;
+		},
+	};
+
+	const dynamicUpdateResult: Promise<BulkUpdateResult> = containerClient.updateMany(dynamicUpdateOptions);
+
+	// Verify result types
+	staticUpdateResult.then((result) => {
+		const _success: boolean = result.success;
+		const _updated: number = result.updated;
+		const _failed: number = result.failed;
+		const _errors: BulkError[] = result.errors;
+		const _ruConsumed: number = result.performance.ruConsumed;
+		const _durationMs: number = result.performance.durationMs;
+		void _success;
+		void _updated;
+		void _failed;
+		void _errors;
+		void _ruConsumed;
+		void _durationMs;
+	});
+
+	void staticUpdateResult;
+	void dynamicUpdateResult;
+}
+
+// Test 8: Bulk deleteMany operations
+function testBulkDeleteMany() {
+	const client = {} as any;
+	const containerClient = new ContainerClient(client, complexSchema);
+
+	// Test delete with confirmation
+	const deleteOptions: BulkDeleteOptions<ComplexType> = {
+		where: { role: "deleted" },
+		confirm: true,
+		enableCrossPartitionQuery: true,
+		batchSize: 25,
+		maxConcurrency: 3,
+		continueOnError: true,
+		onProgress: (stats: BulkProgressStats) => {
+			const _percentage: number = stats.percentage;
+			const _deleted: number = stats.updated; // 'updated' field means 'deleted' for delete operations
+			void _percentage;
+			void _deleted;
+		},
+	};
+
+	const deleteResult: Promise<BulkDeleteResult> = containerClient.deleteMany(deleteOptions);
+
+	// Verify result types
+	deleteResult.then((result) => {
+		const _success: boolean = result.success;
+		const _deleted: number = result.deleted;
+		const _failed: number = result.failed;
+		const _errors: BulkError[] = result.errors;
+		void _success;
+		void _deleted;
+		void _failed;
+		void _errors;
+	});
+
+	void deleteResult;
+}
+
+// =============================================================================
+// MIGRATION TYPE TESTS
+// =============================================================================
+
+// Test 9: Migration definition and context types
+function testMigrationDefinition() {
+	// Test basic migration
+	const simpleMigration: MigrationDefinition = defineMigration({
+		version: 1,
+		name: "test-migration",
+		description: "Test migration",
+		async up(ctx: MigrationContext) {
+			const _db: any = ctx.db;
+			const _logger = ctx.logger;
+			const _progress = ctx.progress;
+			const _dryRun: boolean = ctx.dryRun;
+
+			_logger.info("Running migration");
+			_logger.warn("Warning message");
+			_logger.error("Error message");
+			_logger.debug("Debug message");
+
+			const progressFn = _progress.track("container");
+			progressFn({} as BulkProgressStats);
+
+			void _db;
+			void _dryRun;
+		},
+		async down(_ctx: MigrationContext) {
+			_ctx.logger.info("Rolling back");
+		},
+		async validate(_ctx: MigrationContext) {
+			return { valid: true, message: "Validation passed" };
+		},
+	});
+
+	// Test migration with bulk operations
+	const bulkMigration = defineMigration({
+		version: 2,
+		name: "bulk-migration",
+		async up({ db, logger, progress }) {
+			// Type inference for db should work
+			const result = await db.complexSchema.updateMany({
+				where: {},
+				data: { tokens: 100 },
+				enableCrossPartitionQuery: true,
+				onProgress: progress.track("update"),
+			});
+
+			logger.info(`Updated ${result.updated} documents`);
+		},
+	});
+
+	// Verify types
+	const _version: number = simpleMigration.version;
+	const _name: string = simpleMigration.name;
+	const _description: string | undefined = simpleMigration.description;
+
+	void _version;
+	void _name;
+	void _description;
+	void simpleMigration;
+	void bulkMigration;
+}
+
+// Test 10: Migration client types
+function testMigrationClient() {
+	// Mock migration client (would be created by createClient)
+	const mockClient = {
+		status: async (): Promise<MigrationStatus> => ({
+			current: {
+				version: 1,
+				name: "migration-1",
+				appliedAt: new Date(),
+			},
+			applied: [
+				{
+					id: "1",
+					version: 1,
+					name: "migration-1",
+					appliedAt: new Date(),
+					ruConsumed: 100,
+					durationMs: 5000,
+					checksum: "abc123",
+				},
+			],
+			pending: [
+				{
+					version: 2,
+					name: "migration-2",
+					description: "Second migration",
+				},
+			],
+			canRollback: true,
+		}),
+		plan: async (): Promise<MigrationPlan> => ({
+			migrationsToApply: [
+				{
+					version: 2,
+					name: "migration-2",
+					estimatedRU: 150,
+					estimatedDuration: "5s",
+				},
+			],
+			totalEstimatedRU: 150,
+			totalEstimatedDuration: "5s",
+			warnings: ["Warning message"],
+		}),
+		apply: async (): Promise<MigrationResult> => ({
+			success: true,
+			applied: [
+				{
+					version: 2,
+					name: "migration-2",
+					ruConsumed: 160,
+					durationMs: 4500,
+				},
+			],
+			performance: {
+				totalRuConsumed: 160,
+				totalDurationMs: 4500,
+			},
+		}),
+		rollback: async (): Promise<MigrationResult> => ({
+			success: true,
+			applied: [],
+			performance: {
+				totalRuConsumed: 50,
+				totalDurationMs: 2000,
+			},
+		}),
+	};
+
+	// Test status types
+	mockClient.status().then((status) => {
+		const _current: { version: number; name: string; appliedAt: Date } | null = status.current;
+		const _applied = status.applied;
+		const _pending = status.pending;
+		const _canRollback: boolean = status.canRollback;
+		void _current;
+		void _applied;
+		void _pending;
+		void _canRollback;
+	});
+
+	// Test plan types
+	mockClient.plan().then((plan) => {
+		const _migrations = plan.migrationsToApply;
+		const _totalRU: number = plan.totalEstimatedRU;
+		const _duration: string = plan.totalEstimatedDuration;
+		const _warnings: string[] = plan.warnings;
+		void _migrations;
+		void _totalRU;
+		void _duration;
+		void _warnings;
+	});
+
+	// Test apply result types
+	mockClient.apply().then((result) => {
+		const _success: boolean = result.success;
+		const _applied = result.applied;
+		const _failed: { version: number; name: string; error: string } | undefined = result.failed;
+		const _performance = result.performance;
+		void _success;
+		void _applied;
+		void _failed;
+		void _performance;
+	});
+}
+
+// =============================================================================
+// MANAGEMENT OPERATIONS TYPE TESTS
+// =============================================================================
+
+// Test 11: Database information types
+function testDatabaseInfo() {
+	const databaseInfo: DatabaseInfo = {
+		id: "test-db",
+		_self: "self",
+		_rid: "rid",
+		_ts: 123456,
+		created: new Date(),
+		lastModified: new Date(),
+		storage: {
+			totalSizeGB: 10.5,
+			documentsSizeGB: 8.0,
+			indexSizeGB: 2.5,
+			totalDocuments: 10000,
+		},
+		throughput: {
+			type: "manual",
+			currentRU: 400,
+			maxRU: 4000,
+			minRU: 400,
+		},
+		region: "East US",
+		containersCount: 5,
+		estimatedMonthlyCost: {
+			ruCost: 24.0,
+			storageCost: 2.5,
+			totalUSD: 26.5,
+			breakdown: [
+				{ type: "RU", value: 24.0, unit: "USD" },
+				{ type: "Storage", value: 2.5, unit: "USD" },
+			],
+		},
+	};
+
+	const detailedInfo: DetailedDatabaseInfo = {
+		...databaseInfo,
+		containers: [
+			{
+				id: "container-1",
+				_self: "self",
+				_rid: "rid",
+				_ts: 123456,
+				created: new Date(),
+				lastModified: new Date(),
+				partitionKey: {
+					paths: ["/id"],
+					kind: "Hash",
+					version: 2,
+				},
+				statistics: {
+					documentCount: 1000,
+					sizeKB: 5000,
+					indexSizeKB: 500,
+					avgDocumentSizeKB: 5.0,
+				},
+				throughput: {
+					type: "shared",
+				},
+				indexingPolicy: {
+					automatic: true,
+					indexingMode: "consistent",
+					includedPaths: 10,
+					excludedPaths: 2,
+					compositeIndexes: 3,
+					spatialIndexes: 0,
+				},
+				defaultTtl: 3600,
+				schema: {
+					registered: true,
+					fieldCount: 5,
+					partitionKeyField: "id",
+				},
+			},
+		],
+	};
+
+	void databaseInfo;
+	void detailedInfo;
+}
+
+// Test 12: Health check types
+function testHealthCheck() {
+	const containerHealth: ContainerHealthCheck = {
+		container: "users",
+		healthy: false,
+		issues: [
+			{
+				severity: "warning",
+				type: "large_documents",
+				message: "Average document size is large",
+				recommendation: "Consider splitting documents",
+			},
+			{
+				severity: "error",
+				type: "missing_index",
+				message: "Missing index on frequently queried field",
+				recommendation: "Add index to improve performance",
+			},
+		],
+		statistics: {
+			documentCount: 1000,
+			avgDocumentSizeKB: 150.5,
+			largestDocumentKB: 500,
+			ruConsumption: {
+				avg: 5.5,
+				p95: 12.0,
+				p99: 25.0,
+			},
+		},
+	};
+
+	const healthReport: DatabaseHealthReport = {
+		database: "test-db",
+		overallHealth: "warning",
+		timestamp: new Date(),
+		containers: [containerHealth],
+		recommendations: [
+			"Consider adding indexes",
+			"Review partition key strategy",
+		],
+		costAnalysis: {
+			currentMonthlyEstimate: 100.0,
+			potentialSavings: [
+				{
+					type: "Remove unused containers",
+					savingsUSD: 10.0,
+					action: "Delete orphaned containers",
+				},
+			],
+		},
+	};
+
+	void containerHealth;
+	void healthReport;
+}
+
+// Test 13: Schema diff types
+function testSchemaDiff() {
+	const schemaDiff: SchemaDiff = {
+		database: "test-db",
+		timestamp: new Date(),
+		containers: {
+			registered: ["users", "posts"],
+			actual: ["users", "posts", "orphaned"],
+			orphaned: ["orphaned"],
+			missing: [],
+			modified: [
+				{
+					container: "users",
+					differences: {
+						partitionKey: {
+							registered: "/email",
+							actual: "/id",
+						},
+						throughput: {
+							registered: 400,
+							actual: 800,
+						},
+						indexing: {
+							differences: [
+								"Missing composite index on (field1, field2)",
+							],
+						},
+						fields: {
+							inSchemaOnly: ["newField"],
+							inDataOnly: ["oldField"],
+							typeMismatches: [
+								{
+									field: "age",
+									expectedType: "number",
+									actualTypes: ["string", "number"],
+									percentage: 15.5,
+								},
+							],
+						},
+					},
+				},
+			],
+		},
+		requiresAction: true,
+	};
+
+	// Verify types can be accessed
+	const _dbName: string = schemaDiff.database;
+	const _timestamp: Date = schemaDiff.timestamp;
+	const _orphaned: string[] = schemaDiff.containers.orphaned;
+	const _requiresAction: boolean = schemaDiff.requiresAction;
+
+	void _dbName;
+	void _timestamp;
+	void _orphaned;
+	void _requiresAction;
+	void schemaDiff;
+}
+
+// Test 14: Container management operation types
+function testContainerManagement() {
+	// Mock management operations
+	const mockManagement = {
+		listOrphanedContainers: async (): Promise<string[]> => ["orphaned1", "orphaned2"],
+		pruneContainers: async (): Promise<PruneContainersResult> => ({
+			pruned: ["orphaned1"],
+			kept: ["keep-this"],
+			failed: [
+				{
+					container: "failed-container",
+					error: "Permission denied",
+				},
+			],
+			estimatedSavings: {
+				storageGB: 5.0,
+				monthlyRU: 100,
+				monthlyUSD: 10.0,
+			},
+		}),
+	};
+
+	// Test orphaned containers
+	mockManagement.listOrphanedContainers().then((orphaned) => {
+		const _firstOrphaned: string = orphaned[0];
+		void _firstOrphaned;
+	});
+
+	// Test prune result types
+	mockManagement.pruneContainers().then((result) => {
+		const _pruned: string[] = result.pruned;
+		const _kept: string[] = result.kept;
+		const _failed = result.failed;
+		const _savings = result.estimatedSavings;
+
+		void _pruned;
+		void _kept;
+		void _failed;
+		void _savings;
+	});
+}
+
+// =============================================================================
+// AGGREGATION AND ADVANCED QUERY TYPE TESTS
+// =============================================================================
+
+// Test 15: Aggregation operations with new bulk features
+function testAggregationWithBulk() {
+	const client = {} as any;
+	const containerClient = new ContainerClient(client, complexSchema);
+
+	// Test count
+	const countResult: Promise<number> = containerClient.count({
+		where: { role: "user" },
+		enableCrossPartitionQuery: true,
+	});
+
+	// Test aggregate
+	const aggregateResult = containerClient.aggregate({
+		where: { role: "user" },
+		_count: true,
+		_sum: { tokens: true },
+		_avg: { tokens: true },
+		_min: { createdAt: true },
+		_max: { createdAt: true },
+		enableCrossPartitionQuery: true,
+	});
+
+	// Test groupBy
+	const groupByResult = containerClient.groupBy({
+		by: "role",
+		_count: true,
+		_sum: { tokens: true },
+		enableCrossPartitionQuery: true,
+	});
+
+	void countResult;
+	void aggregateResult;
+	void groupByResult;
+}
+
+// =============================================================================
+// INTEGRATION TYPE TESTS
+// =============================================================================
+
+// Test 16: Full workflow type integration
+function testFullWorkflowTypes() {
+	// This test ensures all types work together correctly
+	const client = {} as any;
+	const containerClient = new ContainerClient(client, complexSchema);
+
+	// 1. Create documents
+	const create = containerClient.create({
+		data: {
+			id: "test",
+			conversationId: "conv-1",
+			role: "user",
+			content: "Hello",
+			createdAt: new Date(),
+			tags: ["greeting"],
+			author: {
+				id: "author-1",
+				name: "Test User",
+				email: undefined,
+				profile: {
+					bio: undefined,
+					website: undefined,
+					socialLinks: [],
+				},
+			},
+			attachments: [],
+		},
+	});
+
+	// 2. Bulk update
+	const bulkUpdate = containerClient.updateMany({
+		where: { role: "user" },
+		data: (doc) => ({
+			tokens: doc.tokens ? doc.tokens + 10 : 10,
+		}),
+		enableCrossPartitionQuery: true,
+		onProgress: (stats) => {
+			console.log(`Progress: ${stats.percentage}%`);
+		},
+	});
+
+	// 3. Query with aggregation
+	const query = containerClient.findMany({
+		where: { role: "user" },
+		aggregate: {
+			_count: true,
+			_sum: { tokens: true },
+		},
+		enableCrossPartitionQuery: true,
+	});
+
+	// 4. Bulk delete
+	const bulkDelete = containerClient.deleteMany({
+		where: { role: "deleted" },
+		confirm: true,
+		enableCrossPartitionQuery: true,
+	});
+
+	void create;
+	void bulkUpdate;
+	void query;
+	void bulkDelete;
+}
+
+// =============================================================================
 // EXECUTE ALL TESTS
 // =============================================================================
 
@@ -542,6 +1189,18 @@ testDeepNestedSchema();
 testSchemaTypeInference();
 testErrorConditions();
 testRuntimeTypeValidation();
+
+// New tests for advanced features
+testBulkUpdateMany();
+testBulkDeleteMany();
+testMigrationDefinition();
+testMigrationClient();
+testDatabaseInfo();
+testHealthCheck();
+testSchemaDiff();
+testContainerManagement();
+testAggregationWithBulk();
+testFullWorkflowTypes();
 
 // Export a dummy value to ensure this file is included in compilation
 export const _typeTests = true;

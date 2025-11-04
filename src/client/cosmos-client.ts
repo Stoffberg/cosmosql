@@ -1,27 +1,81 @@
 import { CosmosError } from "../errors/cosmos-error";
 import { CosmosAuth } from "./auth";
 
+/**
+ * Container creation/verification mode.
+ * - `auto-create`: Automatically create containers if they don't exist
+ * - `verify`: Verify containers exist but don't create them
+ * - `skip`: Skip container checks entirely
+ */
 export type ContainerMode = "auto-create" | "verify" | "skip";
 
+/**
+ * Configuration options for CosmosClient.
+ */
 export interface CosmosClientConfig {
+	/** Azure Cosmos DB endpoint URL (e.g., https://myaccount.documents.azure.com) */
 	endpoint?: string;
+	/** Azure Cosmos DB account key */
 	key?: string;
+	/** Connection string (alternative to endpoint + key) */
 	connectionString?: string;
+	/** Database name to connect to */
 	database: string;
+	/** Container creation/verification mode */
 	mode?: ContainerMode;
+	/** Retry configuration for rate-limited requests */
 	retryOptions?: {
+		/** Maximum number of retry attempts (default: 3) */
 		maxRetries?: number;
+		/** Initial retry delay in milliseconds (default: 100) */
 		initialDelay?: number;
+		/** Maximum retry delay in milliseconds (default: 5000) */
 		maxDelay?: number;
 	};
+	/** Migration definitions for database schema management */
+	migrations?: any[]; // MigrationDefinition[] (avoid circular dep)
 }
 
+/**
+ * Main client for interacting with Azure Cosmos DB.
+ * 
+ * This client handles authentication, HTTP requests, and provides methods
+ * for database and container management. It implements automatic retry logic
+ * for rate-limited requests and supports both connection string and
+ * endpoint/key authentication.
+ * 
+ * @example
+ * ```typescript
+ * // Using connection string
+ * const client = new CosmosClient({
+ *   connectionString: process.env.COSMOS_CONNECTION_STRING,
+ *   database: 'mydb'
+ * });
+ * 
+ * // Using endpoint and key
+ * const client = new CosmosClient({
+ *   endpoint: 'https://myaccount.documents.azure.com',
+ *   key: process.env.COSMOS_KEY,
+ *   database: 'mydb',
+ *   retryOptions: {
+ *     maxRetries: 5,
+ *     initialDelay: 200
+ *   }
+ * });
+ * ```
+ */
 export class CosmosClient {
 	private auth: CosmosAuth;
 	private endpoint: string;
 	private database: string;
 	private retryOptions: Required<NonNullable<CosmosClientConfig["retryOptions"]>>;
 
+	/**
+	 * Creates a new CosmosClient instance.
+	 * 
+	 * @param config - Client configuration
+	 * @throws {Error} If neither connectionString nor (endpoint + key) is provided
+	 */
 	constructor(config: CosmosClientConfig) {
 		if (config.connectionString) {
 			const parsed = new CosmosAuth("").parseConnectionString(config.connectionString);
@@ -42,6 +96,13 @@ export class CosmosClient {
 		};
 	}
 
+	/**
+	 * Normalizes the endpoint URL by removing trailing slashes and default ports.
+	 * 
+	 * @param endpoint - The raw endpoint URL
+	 * @returns The normalized endpoint URL
+	 * @internal
+	 */
 	private normalizeEndpoint(endpoint: string): string {
 		// Remove trailing slash
 		let normalized = endpoint.replace(/\/$/, "");
@@ -57,6 +118,21 @@ export class CosmosClient {
 		return normalized;
 	}
 
+	/**
+	 * Executes an HTTP request to the Cosmos DB REST API.
+	 * 
+	 * Handles authentication, header generation, and automatic retries for rate-limited requests.
+	 * 
+	 * @template T - The expected response type
+	 * @param method - HTTP method (GET, POST, PUT, DELETE, etc.)
+	 * @param path - API path (e.g., /dbs/mydb/colls/mycoll/docs)
+	 * @param body - Optional request body
+	 * @param partitionKey - Optional partition key value
+	 * @param enableCrossPartitionQuery - Whether to enable cross-partition queries
+	 * @param extraHeaders - Additional headers to include in the request
+	 * @returns The parsed response
+	 * @throws {CosmosError} If the request fails
+	 */
 	async request<T = any>(
 		method: string,
 		path: string,
@@ -76,6 +152,23 @@ export class CosmosClient {
 		);
 	}
 
+	/**
+	 * Internal method that implements request retry logic.
+	 * 
+	 * Automatically retries rate-limited requests (429) with exponential backoff.
+	 * 
+	 * @template T - The expected response type
+	 * @param method - HTTP method
+	 * @param path - API path
+	 * @param body - Request body
+	 * @param partitionKey - Partition key value
+	 * @param enableCrossPartitionQuery - Enable cross-partition queries
+	 * @param extraHeaders - Additional headers
+	 * @param attempt - Current retry attempt number
+	 * @returns The parsed response
+	 * @throws {CosmosError} If the request fails after all retries
+	 * @internal
+	 */
 	private async requestWithRetry<T>(
 		method: string,
 		path: string,
@@ -195,10 +288,26 @@ export class CosmosClient {
 		}
 	}
 
+	/**
+	 * Sleeps for the specified duration.
+	 * 
+	 * @param ms - Duration in milliseconds
+	 * @returns Promise that resolves after the duration
+	 * @internal
+	 */
 	private sleep(ms: number): Promise<void> {
 		return new Promise((resolve) => setTimeout(resolve, ms));
 	}
 
+	/**
+	 * Parses a Cosmos DB REST API path to extract resource type and ID.
+	 * 
+	 * This is used for generating proper authentication signatures.
+	 * 
+	 * @param path - The API path to parse
+	 * @returns Tuple of [resourceType, resourceId]
+	 * @internal
+	 */
 	private parseResourcePath(path: string): [string, string] {
 		const parts = path.split("/").filter(Boolean);
 
@@ -279,6 +388,15 @@ export class CosmosClient {
 		return [resourceTypeFallback, resourceIdFallback];
 	}
 
+	/**
+	 * Handles error responses from the Cosmos DB API.
+	 * 
+	 * Parses error details and creates appropriate CosmosError instances.
+	 * 
+	 * @param response - The error response from fetch
+	 * @returns A CosmosError instance
+	 * @internal
+	 */
 	private async handleErrorResponse(response: globalThis.Response): Promise<CosmosError> {
 		let message = response.statusText || "Unknown error";
 		let code = "UNKNOWN_ERROR";
@@ -324,11 +442,21 @@ export class CosmosClient {
 		return new CosmosError(response.status, code, message);
 	}
 
+	/**
+	 * Gets the current database name.
+	 * 
+	 * @returns The database name
+	 */
 	getDatabase(): string {
 		return this.database;
 	}
 
-	// Container management methods
+	/**
+	 * Checks if the configured database exists.
+	 * 
+	 * @returns True if the database exists, false otherwise
+	 * @throws {CosmosError} If the check fails for reasons other than 404
+	 */
 	async databaseExists(): Promise<boolean> {
 		try {
 			// Instead of HEAD /dbs/{db}, list containers to verify database exists
@@ -343,12 +471,24 @@ export class CosmosClient {
 		}
 	}
 
+	/**
+	 * Creates the configured database.
+	 * 
+	 * @throws {CosmosError} If the database already exists or creation fails
+	 */
 	async createDatabase(): Promise<void> {
 		await this.request("POST", "/dbs", {
 			id: this.database,
 		});
 	}
 
+	/**
+	 * Checks if a container exists in the database.
+	 * 
+	 * @param name - The container name to check
+	 * @returns True if the container exists, false otherwise
+	 * @throws {CosmosError} If the check fails for reasons other than 404
+	 */
 	async containerExists(name: string): Promise<boolean> {
 		try {
 			// Use GET instead of HEAD because HEAD returns 403 Forbidden
@@ -363,6 +503,13 @@ export class CosmosClient {
 		}
 	}
 
+	/**
+	 * Gets detailed information about a container.
+	 * 
+	 * @param name - The container name
+	 * @returns Container information, or null if not found
+	 * @throws {CosmosError} If the request fails for reasons other than 404
+	 */
 	async getContainer(name: string): Promise<ContainerInfo | null> {
 		try {
 			return await this.request<ContainerInfo>("GET", `/dbs/${this.database}/colls/${name}`);
@@ -374,14 +521,33 @@ export class CosmosClient {
 		}
 	}
 
+	/**
+	 * Creates a new container in the database.
+	 * 
+	 * @param body - Container creation configuration
+	 * @throws {CosmosError} If the container already exists or creation fails
+	 */
 	async createContainer(body: CreateContainerBody): Promise<void> {
 		await this.request("POST", `/dbs/${this.database}/colls`, body);
 	}
 
+	/**
+	 * Updates an existing container's configuration.
+	 * 
+	 * @param name - The container name
+	 * @param body - Updated container configuration
+	 * @throws {CosmosError} If the container doesn't exist or update fails
+	 */
 	async updateContainer(name: string, body: UpdateContainerBody): Promise<void> {
 		await this.request("PUT", `/dbs/${this.database}/colls/${name}`, body);
 	}
 
+	/**
+	 * Lists all containers in the database.
+	 * 
+	 * @returns Array of container information
+	 * @throws {CosmosError} If the request fails
+	 */
 	async listContainers(): Promise<ContainerListItem[]> {
 		const response = await this.request<{
 			DocumentCollections: ContainerListItem[];
@@ -389,11 +555,22 @@ export class CosmosClient {
 		return response.DocumentCollections || [];
 	}
 
+	/**
+	 * Deletes a container from the database.
+	 * 
+	 * This operation is permanent and cannot be undone.
+	 * 
+	 * @param name - The container name to delete
+	 * @throws {CosmosError} If the container doesn't exist or deletion fails
+	 */
 	async deleteContainer(name: string): Promise<void> {
 		await this.request("DELETE", `/dbs/${this.database}/colls/${name}`);
 	}
 }
 
+/**
+ * Detailed container information from Cosmos DB.
+ */
 export interface ContainerInfo {
 	id: string;
 	partitionKey: {
@@ -412,10 +589,16 @@ export interface ContainerInfo {
 	_self: string;
 }
 
+/**
+ * Basic container information from list operations.
+ */
 export interface ContainerListItem {
 	id: string;
 }
 
+/**
+ * Configuration for creating a new container.
+ */
 export interface CreateContainerBody {
 	id: string;
 	partitionKey: {
@@ -431,6 +614,11 @@ export interface CreateContainerBody {
 	};
 }
 
+/**
+ * Configuration for updating an existing container.
+ * 
+ * Extends CreateContainerBody with additional Cosmos DB metadata fields.
+ */
 export interface UpdateContainerBody extends CreateContainerBody {
 	_rid: string;
 	_ts: number;

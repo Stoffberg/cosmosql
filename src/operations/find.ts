@@ -14,32 +14,63 @@ import type {
 	WhereInput,
 } from "../types";
 
+/**
+ * Arguments for finding a unique document by ID and partition key.
+ * 
+ * @template T - The document type
+ * @template PK - The partition key field name
+ * @template S - Optional select projection
+ */
 export interface FindUniqueArgs<
 	T,
 	PK extends keyof T,
 	S extends SelectInput<T> | undefined = undefined,
 > {
+	/** Where clause must include both ID and partition key */
 	where: { [K in PK]: T[K] } & Partial<T>;
+	/** Optional field projection to return only specific fields */
 	select?: S;
 }
 
+/**
+ * Arguments for finding multiple documents with filtering, sorting, and pagination.
+ * 
+ * @template T - The document type
+ * @template S - Optional select projection
+ * @template PK - The partition key field name
+ * @template A - Optional aggregation operations
+ */
 export interface FindManyArgs<
 	T,
 	S extends SelectInput<T> | undefined = undefined,
 	PK extends keyof T = never,
 	A extends AggregateOperations<T> | undefined = undefined,
 > {
+	/** Filter conditions using type-safe operators */
 	where?: WhereInput<T>;
+	/** Field projection to return only specific fields */
 	select?: S;
+	/** Sort order specification */
 	orderBy?: OrderByInput<T>;
+	/** Limit number of results */
 	take?: number;
+	/** Skip number of results (for pagination) */
 	skip?: number;
+	/** Partition key value to scope the query */
 	partitionKey?: PK extends never ? never : T[PK];
+	/** Allow cross-partition queries (can be expensive) */
 	enableCrossPartitionQuery?: boolean;
+	/** Aggregation operations to perform alongside the query */
 	aggregate?: A;
 }
 
-// Result type for findMany with aggregations
+/**
+ * Result type for findMany that includes both data and optional aggregations.
+ * 
+ * @template T - The document type
+ * @template S - Optional select projection
+ * @template A - Optional aggregation operations
+ */
 export type FindManyResult<
 	T,
 	S extends SelectInput<T> | undefined,
@@ -52,6 +83,11 @@ export type FindManyResult<
 			data: S extends undefined ? T[] : SelectResult<T, NonNullable<S>>[];
 		} & AggregateResult<T, NonNullable<A>>;
 
+/**
+ * Handles document query and retrieval operations for a Cosmos DB container.
+ * 
+ * @internal This class is used internally by ContainerClient
+ */
 export class FindOperations<
 	TSchema extends Record<string, any>,
 	TPartitionKey extends keyof InferSchema<TSchema>,
@@ -67,6 +103,18 @@ export class FindOperations<
 		this.resultParser = new AggregateResultParser();
 	}
 
+	/**
+	 * Finds a single document by its ID and partition key.
+	 * 
+	 * This is the most efficient way to retrieve a document as it uses direct document access.
+	 * Both the document ID and partition key value are required.
+	 * 
+	 * @template S - Optional select projection
+	 * @param args - Query arguments
+	 * @returns The document if found, or null if not found
+	 * @throws {Error} If partition key is missing
+	 * @throws {CosmosError} If the query fails
+	 */
 	async findUnique<S extends SelectInput<InferSchema<TSchema>> | undefined = undefined>(
 		args: TPartitionKey extends never
 			? PartitionKeyMissingError
@@ -107,6 +155,19 @@ export class FindOperations<
 		}
 	}
 
+	/**
+	 * Queries multiple documents with filtering, sorting, pagination, and optional aggregations.
+	 * 
+	 * Supports a rich query API with type-safe filters, projections, and aggregations.
+	 * Requires either a partitionKey or enableCrossPartitionQuery: true.
+	 * 
+	 * @template S - Optional select projection
+	 * @template A - Optional aggregation operations
+	 * @param args - Query arguments
+	 * @returns Array of documents (or object with data + aggregations if aggregate is specified)
+	 * @throws {Error} If neither partitionKey nor enableCrossPartitionQuery is provided
+	 * @throws {CosmosError} If the query fails
+	 */
 	async findMany<
 		S extends SelectInput<InferSchema<TSchema>> | undefined = undefined,
 		A extends AggregateOperations<InferSchema<TSchema>> | undefined = undefined,
@@ -264,6 +325,20 @@ export class FindOperations<
 		}
 	}
 
+	/**
+	 * Executes a raw SQL query against the container.
+	 * 
+	 * Use this for custom queries that aren't supported by the query builder.
+	 * Supports parameterized queries to prevent injection attacks.
+	 * 
+	 * @template TResult - The expected return type of the query results
+	 * @param args - Query arguments
+	 * @param args.sql - Raw SQL query string
+	 * @param args.parameters - Query parameters (use @paramName in SQL)
+	 * @param args.partitionKey - Optional partition key to scope the query
+	 * @returns Array of query results
+	 * @throws {CosmosError} If the query fails
+	 */
 	async query<TResult = InferSchema<TSchema>>(args: {
 		sql: string;
 		parameters?: Array<{ name: string; value: unknown }>;
@@ -283,6 +358,16 @@ export class FindOperations<
 		return result.Documents || [];
 	}
 
+	/**
+	 * Applies field selection/projection to a document.
+	 * 
+	 * @template T - The document type
+	 * @template S - The select projection type
+	 * @param data - The source document
+	 * @param select - The field selection specification
+	 * @returns A new object with only the selected fields
+	 * @internal
+	 */
 	private applySelect<T, S extends SelectInput<T>>(data: T, select: S): SelectResult<T, S> {
 		const result: any = {};
 

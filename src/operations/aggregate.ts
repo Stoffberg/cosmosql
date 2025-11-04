@@ -13,6 +13,14 @@ import type {
 	KeysOfType,
 } from "../types";
 
+/**
+ * Handles aggregation operations for a Cosmos DB container.
+ * 
+ * Provides count, sum, avg, min, max, and groupBy operations with
+ * type-safe query building and result parsing.
+ * 
+ * @internal This class is used internally by ContainerClient
+ */
 export class AggregateOps<
 	TSchema extends Record<string, any>,
 	TPartitionKey extends keyof InferSchema<TSchema>,
@@ -29,7 +37,15 @@ export class AggregateOps<
 	}
 
 	/**
-	 * COUNT
+	 * Counts the number of documents matching the filter criteria.
+	 * 
+	 * Requires either a partitionKey or enableCrossPartitionQuery: true.
+	 * Efficient operation that doesn't load document contents.
+	 * 
+	 * @param options - Count options including where clause and partition key
+	 * @returns The count of matching documents
+	 * @throws {Error} If neither partitionKey nor enableCrossPartitionQuery is provided
+	 * @throws {CosmosError} If the query fails
 	 */
 	async count(options: CountOptions<InferSchema<TSchema>>): Promise<number> {
 		// Validate partition key requirement
@@ -51,7 +67,17 @@ export class AggregateOps<
 	}
 
 	/**
-	 * AGGREGATE
+	 * Performs multiple aggregation operations in a single query.
+	 * 
+	 * Supports count, sum, avg, min, and max operations across numeric and comparable fields.
+	 * More efficient than running separate aggregation queries.
+	 * 
+	 * @template Opts - The aggregation options type
+	 * @param options - Aggregation options including operations to perform
+	 * @returns Object containing the requested aggregation results
+	 * @throws {Error} If no aggregation operations are specified
+	 * @throws {Error} If neither partitionKey nor enableCrossPartitionQuery is provided
+	 * @throws {CosmosError} If the query fails
 	 */
 	async aggregate<Opts extends AggregateOptions<InferSchema<TSchema>>>(
 		options: Opts,
@@ -85,7 +111,17 @@ export class AggregateOps<
 	}
 
 	/**
-	 * GROUP BY
+	 * Groups documents by one or more fields and performs aggregations on each group.
+	 * 
+	 * Similar to SQL's GROUP BY clause. Each group can have aggregations like count, sum, avg, etc.
+	 * Useful for analytics and reporting queries.
+	 * 
+	 * @template By - The field(s) to group by
+	 * @template Opts - The group by options type
+	 * @param options - Group by options including grouping fields and aggregations
+	 * @returns Array of groups with aggregated values
+	 * @throws {Error} If neither partitionKey nor enableCrossPartitionQuery is provided
+	 * @throws {CosmosError} If the query fails
 	 */
 	async groupBy<
 		By extends keyof InferSchema<TSchema> | readonly (keyof InferSchema<TSchema>)[],
@@ -114,7 +150,16 @@ export class AggregateOps<
 	}
 
 	/**
-	 * SUM (convenience method)
+	 * Calculates the sum of a numeric field across matching documents.
+	 * 
+	 * Convenience method for summing a single field. For multiple aggregations,
+	 * use the aggregate() method instead.
+	 * 
+	 * @param field - The numeric field to sum
+	 * @param options - Query options including where clause and partition key
+	 * @returns The sum, or null if no matching documents
+	 * @throws {Error} If neither partitionKey nor enableCrossPartitionQuery is provided
+	 * @throws {CosmosError} If the query fails
 	 */
 	async sum(
 		field: KeysOfType<InferSchema<TSchema>, number>,
@@ -129,7 +174,16 @@ export class AggregateOps<
 	}
 
 	/**
-	 * AVG (convenience method)
+	 * Calculates the average of a numeric field across matching documents.
+	 * 
+	 * Convenience method for averaging a single field. For multiple aggregations,
+	 * use the aggregate() method instead.
+	 * 
+	 * @param field - The numeric field to average
+	 * @param options - Query options including where clause and partition key
+	 * @returns The average, or null if no matching documents
+	 * @throws {Error} If neither partitionKey nor enableCrossPartitionQuery is provided
+	 * @throws {CosmosError} If the query fails
 	 */
 	async avg(
 		field: KeysOfType<InferSchema<TSchema>, number>,
@@ -144,7 +198,17 @@ export class AggregateOps<
 	}
 
 	/**
-	 * MIN (convenience method)
+	 * Finds the minimum value of a field across matching documents.
+	 * 
+	 * Works with numeric, string, and date fields. For multiple aggregations,
+	 * use the aggregate() method instead.
+	 * 
+	 * @template K - The field type
+	 * @param field - The field to find minimum value for
+	 * @param options - Query options including where clause and partition key
+	 * @returns The minimum value, or null if no matching documents
+	 * @throws {Error} If neither partitionKey nor enableCrossPartitionQuery is provided
+	 * @throws {CosmosError} If the query fails
 	 */
 	async min<K extends keyof InferSchema<TSchema>>(
 		field: K,
@@ -159,7 +223,17 @@ export class AggregateOps<
 	}
 
 	/**
-	 * MAX (convenience method)
+	 * Finds the maximum value of a field across matching documents.
+	 * 
+	 * Works with numeric, string, and date fields. For multiple aggregations,
+	 * use the aggregate() method instead.
+	 * 
+	 * @template K - The field type
+	 * @param field - The field to find maximum value for
+	 * @param options - Query options including where clause and partition key
+	 * @returns The maximum value, or null if no matching documents
+	 * @throws {Error} If neither partitionKey nor enableCrossPartitionQuery is provided
+	 * @throws {CosmosError} If the query fails
 	 */
 	async max<K extends keyof InferSchema<TSchema>>(
 		field: K,
@@ -174,7 +248,11 @@ export class AggregateOps<
 	}
 
 	/**
-	 * Validate partition key requirement (shared logic)
+	 * Validates that either a partition key or cross-partition query flag is provided.
+	 * 
+	 * @param options - Options containing partition key configuration
+	 * @throws {Error} If neither partition key nor cross-partition query is enabled
+	 * @internal
 	 */
 	private validatePartitionKey(options: {
 		partitionKey?: any;
@@ -191,7 +269,13 @@ export class AggregateOps<
 	}
 
 	/**
-	 * Execute query via HTTP (reuses existing query infrastructure)
+	 * Executes a query and returns the results.
+	 * 
+	 * @template R - The result type
+	 * @param options - Query execution options
+	 * @returns Array of query results
+	 * @throws {CosmosError} If the query fails
+	 * @internal
 	 */
 	private async executeQuery<R = any>(options: {
 		sql: string;
