@@ -1,0 +1,190 @@
+---
+title: Write Methods
+description: Complete reference for creating, updating, and deleting documents
+---
+
+## Write Operations
+
+### `create(options)`
+
+Creates a single document.
+
+```typescript
+const user = await db.users.create({
+  data: {
+    id: 'user_123',
+    email: 'john@example.com',
+    name: 'John Doe',
+    age: 30,
+    createdAt: new Date()
+    // isActive will use default value if defined
+  }
+});
+// Returns: Full user object (fully typed)
+```
+
+### `createMany(options)`
+
+Creates multiple documents in a single operation. All documents must share the same partition key.
+
+```typescript
+await db.users.createMany({
+  data: [
+    { id: 'user_1', email: 'user1@test.com', name: 'User 1', age: 25 },
+    { id: 'user_2', email: 'user2@test.com', name: 'User 2', age: 30 }
+  ],
+  partitionKey: 'shared@email.com' // All must share partition key
+});
+```
+
+### `update(options)`
+
+Updates a single document by ID and partition key.
+
+```typescript
+await db.users.update({
+  where: {
+    id: 'user_123',
+    email: 'john@example.com' // Partition key required
+  },
+  data: {
+    age: 31,
+    name: 'John Smith'
+  }
+});
+// Returns: Updated user object
+```
+
+### `updateMany(options)`
+
+Updates multiple documents matching criteria. Can be used within a partition or across partitions.
+
+```typescript
+// Update within a partition
+await db.users.updateMany({
+  partitionKey: 'tenant-1',
+  where: { isActive: false },
+  data: { status: 'archived' }
+});
+
+// Update across partitions (expensive)
+await db.users.updateMany({
+  enableCrossPartitionQuery: true,
+  where: { lastLogin: { lt: new Date('2024-01-01') } },
+  data: { isActive: false }
+});
+```
+
+### `upsert(options)`
+
+Updates a document if it exists, creates it if it doesn't.
+
+```typescript
+await db.users.upsert({
+  where: {
+    id: 'user_123',
+    email: 'john@example.com'
+  },
+  create: {
+    id: 'user_123',
+    email: 'john@example.com',
+    name: 'New User',
+    age: 25
+  },
+  update: {
+    age: 26,
+    name: 'Updated Name'
+  }
+});
+```
+
+### `delete(options)`
+
+Deletes a single document by ID and partition key.
+
+```typescript
+await db.users.delete({
+  where: {
+    id: 'user_123',
+    email: 'john@example.com' // Partition key required
+  }
+});
+```
+
+### `deleteMany(options)`
+
+Deletes multiple documents matching criteria. Can be used within a partition or across partitions.
+
+```typescript
+// Delete within a partition
+const deletedCount = await db.users.deleteMany({
+  partitionKey: 'tenant-1',
+  where: {
+    isActive: false,
+    createdAt: { lt: new Date('2023-01-01') }
+  }
+});
+
+// Delete across partitions (expensive)
+await db.users.deleteMany({
+  enableCrossPartitionQuery: true,
+  where: { status: 'deleted' }
+});
+```
+
+## Write Options
+
+### `where` - Document identification
+
+For single-document operations (`update`, `delete`, `upsert`):
+
+```typescript
+where: {
+  id: 'user_123',
+  email: 'john@example.com' // Partition key required
+}
+```
+
+For multi-document operations (`updateMany`, `deleteMany`):
+
+```typescript
+where: {
+  isActive: false,
+  createdAt: { lt: new Date('2023-01-01') }
+}
+```
+
+### `data` - Update data
+
+```typescript
+data: {
+  // Direct field updates
+  name: 'New Name',
+  age: 31,
+  
+  // Dynamic updates (using function)
+  views: (doc) => doc.views + 1,
+  
+  // Nested object updates
+  profile: {
+    name: 'John',
+    avatar: 'url'
+  }
+}
+```
+
+### `partitionKey` - Scope to partition
+
+```typescript
+partitionKey: 'john@example.com'        // Single value
+partitionKey: ['tenant_1', 'org_a']      // Composite partition key (array)
+```
+
+### `enableCrossPartitionQuery` - Allow cross-partition operations
+
+```typescript
+enableCrossPartitionQuery: true // Must explicitly opt-in for multi-document operations
+```
+
+See [Creating Documents](/docs/guides/creating-documents), [Updating Documents](/docs/guides/updating-documents), and [Deleting Documents](/docs/guides/deleting-documents) for detailed guides.
+

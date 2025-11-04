@@ -1,0 +1,17 @@
+{
+  "title": "Guides",
+  "icon": "Book",
+  "pages": [
+    "crud-operations",
+    "creating-documents",
+    "reading-documents",
+    "updating-documents",
+    "deleting-documents",
+    "aggregations",
+    "schema-migrations",
+    "database-management",
+    "performance",
+    "error-handling"
+  ]
+}
+

@@ -1,0 +1,269 @@
+---
+title: Core Concepts
+description: Understand CosmosDB fundamentals, partition keys, and how CosmosQL prevents costly mistakes
+---
+
+**Why this matters**: CosmosDB has unique characteristics that shape how you query data. Understanding these fundamentals helps you write efficient, cost-effective code.
+
+**Skip this if**: You're already a CosmosDB expert. Jump to [Creating Documents](/docs/guides/creating-documents).
+
+**Read this if**: CosmosDB is new, or you want to understand the "why" behind CosmosQL's design.
+
+---
+
+## The Distributed Database Problem
+
+CosmosDB isn't one server—it's thousands of servers working together. Your data is split across them.
+
+**This creates a challenge**: How do you query data when it's spread across hundreds of machines?
+
+**The solution**: Partition keys.
+
+## Partition Keys: The $2,400 Question
+
+Every document in CosmosDB has a partition key. This value determines which server stores it.
+
+### Why This Matters (Real Scenario)
+
+A developer wrote this query:
+
+```typescript
+// Find all active users
+const users = await findWhere({ isActive: true });
+```
+
+**With 1,000 users**: Cost $5/month, worked fine.  
+**With 100,000 users**: Cost $2,400/month, still worked fine.
+
+**What went wrong?** No partition key = CosmosDB scans every server.
+
+### The Cost Breakdown
+
+| Query Type | Servers Scanned | Request Units | Monthly Cost (1M queries) |
+|-----------|-----------------|---------------|---------------------------|
+| With partition key | 1 | 1 RU | $24 |
+| Without partition key | All (100+) | 100 RU | $2,400 |
+
+**100x difference.**
+
+### How CosmosQL Prevents This
+
+```typescript
+// ❌ TypeScript won't compile this
+const users = await db.users.findMany({
+  where: { isActive: true }
+  // Error: Missing required property 'partitionKey'
+});
+
+// ✅ Forces you to be explicit
+const users = await db.users.findMany({
+  partitionKey: 'user@example.com', // Scans one partition
+  where: { isActive: true }
+});
+
+// ✅ Or opt-in to cross-partition (expensive) queries
+const users = await db.users.findMany({
+  enableCrossPartitionQuery: true, // "I know this is expensive"
+  where: { isActive: true }
+});
+```
+
+You cannot accidentally write expensive queries. TypeScript won't let your code compile.
+
+## Choosing a Good Partition Key
+
+Good partition keys have three properties:
+
+### 1. High Cardinality (Many Unique Values)
+
+```typescript
+// ✅ Good: email addresses
+const users = container('users', schema).partitionKey('email');
+
+// ❌ Bad: boolean status
+const users = container('users', schema).partitionKey('isActive');
+// Only 2 values → only 2 partitions → poor distribution
+```
+
+### 2. Even Distribution
+
+```typescript
+// ✅ Good: user IDs spread evenly
+const posts = container('posts', schema).partitionKey('userId');
+
+// ⚠️ Risky: category (one category could be huge)
+const products = container('products', schema).partitionKey('category');
+// "Electronics" might be 80% of your data → hot partition
+```
+
+### 3. Query Alignment
+
+Choose keys that match your most common query patterns:
+
+```typescript
+// If you always query by user
+const posts = container('posts', schema).partitionKey('userId'); // ✅
+
+// If you always query by date
+const metrics = container('metrics', schema).partitionKey('timestamp'); // ✅
+
+// If you query by multiple fields
+const orders = container('orders', schema).partitionKey('customerId'); // ✅
+```
+
+## Request Units (RU): How CosmosDB Charges
+
+CosmosDB uses **Request Units (RUs)** to measure and charge for operations.
+
+### Typical Costs
+
+| Operation | Cost | Notes |
+|-----------|------|-------|
+| Point read | 1 RU | Reading by ID + partition key |
+| Partition query | 3-5 RU | Filtering within one partition |
+| Cross-partition query | 50-100+ RU | Scanning all partitions |
+| Write | 5-10 RU | Creating or updating |
+
+### Real Cost Example
+
+If you process 1 million queries per month:
+
+```typescript
+// Partition-scoped queries
+1M queries × 3 RU = 3M RU/month ≈ $72/month
+
+// Cross-partition queries  
+1M queries × 100 RU = 100M RU/month ≈ $2,400/month
+```
+
+**That's 33x more expensive.**
+
+## Schema Definition
+
+Schemas in CosmosQL are TypeScript-only - they don't exist at runtime.
+
+```typescript
+import { container, field } from 'cosmosql';
+
+const posts = container('posts', {
+  // Required fields
+  id: field.string(),
+  userId: field.string(),
+  title: field.string(),
+  
+  // Optional fields
+  subtitle: field.string().optional(),
+  
+  // Defaults
+  viewCount: field.number().default(0),
+  isPublished: field.boolean().default(false),
+  
+  // Arrays
+  tags: field.array(field.string()),
+  
+  // Nested objects
+  metadata: field.object({
+    source: field.string(),
+    version: field.number()
+  }).optional(),
+  
+  // TTL (auto-delete after N seconds)
+  ttl: field.number().optional()
+}).partitionKey('userId');
+
+// Get TypeScript type
+type Post = typeof posts.infer;
+```
+
+**Key point**: This is purely for TypeScript. CosmosDB is schemaless - CosmosQL just adds type safety.
+
+### Field Types
+
+- `field.string()` → `string`
+- `field.number()` → `number`
+- `field.boolean()` → `boolean`
+- `field.date()` → `Date`
+- `field.array(type)` → `Array<type>`
+- `field.object(schema)` → nested object
+
+### Modifiers
+
+- `.optional()` → field can be `undefined`
+- `.default(value)` → value used if not provided on create
+
+## Client Setup
+
+```typescript
+import { createClient } from 'cosmosql';
+
+const db = await createClient({
+  connectionString: process.env.COSMOS_CONNECTION_STRING!,
+  database: 'myapp',
+  mode: 'auto-create' // Validates and creates containers
+}).withContainers({
+  users,
+  posts,
+  comments
+});
+
+// Now you have typed access
+db.users     // ContainerClient<User>
+db.posts     // ContainerClient<Post>
+db.comments  // ContainerClient<Comment>
+```
+
+**Client creation is async** because it validates and optionally creates your database and containers. Choose a mode based on your environment:
+
+- **`auto-create`** - Development: creates missing containers automatically
+- **`verify`** - Production: fails fast if containers don't exist
+- **`skip`** - Maximum performance: no validation
+
+See [Getting Started](/docs/getting-started) for detailed mode documentation.
+
+**Connection management**: HTTP/2 pooling with automatic retries. You don't manage connections.
+
+**Multiple databases**: Create separate clients:
+
+```typescript
+const prodDb = await createClient({...}).withContainers({users});
+const analyticsDb = await createClient({...}).withContainers({events});
+```
+
+## Summary
+
+Three key takeaways:
+
+1. **Partition keys determine cost** - Queries without them cost 10-100x more
+2. **CosmosQL enforces them at compile time** - TypeScript prevents expensive mistakes
+3. **Schemas are TypeScript-only** - Zero runtime overhead, all compile-time checks
+
+### Composite Partition Keys
+
+When you need multi-tenant data or hierarchical structures:
+
+```typescript
+const documents = container('documents', {
+  id: field.string(),
+  tenantId: field.string(),
+  organizationId: field.string(),
+  name: field.string(),
+  content: field.string()
+}).partitionKey('tenantId', 'organizationId'); // Composite key
+
+// Querying requires both parts
+const docs = await db.documents.findMany({
+  partitionKey: ['tenant_1', 'org_a'], // Array for composite keys
+  where: { name: { startsWith: 'Report' } }
+});
+```
+
+## Summary
+
+Three key takeaways:
+
+1. **Partition keys determine cost** - Queries without them cost 10-100x more
+2. **CosmosQL enforces them at compile time** - TypeScript prevents expensive mistakes
+3. **Schemas are TypeScript-only** - Zero runtime overhead, all compile-time checks
+
+**Next**: Apply these concepts in [Creating Documents](/docs/guides/creating-documents).
+

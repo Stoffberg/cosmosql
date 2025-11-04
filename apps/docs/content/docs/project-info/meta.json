@@ -1,0 +1,11 @@
+{
+  "title": "Project Info",
+  "icon": "Info",
+  "pages": [
+    "faq",
+    "limitations",
+    "migrating-from-azure-sdk",
+    "contributing"
+  ]
+}
+

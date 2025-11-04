@@ -1,0 +1,143 @@
+---
+title: Error Handling
+description: A comprehensive guide to handling CosmosError and common issues
+---
+
+CosmosQL provides comprehensive error handling through the `CosmosError` class:
+
+```typescript
+import { CosmosError, isCosmosError } from 'cosmosql';
+
+try {
+  await db.users.create({ data: user });
+} catch (error) {
+  if (isCosmosError(error)) {
+    // Type-safe error handling
+    switch (error.statusCode) {
+      case 400: // Bad Request
+        console.error('Invalid request:', error.message);
+        break;
+      case 401: // Unauthorized
+        console.error('Authentication failed - check your connection string');
+        break;
+      case 403: // Forbidden
+        console.error('Access denied - check permissions');
+        break;
+      case 404: // Not Found
+        console.error('Container or database not found');
+        break;
+      case 409: // Conflict (duplicate ID)
+        console.error('Document already exists with this ID');
+        break;
+      case 412: // Precondition Failed (ETag mismatch)
+        console.error('Document was modified, please retry');
+        break;
+      case 429: // Too Many Requests (rate limit)
+        console.error('Rate limited, retry after:', error.retryAfter, 'seconds');
+        // CosmosError includes retryAfter property
+        break;
+      case 500: // Internal Server Error
+        console.error('CosmosDB service error:', error.message);
+        break;
+      default:
+        console.error('CosmosDB error:', error.code, error.message);
+    }
+  } else {
+    // Not a CosmosDB error, rethrow
+    throw error;
+  }
+}
+```
+
+## CosmosError Class
+
+```typescript
+class CosmosError extends Error {
+  statusCode: number;      // HTTP status code (400, 404, 429, etc.)
+  code: string;            // CosmosDB error code
+  message: string;         // Error message
+  retryAfter?: number;     // Seconds to wait before retry (for 429 errors)
+}
+```
+
+## Common Error Codes
+
+| Code | Status | Description | Common Causes |
+|------|--------|-------------|----------------|
+| `BadRequest` | 400 | Invalid request | Malformed query syntax, invalid parameters |
+| `Unauthorized` | 401 | Authentication failed | Invalid connection string or key |
+| `Forbidden` | 403 | Access denied | Insufficient permissions |
+| `NotFound` | 404 | Resource not found | Container/database doesn't exist, document not found |
+| `Conflict` | 409 | Duplicate resource | Document with same ID already exists |
+| `PreconditionFailed` | 412 | ETag mismatch | Document was modified (optimistic concurrency) |
+| `TooManyRequests` | 429 | Rate limited | RU/s limit exceeded, automatic retry available |
+| `InternalServerError` | 500 | Service error | CosmosDB service issue |
+| `CROSS_PARTITION_QUERY_ERROR` | - | Cross-partition query error | Empty container cross-partition query |
+
+## Common Error Scenarios
+
+- **404**: Document not found (returns `null` for `findUnique`/`findMany`, throws for `update`/`delete`)
+- **429**: Rate limited (automatic retry with backoff if configured via `retryOptions`)
+- **401/403**: Authentication/authorization failures (check connection string and keys)
+- **400**: Bad request (validation errors, invalid query syntax)
+- **409**: Conflict (duplicate ID on create - indicates business logic issue)
+- **412**: Precondition failed (ETag mismatch on updates - document was modified)
+- **CROSS_PARTITION_QUERY_ERROR**: Cross-partition queries on empty containers (CosmosDB limitation)
+
+## Auto-Retry on 429
+
+CosmosQL automatically retries rate-limited requests with exponential backoff:
+
+```typescript
+const db = await createClient({
+  connectionString: '...',
+  database: 'myapp',
+  mode: 'verify', // Production: fail-fast on misconfiguration
+  retryOptions: {
+    maxRetries: 3,        // Maximum retry attempts
+    initialDelay: 100,    // Initial delay in ms
+    maxDelay: 5000        // Maximum delay in ms
+  }
+}).withContainers({ users });
+
+// Automatically retries with exponential backoff on 429 errors
+// Uses retryAfter from CosmosDB response when available
+```
+
+## Error Handling Best Practices
+
+1. **Always check error types** - Use `isCosmosError()` for type-safe error handling
+2. **Handle rate limits gracefully** - Use built-in retry options or implement custom retry logic
+3. **Log error details** - Include `statusCode`, `code`, and `message` in error logs for debugging
+4. **Don't ignore conflicts** - 409 errors indicate business logic issues (duplicate IDs)
+5. **Handle ETag mismatches** - 412 errors mean document was modified; refetch and retry
+6. **Check for cross-partition query errors** - Ensure containers have data before cross-partition queries
+
+## Example: Registration with Error Handling
+
+```typescript
+async function register(email: string, password: string) {
+  const passwordHash = await bcrypt.hash(password, 10);
+  
+  try {
+    const user = await db.users.create({
+      data: {
+        id: email,
+        email: email,
+        passwordHash,
+        profile: { name: email.split('@')[0] },
+        createdAt: new Date()
+      }
+    });
+    
+    return { success: true, user };
+  } catch (error) {
+    if (isCosmosError(error) && error.statusCode === 409) {
+      // Conflict = duplicate email
+      return { success: false, error: 'Email already exists' };
+    }
+    throw error;
+  }
+}
+```
+

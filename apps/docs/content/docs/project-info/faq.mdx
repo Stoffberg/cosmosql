@@ -1,0 +1,105 @@
+---
+title: FAQ
+description: Frequently asked questions about CosmosQL
+---
+
+Quick answers to common questions. For detailed guides, see [Quickstart](/docs/getting-started/quickstart) or [Patterns & Use Cases](/docs/patterns).
+
+## Quick Decisions
+
+**Should I use CosmosQL?**  
+Use CosmosQL if: TypeScript ✅ | Need type safety ✅ | Want minimal dependencies ✅  
+Use Azure SDK if: Need change feed/stored procedures ✅ | JavaScript only ✅
+
+**Can I migrate existing databases?**  
+Yes. CosmosQL works with existing CosmosDB databases. No data migration needed—just define schemas matching your current documents.
+
+**Can I use both libraries?**  
+Yes. CosmosQL and Azure SDK coexist—use CosmosQL for CRUD, Azure SDK for advanced features.
+
+## Features
+
+**What's supported?**  
+- ✅ CRUD operations (create, read, update, delete)
+- ✅ Partition-scoped and cross-partition queries
+- ✅ Point reads, filtering, sorting, pagination
+- ✅ Bulk operations within partitions
+- ✅ Raw SQL queries
+- ❌ Change feed processors
+- ❌ Stored procedures
+- ❌ Graph/MongoDB APIs
+
+See [Limitations](/docs/project-info/limitations) for complete list.
+
+## Language & Runtime
+
+**JavaScript support?**  
+No. CosmosQL requires TypeScript. The value is compile-time type safety.
+
+**Node.js version?**  
+Node.js 18+. Uses modern built-in APIs.
+
+**Serverless?**  
+Yes. Zero dependencies make CosmosQL ideal for Lambda, Azure Functions, Edge Runtime.
+
+## Performance
+
+**Overhead vs REST?**  
+~1-2%. Direct REST API calls with compile-time type safety.
+
+**vs Azure SDK?**  
+CosmosQL is typically faster due to zero runtime overhead. Azure SDK has some bulk operation optimizations.
+
+**How much does a query cost?**  
+- Point read: ~1 RU
+- Partition query: ~3-5 RU
+- Cross-partition: ~50-100+ RU
+
+## Schema Changes
+
+**Adding fields?**  
+Update your schema. Existing documents work fine—new fields are optional.
+
+**Removing fields?**  
+Treat as optional in schema. Can't truly remove from existing documents. Consider versioning.
+
+**Changing field types?**  
+Version documents or write migration scripts. See [Migrating from Azure SDK](/docs/project-info/migrating-from-azure-sdk) for strategies.
+
+## Migration
+
+**From Azure SDK?**  
+Gradual migration recommended. Use CosmosQL for new features, keep SDK for advanced features. See [Migrating from Azure SDK](/docs/project-info/migrating-from-azure-sdk).
+
+**Schema design?**  
+Start with [Core Concepts](/docs/getting-started/core-concepts) to understand partition keys. Then see [Patterns & Use Cases](/docs/patterns) for examples.
+
+## Production
+
+**Production ready?**  
+Yes. Stable API, 249 tests, 100% coverage. Used in production by multiple teams.
+
+**Error handling?**  
+Standard try/catch with `CosmosError` class. See [Error Handling](/docs/guides/error-handling) for examples.
+
+**Support?**  
+GitHub issues, discussions, and documentation. Maintainers are responsive.
+
+## Comparison
+
+**vs Prisma?**  
+CosmosQL is CosmosDB-specific with partition key enforcement. Prisma supports many databases.
+
+**vs Mongoose?**  
+CosmosQL is TypeScript-native, compile-time validation. Mongoose is MongoDB with runtime validation.
+
+See [Limitations](/docs/project-info/limitations) for complete comparison table.
+
+## Need More Help?
+
+- **Getting started?** → [Quickstart](/docs/getting-started/quickstart)
+- **Understanding basics?** → [Core Concepts](/docs/getting-started/core-concepts)
+- **Real-world examples?** → [Patterns & Use Cases](/docs/patterns)
+- **Performance tips?** → [Performance Guide](/docs/guides/performance)
+- **Error handling?** → [Error Handling](/docs/guides/error-handling)
+- **API reference?** → [API Reference](/docs/reference)

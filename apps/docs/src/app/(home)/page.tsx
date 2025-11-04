@@ -34,7 +34,7 @@ export default function HomePage() {
         {/* CTAs */}
         <div className="flex justify-center gap-4 flex-wrap mb-8">
           <Link
-            href="/docs/getting-started"
+            href="/docs/getting-started/quickstart"
             className="px-6 py-3 bg-fd-foreground text-fd-background rounded-md font-medium hover:opacity-90 transition-all text-base"
           >
             Get Started →
@@ -354,7 +354,7 @@ const stats = await db.orders.aggregate({
                 Schema evolution with versioning, rollback support, and dry-run previews
               </p>
               <Link
-                href="/docs/migrations"
+                href="/docs/guides/schema-migrations"
                 className="text-sm text-fd-foreground hover:underline font-medium"
               >
                 Learn more →
@@ -370,7 +370,7 @@ const stats = await db.orders.aggregate({
                 Health checks, schema validation, and container management tools
               </p>
               <Link
-                href="/docs/management"
+                href="/docs/guides/database-management"
                 className="text-sm text-fd-foreground hover:underline font-medium"
               >
                 Learn more →
@@ -386,7 +386,7 @@ const stats = await db.orders.aggregate({
                 Efficient batch updates and deletes with progress tracking and error handling
               </p>
               <Link
-                href="/docs/guide/update#bulk-operations"
+                href="/docs/guides/updating-documents#bulk-operations"
                 className="text-sm text-fd-foreground hover:underline font-medium"
               >
                 Learn more →
@@ -570,7 +570,7 @@ const info = await db.management
 
           <div className="mt-10 text-center">
             <Link
-              href="/docs/getting-started"
+              href="/docs/getting-started/quickstart"
               className="inline-flex items-center text-fd-muted-foreground hover:text-fd-foreground font-medium text-sm"
             >
               Read the full guide →
@@ -591,7 +591,7 @@ const info = await db.management
           </p>
           <div className="flex justify-center gap-4 flex-wrap">
             <Link
-              href="/docs/getting-started"
+              href="/docs/getting-started/quickstart"
               className="px-6 py-3 bg-fd-foreground text-fd-background rounded-md font-medium hover:opacity-90 transition-all text-base"
             >
               Get Started →

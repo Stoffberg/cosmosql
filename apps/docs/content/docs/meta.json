@@ -1,3 +1,10 @@
 {
-  "pages": ["index", "getting-started", "guide", "migrations", "management", "reference", "advanced", "faq"]
+  "pages": [
+    "index",
+    "getting-started",
+    "guides",
+    "patterns",
+    "reference",
+    "project-info"
+  ]
 }

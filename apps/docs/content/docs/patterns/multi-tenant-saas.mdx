@@ -1,0 +1,101 @@
+---
+title: Multi-Tenant SaaS
+description: Data isolation per tenant using partition keys
+---
+
+**The pattern**: Use `tenantId` as partition key to ensure data isolation.
+
+**Why this works**:
+
+- Complete isolation between tenants
+- All queries automatically scoped to a single tenant
+- Prevents cross-tenant data leakage
+- Scales as tenants grow
+
+## Schema Design
+
+```typescript
+const organizations = container('organizations', {
+  id: field.string(),
+  name: field.string(),
+  plan: field.string(),
+  settings: field.object({
+    theme: field.string().default('light'),
+    features: field.array(field.string())
+  })
+}).partitionKey('id'); // Organization ID as partition key
+
+const users = container('users', {
+  id: field.string(),
+  organizationId: field.string(),
+  email: field.string(),
+  role: field.string(),
+  profile: field.object({
+    name: field.string(),
+    department: field.string().optional()
+  })
+}).partitionKey('organizationId'); // All users for an org in same partition
+
+const documents = container('documents', {
+  id: field.string(),
+  tenantId: field.string(),
+  name: field.string(),
+  content: field.string(),
+  createdBy: field.string(),
+  createdAt: field.date()
+}).partitionKey('tenantId');
+```
+
+## Querying Tenant Data
+
+```typescript
+// All queries automatically scoped to tenant
+async function getDocuments(tenantId: string) {
+  return await db.documents.findMany({
+    partitionKey: tenantId,
+    orderBy: { createdAt: 'desc' }
+  });
+}
+
+async function getOrgUsers(organizationId: string) {
+  return await db.users.findMany({
+    partitionKey: organizationId,
+    where: {
+      role: 'admin'
+    },
+    select: {
+      id: true,
+      email: true,
+      profile: { name: true }
+    }
+  });
+}
+```
+
+## Security Best Practices
+
+1. **Always validate tenant context** - Ensure the authenticated user's tenant matches the partition key
+2. **Use middleware** - Automatically inject tenant ID from request context
+3. **Prevent cross-tenant access** - Never allow user-provided tenant IDs without validation
+
+```typescript
+// Example: Express middleware to enforce tenant isolation
+function tenantMiddleware(req: Request, res: Response, next: NextFunction) {
+  const tenantId = req.user?.organizationId;
+  if (!tenantId) {
+    return res.status(401).json({ error: 'Unauthorized' });
+  }
+  req.tenantId = tenantId; // Attach to request
+  next();
+}
+
+// Use in routes
+app.get('/documents', tenantMiddleware, async (req, res) => {
+  const documents = await db.documents.findMany({
+    partitionKey: req.tenantId, // Always use validated tenant ID
+    orderBy: { createdAt: 'desc' }
+  });
+  res.json(documents);
+});
+```
+

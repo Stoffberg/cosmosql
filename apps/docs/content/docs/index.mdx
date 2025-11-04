@@ -1,20 +1,9 @@
 ---
-title: CosmosQL Documentation
-description: A type-safe, zero-dependency library for Azure CosmosDB. Catch expensive query mistakes at compile time, not when your bill arrives.
+title: Introduction
+description: Why CosmosQL exists and the problems it solves
 ---
 
-```typescript
-// CosmosQL prevents partition key mistakes at compile time
-const users = await db.users.findMany({
-  partitionKey: 'user@example.com',
-  where: { isActive: true }
-});
-// ✅ TypeScript ensures partition key is always provided
-
-// The Azure SDK doesn't warn you about this:
-const users = await container.query('SELECT * FROM c WHERE c.isActive = true');
-// ❌ Costs 100x more, no compile-time warning
-```
+A type-safe, zero-dependency library for Azure CosmosDB. Catch expensive query mistakes at compile time, not when your bill arrives.
 
 ## The Problem
 
@@ -118,7 +107,7 @@ await db.users.updateMany({
 });
 ```
 
-Learn more: [Migrations](/docs/migrations) | [Management](/docs/management) | [Bulk Operations](/docs/guide/update#bulk-operations)
+Learn more: [Migrations](/docs/guides/schema-migrations) | [Management](/docs/guides/database-management) | [Bulk Operations](/docs/guides/updating-documents#bulk-operations)
 
 ## Is This For You?
 
@@ -141,7 +130,7 @@ Get working code in 5 minutes:
 npm install cosmosql
 ```
 
-See the [Getting Started guide](/docs/getting-started) for your first query → understanding → customization flow.
+See the [Quickstart Guide](/docs/getting-started/quickstart) for your first query → understanding → customization flow.
 
 ## Production Ready
 
@@ -157,8 +146,8 @@ Used in production by teams handling real traffic. Comprehensive test coverage e
 - **Bulk Operations** - Efficient batch updates and deletes with progress tracking
 
 **Next Steps:**
-- **New to CosmosDB?** → [Core Concepts](/docs/guide/core-concepts)
-- **Ready to code?** → [Getting Started](/docs/getting-started)
-- **Need migrations?** → [Migrations Guide](/docs/migrations)
-- **Database management?** → [Management Tools](/docs/management)
-- **Migrating from Azure SDK?** → [Migration Guide](/docs/advanced/migration)
+- **New to CosmosDB?** → [Core Concepts](/docs/getting-started/core-concepts)
+- **Ready to code?** → [Quickstart](/docs/getting-started/quickstart)
+- **Need migrations?** → [Schema Migrations](/docs/guides/schema-migrations)
+- **Database management?** → [Database Management](/docs/guides/database-management)
+- **Migrating from Azure SDK?** → [Migrating from Azure SDK](/docs/project-info/migrating-from-azure-sdk)

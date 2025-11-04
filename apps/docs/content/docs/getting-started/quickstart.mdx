@@ -1,6 +1,6 @@
 ---
-title: Getting Started
-description: Install CosmosQL and create your first queries
+title: Quickstart
+description: Get up and running with CosmosQL in 5 minutes
 ---
 
 **Time**: 10 minutes  
@@ -104,7 +104,7 @@ const users = container('users', {
 This defines your data structure. Three key points:
 
 - **Not runtime validation** - This is purely for TypeScript
-- **Partition key is required** - More on why in [Core Concepts](/docs/guide/core-concepts)
+- **Partition key is required** - More on why in [Core Concepts](/docs/getting-started/core-concepts)
 - **Inference happens automatically** - TypeScript knows the shape
 
 ### 2. Client Creation
@@ -164,7 +164,7 @@ const posts = container('posts', {
 }).partitionKey('userId');
 ```
 
-**2. Change the partition key**: See [Choosing Partition Keys](/docs/guide/core-concepts#choosing-a-good-partition-key) for guidance
+**2. Change the partition key**: See [Choosing Partition Keys](/docs/getting-started/core-concepts#choosing-a-good-partition-key) for guidance
 
 **3. Add your connection string**: Store in `.env` file
 
@@ -266,11 +266,11 @@ If your schema defines a partition key that doesn't match an existing container,
 
 ## Next Steps
 
-**New to CosmosDB?** → Read [Core Concepts](/docs/guide/core-concepts) to understand partition keys and Request Units
+**New to CosmosDB?** → Read [Core Concepts](/docs/getting-started/core-concepts) to understand partition keys and Request Units
 
-**Ready to build?** → See [Creating Documents](/docs/guide/create) for all operations
+**Ready to build?** → See [Creating Documents](/docs/guides/creating-documents) for all operations
 
-**Need patterns?** → Check [Common Patterns](/docs/guide/common-patterns) for real scenarios
+**Need patterns?** → Check [Patterns & Use Cases](/docs/patterns) for real scenarios
 
 ## Getting Your Connection String
 

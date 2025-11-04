@@ -1,4 +1,8 @@
 {
+  "title": "Getting Started",
   "icon": "Rocket",
-  "pages": ["index"]
+  "pages": [
+    "quickstart",
+    "core-concepts"
+  ]
 }
