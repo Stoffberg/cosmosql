@@ -9,6 +9,7 @@ CosmosQL provides flexible and type-safe ways to update documents in CosmosDB.
 - [Single Update](#single-update) - Modify existing documents
 - [Upsert](#upsert) - Insert or update
 - [Atomic Operations](#atomic-operations) - Increment/decrement
+- [Bulk Operations](#bulk-operations) - Update multiple documents efficiently
 
 ---
 
@@ -165,6 +166,75 @@ await db.posts.update({
   }
 });
 ```
+
+## Bulk Operations
+
+For updating multiple documents at once, use `updateMany`:
+
+```typescript
+// Static update - update all inactive users
+const result = await db.users.updateMany({
+  where: { isActive: false },
+  data: { status: 'archived' },
+  partitionKey: 'user@email.com' // or enableCrossPartitionQuery: true
+});
+
+console.log(`Updated ${result.updated} documents`);
+console.log(`Failed: ${result.failed}`);
+console.log(`RU consumed: ${result.performance.ruConsumed}`);
+```
+
+**Dynamic update with function:**
+
+```typescript
+// Update email domains for all users
+const result = await db.users.updateMany({
+  where: { email: { contains: '@old.com' } },
+  data: (doc) => ({
+    email: doc.email.replace('@old.com', '@new.com'),
+    migratedAt: new Date()
+  }),
+  enableCrossPartitionQuery: true,
+  batchSize: 50,
+  maxConcurrency: 5,
+  onProgress: (stats) => {
+    console.log(`${stats.percentage}% - ${stats.ruConsumed} RU`);
+  },
+  onError: (error) => {
+    console.error(`Failed: ${error.documentId}`, error.error);
+  }
+});
+```
+
+**Key Options:**
+
+- `where`: Query to match documents
+- `data`: Static object or function that returns updates
+- `partitionKey` or `enableCrossPartitionQuery`: Required (one or the other)
+- `batchSize`: Documents per batch (default: 50)
+- `maxConcurrency`: Parallel batches (default: 5)
+- `continueOnError`: Keep going if some fail (default: false)
+- `maxRetries`: Retry attempts for retriable errors (default: 3)
+- `onProgress`: Progress callback with stats
+- `onError`: Error callback for individual failures
+
+**Result includes:**
+
+- `updated`: Number of successfully updated documents
+- `failed`: Number of failed updates
+- `skipped`: Number of skipped documents
+- `errors`: Array of error details
+- `performance`: RU consumption, duration, and throughput metrics
+
+**Best Practices:**
+
+1. **Start with small batches** when testing (e.g., `batchSize: 10`)
+2. **Use `continueOnError: true`** for large operations where some failures are acceptable
+3. **Monitor RU consumption** using `onProgress` callbacks
+4. **Use partition keys** when possible (much faster than cross-partition queries)
+5. **Test with dry runs** if implementing custom logic
+
+Bulk operations are built into CosmosQL and work seamlessly with your existing containers.
 
 ## Error Handling
 

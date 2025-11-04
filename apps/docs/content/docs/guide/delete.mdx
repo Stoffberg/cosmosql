@@ -8,6 +8,7 @@ Deleting documents requires careful consideration. Use hard deletes for performa
 **Navigation**:
 - [Hard Delete](#hard-delete) - Permanent removal
 - [Soft Delete](#soft-delete) - Recoverable deletion
+- [Bulk Operations](#bulk-operations) - Delete multiple documents efficiently
 
 ---
 
@@ -160,9 +161,52 @@ async function deleteUserWithRelatedData(userId: string, email: string) {
 
 **Note:** CosmosDB doesn't support foreign key constraints or cascade deletes at the database level. You must handle this logic in your application code.
 
-## Batch Delete Operations
+## Bulk Operations
 
-CosmosDB doesn't have a built-in batch delete API. Delete documents individually:
+For deleting multiple documents at once, use `deleteMany`:
+
+```typescript
+// Delete old posts
+const result = await db.posts.deleteMany({
+  where: { createdAt: { lt: oneYearAgo } },
+  confirm: true, // Safety: must explicitly confirm
+  partitionKey: 'user123',
+  onProgress: (stats) => {
+    console.log(`Deleted ${stats.updated}/${stats.total}`);
+  }
+});
+
+console.log(`Deleted ${result.deleted} documents`);
+console.log(`Failed: ${result.failed}`);
+console.log(`RU consumed: ${result.performance.ruConsumed}`);
+```
+
+**Key Options:**
+
+- `where`: Query to match documents
+- `confirm`: Must be `true` to execute (safety requirement)
+- `partitionKey` or `enableCrossPartitionQuery`: Required (one or the other)
+- `batchSize`: Documents per batch (default: 50)
+- `maxConcurrency`: Parallel batches (default: 5)
+- `continueOnError`: Keep going if some fail (default: false)
+- `onProgress`: Progress callback with stats
+
+**Result includes:**
+
+- `deleted`: Number of successfully deleted documents
+- `failed`: Number of failed deletions
+- `errors`: Array of error details
+- `performance`: RU consumption, duration, and throughput metrics
+
+**Best Practices:**
+
+1. **Always use `confirm: true`** - This prevents accidental deletions
+2. **Start with small batches** when testing (e.g., `batchSize: 10`)
+3. **Use `continueOnError: true`** for large operations where some failures are acceptable
+4. **Monitor progress** using `onProgress` callbacks
+5. **Use partition keys** when possible (much faster than cross-partition queries)
+
+**Note:** For deleting documents by specific IDs in the same partition, you can still use individual deletes:
 
 ```typescript
 async function deleteManyPosts(postIds: string[], userId: string) {
@@ -176,37 +220,30 @@ async function deleteManyPosts(postIds: string[], userId: string) {
 }
 ```
 
-**Rate limiting**: Batch deletions can hit rate limits. Consider implementing backoff logic for large batches.
+However, `deleteMany` is more efficient for query-based deletions with built-in progress tracking and error handling.
+
+Bulk operations are built into CosmosQL and work seamlessly with your existing containers.
 
 ## Delete by Query
 
-There's no built-in "delete where" operation in CosmosDB. You must:
-
-1. Query for documents matching criteria
-2. Delete each one individually
+For query-based deletions, use `deleteMany` instead of manually querying and deleting:
 
 ```typescript
-async function deleteOldPosts(cutoffDate: Date) {
-  const oldPosts = await db.posts.findMany({
-    enableCrossPartitionQuery: true,
-    where: {
-      createdAt: { lt: cutoffDate },
-      isPublished: false
-    }
-  });
-
-  // Delete each post
-  for (const post of oldPosts) {
-    try {
-      await db.posts.delete({
-        where: { id: post.id, userId: post.userId }
-      });
-    } catch (error) {
-      console.error(`Failed to delete post ${post.id}:`, error);
-    }
+// ✅ Recommended: Use deleteMany
+const result = await db.posts.deleteMany({
+  where: {
+    createdAt: { lt: cutoffDate },
+    isPublished: false
+  },
+  confirm: true,
+  enableCrossPartitionQuery: true,
+  onProgress: (stats) => {
+    console.log(`Progress: ${stats.percentage}%`);
   }
-}
+});
 ```
+
+This is more efficient than querying and deleting individually, as it includes built-in progress tracking, error handling, and retry logic.
 
 ## Error Handling
 

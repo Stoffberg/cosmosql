@@ -70,6 +70,56 @@ const posts = await db.posts.findMany({
 // TypeScript knows all return types automatically
 ```
 
+## Built-In Features
+
+CosmosQL includes everything you need for production:
+
+**Migrations** - Structured schema evolution with rollback support:
+
+```typescript
+const addPreferences = defineMigration({
+  version: 1,
+  name: 'add-user-preferences',
+  async up({ db, logger }) {
+    await db.users.updateMany({
+      where: {},
+      data: (doc) => ({ preferences: { theme: 'light' } }),
+      enableCrossPartitionQuery: true
+    });
+  }
+});
+
+await db.migrations.apply({ target: 'latest', confirm: true });
+```
+
+**Database Management** - Health checks, schema validation, and container management:
+
+```typescript
+// Health check
+const health = await db.management.healthCheck();
+console.log(`Health: ${health.overallHealth}`);
+
+// Schema diff
+const diff = await db.management.diffSchema();
+if (diff.requiresAction) {
+  console.log('Schema drift detected!');
+}
+```
+
+**Bulk Operations** - Efficient batch updates and deletes with progress tracking:
+
+```typescript
+// Update many documents
+await db.users.updateMany({
+  where: { isActive: false },
+  data: { status: 'archived' },
+  enableCrossPartitionQuery: true,
+  onProgress: (stats) => console.log(`${stats.percentage}%`)
+});
+```
+
+Learn more: [Migrations](/docs/migrations) | [Management](/docs/management) | [Bulk Operations](/docs/guide/update#bulk-operations)
+
 ## Is This For You?
 
 Are you using TypeScript?
@@ -102,8 +152,13 @@ Used in production by teams handling real traffic. Comprehensive test coverage e
 - **Zero Overhead** - Direct REST API calls, minimal bundle size (43.6 kB packed)
 - **Partition Key Aware** - Enforces partition key usage to avoid expensive cross-partition queries
 - **Zero Dependencies** - Only TypeScript required, works with Node.js 18+ and Bun 1.0+
+- **Built-in Migrations** - Schema evolution with versioning and rollback support
+- **Database Management** - Health checks, schema validation, and container management
+- **Bulk Operations** - Efficient batch updates and deletes with progress tracking
 
 **Next Steps:**
 - **New to CosmosDB?** → [Core Concepts](/docs/guide/core-concepts)
 - **Ready to code?** → [Getting Started](/docs/getting-started)
+- **Need migrations?** → [Migrations Guide](/docs/migrations)
+- **Database management?** → [Management Tools](/docs/management)
 - **Migrating from Azure SDK?** → [Migration Guide](/docs/advanced/migration)

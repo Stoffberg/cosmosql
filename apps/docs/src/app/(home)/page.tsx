@@ -332,6 +332,150 @@ const stats = await db.orders.aggregate({
         </div>
       </section>
 
+      {/* Built-In Features */}
+      <section className="py-20 px-6">
+        <div className="max-w-5xl mx-auto">
+          <div className="text-center mb-16">
+            <h2 className="text-4xl md:text-5xl font-bold text-fd-foreground mb-4">
+              Everything you need, built-in
+            </h2>
+            <p className="text-lg text-fd-muted-foreground max-w-2xl mx-auto">
+              Migrations, management, and bulk operations - no extra setup required
+            </p>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-12">
+            <div className="bg-fd-card rounded-lg p-6 border border-fd-border">
+              <div className="text-3xl mb-3">🔄</div>
+              <h3 className="text-lg font-semibold text-fd-foreground mb-2">
+                Migrations
+              </h3>
+              <p className="text-sm text-fd-muted-foreground leading-relaxed mb-4">
+                Schema evolution with versioning, rollback support, and dry-run previews
+              </p>
+              <Link
+                href="/docs/migrations"
+                className="text-sm text-fd-foreground hover:underline font-medium"
+              >
+                Learn more →
+              </Link>
+            </div>
+
+            <div className="bg-fd-card rounded-lg p-6 border border-fd-border">
+              <div className="text-3xl mb-3">⚙️</div>
+              <h3 className="text-lg font-semibold text-fd-foreground mb-2">
+                Database Management
+              </h3>
+              <p className="text-sm text-fd-muted-foreground leading-relaxed mb-4">
+                Health checks, schema validation, and container management tools
+              </p>
+              <Link
+                href="/docs/management"
+                className="text-sm text-fd-foreground hover:underline font-medium"
+              >
+                Learn more →
+              </Link>
+            </div>
+
+            <div className="bg-fd-card rounded-lg p-6 border border-fd-border">
+              <div className="text-3xl mb-3">📦</div>
+              <h3 className="text-lg font-semibold text-fd-foreground mb-2">
+                Bulk Operations
+              </h3>
+              <p className="text-sm text-fd-muted-foreground leading-relaxed mb-4">
+                Efficient batch updates and deletes with progress tracking and error handling
+              </p>
+              <Link
+                href="/docs/guide/update#bulk-operations"
+                className="text-sm text-fd-foreground hover:underline font-medium"
+              >
+                Learn more →
+              </Link>
+            </div>
+          </div>
+
+          {/* Feature Examples */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div className="bg-fd-card rounded-lg border border-fd-border overflow-hidden">
+              <div className="bg-fd-accent/50 px-4 py-2.5 border-b border-fd-border">
+                <span className="text-sm text-fd-muted-foreground font-mono">
+                  migrations.ts
+                </span>
+              </div>
+              <div className="p-4">
+                <SyntaxHighlighter
+                  language="typescript"
+                  style={oneDark}
+                  customStyle={{
+                    margin: 0,
+                    padding: "1rem",
+                    fontSize: "13px",
+                    lineHeight: "1.5",
+                    borderRadius: "0.375rem",
+                  }}
+                >
+                  {`const migration = defineMigration({
+  version: 1,
+  name: 'add-preferences',
+  async up({ db, logger }) {
+    await db.users.updateMany({
+      where: {},
+      data: (doc) => ({
+        preferences: { theme: 'light' }
+      }),
+      enableCrossPartitionQuery: true
+    });
+  }
+});
+
+await db.migrations.apply({
+  target: 'latest',
+  confirm: true
+});`}
+                </SyntaxHighlighter>
+              </div>
+            </div>
+
+            <div className="bg-fd-card rounded-lg border border-fd-border overflow-hidden">
+              <div className="bg-fd-accent/50 px-4 py-2.5 border-b border-fd-border">
+                <span className="text-sm text-fd-muted-foreground font-mono">
+                  management.ts
+                </span>
+              </div>
+              <div className="p-4">
+                <SyntaxHighlighter
+                  language="typescript"
+                  style={oneDark}
+                  customStyle={{
+                    margin: 0,
+                    padding: "1rem",
+                    fontSize: "13px",
+                    lineHeight: "1.5",
+                    borderRadius: "0.375rem",
+                  }}
+                >
+                  {`// Health check
+const health = await db.management
+  .healthCheck();
+console.log(health.overallHealth);
+
+// Schema diff
+const diff = await db.management
+  .diffSchema();
+if (diff.requiresAction) {
+  console.log('Schema drift!');
+}
+
+// Database info
+const info = await db.management
+  .getDatabaseInfo();`}
+                </SyntaxHighlighter>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
       {/* Getting Started */}
       <section className="py-20 px-6">
         <div className="max-w-4xl mx-auto">

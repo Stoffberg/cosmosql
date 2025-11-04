@@ -1,0 +1,172 @@
+---
+title: Database Management
+description: Comprehensive tools for managing and monitoring your CosmosDB resources
+---
+
+Manage and monitor your CosmosDB database with built-in tools for health checks, schema validation, and container management.
+
+**Navigation**:
+- [Database Information](#database-information) - Get database details
+- [Health Checks](#health-checks) - Monitor database health
+- [Schema Diff](#schema-diff) - Compare schema with database
+- [Container Pruning](#container-pruning) - Remove orphaned containers
+- [Delete Containers](#delete-containers) - Delete specific containers
+
+---
+
+## Database Information
+
+Get detailed information about your database:
+
+```typescript
+const info = await db.management.getDatabaseInfo();
+
+console.log(`Database: ${info.id}`);
+console.log(`Containers: ${info.containersCount}`);
+console.log(`Total documents: ${info.storage.totalDocuments}`);
+console.log(`Storage: ${info.storage.totalSizeGB} GB`);
+
+// Container details
+info.containers.forEach(c => {
+  console.log(`\n${c.id}:`);
+  console.log(`  Documents: ${c.statistics.documentCount}`);
+  console.log(`  Partition Key: ${c.partitionKey.paths[0]}`);
+  console.log(`  Registered: ${c.schema?.registered}`);
+});
+```
+
+## Health Checks
+
+Run health checks on your database:
+
+```typescript
+const health = await db.management.healthCheck();
+
+console.log(`Overall Health: ${health.overallHealth}`); // 'healthy', 'warning', or 'critical'
+
+health.containers.forEach(c => {
+  if (!c.healthy) {
+    console.log(`⚠️  ${c.container}:`);
+    c.issues.forEach(issue => {
+      console.log(`  [${issue.severity}] ${issue.message}`);
+      if (issue.recommendation) {
+        console.log(`  💡 ${issue.recommendation}`);
+      }
+    });
+  }
+});
+
+// Recommendations
+health.recommendations.forEach(r => console.log(`💡 ${r}`));
+```
+
+**Issue Types:**
+
+- `missing_index`: Container has very few indexed paths
+- `large_documents`: Average document size is high
+- `orphaned`: Container not registered in schema
+
+## Schema Diff
+
+Compare your schema with the actual database:
+
+```typescript
+const diff = await db.management.diffSchema();
+
+if (diff.requiresAction) {
+  console.log('⚠️  Schema drift detected!');
+  
+  // Containers in database but not schema
+  if (diff.containers.orphaned.length > 0) {
+    console.log(`Orphaned: ${diff.containers.orphaned.join(', ')}`);
+  }
+  
+  // Containers in schema but not database
+  if (diff.containers.missing.length > 0) {
+    console.log(`Missing: ${diff.containers.missing.join(', ')}`);
+  }
+  
+  // Configuration differences
+  diff.containers.modified.forEach(mod => {
+    console.log(`${mod.container} has differences:`);
+    console.log(JSON.stringify(mod.differences, null, 2));
+  });
+} else {
+  console.log('✅ Schema is in sync');
+}
+```
+
+## Container Pruning
+
+Remove containers that aren't in your schema:
+
+```typescript
+// List orphaned containers
+const orphaned = await db.management.listOrphanedContainers();
+console.log(`Found ${orphaned.length} orphaned containers`);
+
+// Preview what would be deleted
+const preview = await db.management.pruneContainers({
+  confirm: false,
+  dryRun: true
+});
+console.log(`Would delete: ${preview.pruned.join(', ')}`);
+
+// Actually delete
+const result = await db.management.pruneContainers({
+  confirm: true,
+  exclude: ['keep-this-one'] // Optional: containers to keep
+});
+
+console.log(`Deleted: ${result.pruned.join(', ')}`);
+```
+
+## Delete Containers
+
+Delete containers by name:
+
+```typescript
+const result = await db.management.deleteContainers(
+  ['temp-container', 'old-data'],
+  { confirm: true }
+);
+
+console.log(`Deleted: ${result.deleted.join(', ')}`);
+console.log(`Failed: ${result.failed.length}`);
+```
+
+---
+
+## Best Practices
+
+1. **Run health checks regularly** to catch issues early
+2. **Use schema diff** to detect drift between code and database
+3. **Backup before pruning** containers in production
+4. **Monitor orphaned containers** - they still consume resources
+5. **Review recommendations** from health checks
+
+---
+
+## Performance Tips
+
+- Database info queries are cached where possible
+- Health checks run queries to gather statistics
+- Schema diff is lightweight (metadata only)
+
+---
+
+## Troubleshooting
+
+### "Must set confirm: true"
+
+**Cause:** Safety check for destructive operations  
+**Solution:** Add `confirm: true` to the options
+
+---
+
+## Next Steps
+
+- Learn about [Migrations](/docs/migrations) for schema evolution
+- See [Common Patterns](/docs/guide/common-patterns) for real-world scenarios
+- Review [Performance Guide](/docs/advanced/performance) for optimization tips
+
