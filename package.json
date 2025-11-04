@@ -23,9 +23,9 @@
     "format": "biome format src --write",
     "prepublishOnly": "bun run build && bun run test && bun run type-check && bun run lint && bun run format",
     "type-check": "tsc --noEmit",
-    "deploy:patch": "bun run prepublishOnly && bun x npm version patch && npm publish",
-    "deploy:minor": "bun run prepublishOnly && bun x npm version minor && npm publish",
-    "deploy:major": "bun run prepublishOnly && bun x npm version major && npm publish"
+    "deploy:patch": "bun x npm version patch && npm publish",
+    "deploy:minor": "bun x npm version minor && npm publish",
+    "deploy:major": "bun x npm version major && npm publish"
   },
   "keywords": [
     "cosmosdb",
