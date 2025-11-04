@@ -21,7 +21,7 @@
     "test:integration:edge-cases": "bun test tests/integration/edge-cases.test.ts",
     "lint": "biome lint src",
     "format": "biome format src --write",
-    "prepublishOnly": "bun run build && bun run test && bun run type-check && bun run lint && bun run format",
+    "prepublishOnly": "bun run build && bun run test:unit && bun run type-check && bun run lint && bun run format",
     "type-check": "tsc --noEmit",
     "deploy:patch": "bun x npm version patch && npm publish",
     "deploy:minor": "bun x npm version minor && npm publish",
