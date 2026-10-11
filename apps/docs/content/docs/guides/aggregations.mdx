@@ -594,6 +594,8 @@ const popularCategories = await db.sales.groupBy({
 
 ### Group By with Pagination
 
+Grouped results are sorted and paginated in memory after the database query. `take` and `skip` limit the returned groups, but do not reduce the query cost or memory needed to fetch them.
+
 ```typescript
 // Paginated category report
 const page1 = await db.sales.groupBy({

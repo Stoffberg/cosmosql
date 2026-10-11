@@ -145,8 +145,38 @@ export class AggregateOps<
 			enableCrossPartitionQuery: options.enableCrossPartitionQuery,
 		});
 
+		if (options.orderBy) {
+			const ordering = Object.entries(options.orderBy);
+			rawResults.sort((left, right) => {
+				for (const [field, direction] of ordering) {
+					const leftValue = left[field] ?? null;
+					const rightValue = right[field] ?? null;
+					if (leftValue === rightValue) {
+						continue;
+					}
+
+					let comparison = 1;
+					if (leftValue === null || (rightValue !== null && leftValue < rightValue)) {
+						comparison = -1;
+					}
+					if (direction === "desc") {
+						return -comparison;
+					}
+					return comparison;
+				}
+				return 0;
+			});
+		}
+
+		const start = options.skip ?? 0;
+		let end: number | undefined;
+		if (options.take !== undefined) {
+			end = start + options.take;
+		}
+		const page = rawResults.slice(start, end);
+
 		// Parse results
-		return this.resultParser.parseGroupByResults(rawResults, options) as any;
+		return this.resultParser.parseGroupByResults(page, options) as any;
 	}
 
 	/**
