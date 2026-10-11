@@ -40,7 +40,7 @@ const withRateLimitRetry = async <T>(
 
 const connectionString = process.env.COSMOS_CONNECTION_STRING;
 const databaseName = "cosmosql-test";
-const testContainerName = "testItems-aggregate"; // Unique name for this test file
+const testContainerName = "testItems_aggregate"; // Unique name for this test file
 
 if (!connectionString) {
 	console.warn("COSMOS_CONNECTION_STRING not set, skipping integration tests");
@@ -90,7 +90,7 @@ const testItems = [
 		category: "books",
 		amount: 50,
 		value: 500,
-		status: "active",
+		status: "inactive",
 		createdAt: new Date("2024-01-03"),
 		isActive: false,
 	},
@@ -276,7 +276,7 @@ describe("Aggregation Integration Tests", () => {
 
 		expect(result._count).toBe(3);
 		expect(result._sum).toEqual({ amount: 350, value: 3500 });
-		expect(result._avg).toEqual({ amount: 116.66666666666667 });
+		expect(result._avg.amount).toBeCloseTo(350 / 3, 10);
 		expect(result._min).toEqual({ amount: 50 });
 		expect(result._max).toEqual({ amount: 200 });
 	});
@@ -386,9 +386,10 @@ describe("Aggregation Integration Tests", () => {
 			}),
 		)) as any;
 
-		expect(result.length).toBeGreaterThan(0);
-		// First item should have highest count
-		expect(result[0]._count).toBeGreaterThanOrEqual(result[result.length - 1]._count);
+		expect(result).toEqual([
+			{ category: "electronics", _count: 3 },
+			{ category: "books", _count: 2 },
+		]);
 	});
 
 	test("groupBy with WHERE clause", async () => {
@@ -512,11 +513,13 @@ describe("Aggregation Integration Tests", () => {
 				by: "category",
 				enableCrossPartitionQuery: true,
 				_count: true,
+				orderBy: { category: "asc" },
+				skip: 1,
 				take: 1,
 			}),
 		)) as any;
 
-		expect(result.length).toBeLessThanOrEqual(1);
+		expect(result).toEqual([{ category: "electronics", _count: 3 }]);
 	});
 
 	test("throws error when partition key missing", async () => {

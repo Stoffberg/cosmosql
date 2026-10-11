@@ -117,7 +117,7 @@ describe("AggregateQueryBuilder", () => {
 		expect(result.sql).toContain("AVG(c[\"total\"]) as _avg_total");
 	});
 
-	test("builds group by query with ORDER BY", () => {
+	test("leaves aggregate group ordering to the client", () => {
 		const builder = new AggregateQueryBuilder();
 		const result = builder.buildGroupBy({
 			by: "category",
@@ -125,10 +125,10 @@ describe("AggregateQueryBuilder", () => {
 			orderBy: { _count: "desc" },
 		});
 
-		expect(result.sql).toContain("ORDER BY _count DESC");
+		expect(result.sql).not.toContain("ORDER BY");
 	});
 
-	test("builds group by query with ORDER BY on regular field", () => {
+	test("leaves regular group ordering to the client", () => {
 		const builder = new AggregateQueryBuilder();
 		const result = builder.buildGroupBy({
 			by: "category",
@@ -136,10 +136,10 @@ describe("AggregateQueryBuilder", () => {
 			orderBy: { category: "asc" },
 		});
 
-		expect(result.sql).toContain("ORDER BY c[\"category\"] ASC");
+		expect(result.sql).not.toContain("ORDER BY");
 	});
 
-	test("builds group by query with OFFSET and LIMIT", () => {
+	test("leaves group pagination to the client", () => {
 		const builder = new AggregateQueryBuilder();
 		const result = builder.buildGroupBy({
 			by: "category",
@@ -148,8 +148,8 @@ describe("AggregateQueryBuilder", () => {
 			take: 20,
 		});
 
-		expect(result.sql).toContain("OFFSET 10");
-		expect(result.sql).toContain("LIMIT 20");
+		expect(result.sql).not.toContain("OFFSET");
+		expect(result.sql).not.toContain("LIMIT");
 	});
 
 	test("builds group by query with WHERE clause", () => {

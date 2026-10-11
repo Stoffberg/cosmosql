@@ -157,24 +157,7 @@ export class AggregateQueryBuilder<T> {
 		// GROUP BY clause
 		const groupByClause = ` GROUP BY ${byFields.map((f) => `c["${String(f)}"]`).join(", ")}`;
 
-		// ORDER BY clause
-		let orderByClause = "";
-		if (options.orderBy) {
-			orderByClause = this.buildOrderByClause(options.orderBy);
-		}
-
-		// OFFSET/LIMIT
-		let paginationClause = "";
-		if (options.skip !== undefined || options.take !== undefined) {
-			if (options.skip !== undefined) {
-				paginationClause += ` OFFSET ${options.skip}`;
-			}
-			if (options.take !== undefined) {
-				paginationClause += ` LIMIT ${options.take}`;
-			}
-		}
-
-		const sql = `SELECT ${selections.join(", ")} FROM c${whereClause}${groupByClause}${orderByClause}${paginationClause}`;
+		const sql = `SELECT ${selections.join(", ")} FROM c${whereClause}${groupByClause}`;
 
 		return { sql, parameters };
 	}
@@ -243,26 +226,5 @@ export class AggregateQueryBuilder<T> {
 		}
 
 		return conditions.length > 0 ? ` WHERE ${conditions.join(" AND ")}` : "";
-	}
-
-	/**
-	 * Build ORDER BY clause
-	 */
-	private buildOrderByClause(orderBy: OrderByInput<T> | Record<string, "asc" | "desc">): string {
-		const parts: string[] = [];
-
-		for (const [key, direction] of Object.entries(orderBy)) {
-			const dir = direction === "desc" ? "DESC" : "ASC";
-
-			if (key.startsWith("_")) {
-				// Aggregation field (e.g., _count, _sum_amount)
-				parts.push(`${key} ${dir}`);
-			} else {
-				// Regular field
-				parts.push(`c["${key}"] ${dir}`);
-			}
-		}
-
-		return parts.length > 0 ? ` ORDER BY ${parts.join(", ")}` : "";
 	}
 }
