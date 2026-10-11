@@ -1,0 +1,292 @@
+---
+title: Updating Documents
+description: Learn how to update existing documents in CosmosDB
+---
+
+CosmosQL provides flexible and type-safe ways to update documents in CosmosDB.
+
+**Navigation**:
+- [Single Update](#single-update) - Modify existing documents
+- [Upsert](#upsert) - Insert or update
+- [Atomic Operations](#atomic-operations) - Increment/decrement
+- [Bulk Operations](#bulk-operations) - Update multiple documents efficiently
+
+---
+
+## Single Update
+
+The basic `update` operation modifies an existing document:
+
+```typescript
+await db.users.update({
+  where: {
+    id: 'user_123',
+    email: 'john@example.com' // Partition key required
+  },
+  data: {
+    age: 31,
+    name: 'John Updated'
+  }
+});
+```
+
+**Important:** The partition key must be included in the `where` clause. This is enforced at compile time for type safety.
+
+## Partial Updates
+
+You can update only the fields you need—other fields remain unchanged:
+
+```typescript
+await db.users.update({
+  where: { id: 'user_123', email: 'john@example.com' },
+  data: {
+    age: 31
+    // Other fields remain unchanged
+  }
+});
+```
+
+This is efficient as CosmosDB only updates the specified fields, not the entire document.
+
+## Upsert Operations
+
+The `upsert` operation inserts if the document doesn't exist, or updates if it does:
+
+```typescript
+await db.users.upsert({
+  where: {
+    id: 'user_123',
+    email: 'john@example.com'
+  },
+  create: {
+    // Full user object for creation
+    id: 'user_123',
+    email: 'john@example.com',
+    name: 'John Doe',
+    age: 30,
+    isActive: true,
+    createdAt: new Date()
+  },
+  update: {
+    // Partial update
+    age: 31,
+    name: 'John Updated'
+  }
+});
+```
+
+**Why Upsert?** This pattern is common in distributed systems where you want idempotent operations—operations that can be safely retried without unintended side effects.
+
+## Atomic Operations
+
+Perform atomic increment/decrement operations:
+
+```typescript
+await db.posts.update({
+  where: { id: 'post_1', userId: 'user_123' },
+  data: {
+    viewCount: { increment: 1 },
+    likeCount: { increment: 5 },
+    dislikeCount: { decrement: 2 }
+  }
+});
+```
+
+This is an atomic operation performed server-side, making it safe for concurrent updates.
+
+## Update Patterns
+
+**Pattern: Touch Pattern (Update Timestamp)**
+
+```typescript
+await db.posts.update({
+  where: { id: 'post_1', userId: 'user_123' },
+  data: {
+    title: 'New Title',
+    updatedAt: new Date()
+  }
+});
+```
+
+**Pattern: Status Transitions**
+
+```typescript
+// Update status with validation
+const validTransitions = {
+  draft: ['published', 'archived'],
+  published: ['archived'],
+  archived: [] // terminal state
+};
+
+function canTransition(from: string, to: string): boolean {
+  return validTransitions[from]?.includes(to) ?? false;
+}
+
+async function updatePostStatus(postId: string, userId: string, newStatus: string) {
+  const post = await db.posts.findUnique({
+    where: { id: postId, userId }
+  });
+
+  if (!post || !canTransition(post.status, newStatus)) {
+    throw new Error('Invalid status transition');
+  }
+
+  await db.posts.update({
+    where: { id: postId, userId },
+    data: {
+      status: newStatus,
+      updatedAt: new Date()
+    }
+  });
+}
+```
+
+**Pattern: Array Operations**
+
+While CosmosQL doesn't provide built-in array manipulation helpers, you can update entire arrays:
+
+```typescript
+// Replace the entire tags array
+await db.posts.update({
+  where: { id: 'post_1', userId: 'user_123' },
+  data: {
+    tags: ['javascript', 'react', 'tutorial']
+  }
+});
+
+// For append operations, fetch, modify, and update
+const post = await db.posts.findUnique({
+  where: { id: 'post_1', userId: 'user_123' }
+});
+
+await db.posts.update({
+  where: { id: 'post_1', userId: 'user_123' },
+  data: {
+    tags: [...post.tags, 'new-tag']
+  }
+});
+```
+
+## Bulk Operations
+
+For updating multiple documents at once, use `updateMany`:
+
+```typescript
+// Static update - update all inactive users
+const result = await db.users.updateMany({
+  where: { isActive: false },
+  data: { status: 'archived' },
+  partitionKey: 'user@email.com' // or enableCrossPartitionQuery: true
+});
+
+console.log(`Updated ${result.updated} documents`);
+console.log(`Failed: ${result.failed}`);
+console.log(`RU consumed: ${result.performance.ruConsumed}`);
+```
+
+**Dynamic update with function:**
+
+```typescript
+// Update email domains for all users
+const result = await db.users.updateMany({
+  where: { email: { contains: '@old.com' } },
+  data: (doc) => ({
+    email: doc.email.replace('@old.com', '@new.com'),
+    migratedAt: new Date()
+  }),
+  enableCrossPartitionQuery: true,
+  batchSize: 50,
+  maxConcurrency: 5,
+  onProgress: (stats) => {
+    console.log(`${stats.percentage}% - ${stats.ruConsumed} RU`);
+  },
+  onError: (error) => {
+    console.error(`Failed: ${error.documentId}`, error.error);
+  }
+});
+```
+
+**Key Options:**
+
+- `where`: Query to match documents
+- `data`: Static object or function that returns updates
+- `partitionKey` or `enableCrossPartitionQuery`: Required (one or the other)
+- `batchSize`: Documents per batch (default: 50)
+- `maxConcurrency`: Parallel batches (default: 5)
+- `continueOnError`: Keep going if some fail (default: false)
+- `maxRetries`: Retry attempts for retriable errors (default: 3)
+- `onProgress`: Progress callback with stats
+- `onError`: Error callback for individual failures
+
+**Result includes:**
+
+- `updated`: Number of successfully updated documents
+- `failed`: Number of failed updates
+- `skipped`: Number of skipped documents
+- `errors`: Array of error details
+- `performance`: RU consumption, duration, and throughput metrics
+
+**Best Practices:**
+
+1. **Start with small batches** when testing (e.g., `batchSize: 10`)
+2. **Use `continueOnError: true`** for large operations where some failures are acceptable
+3. **Monitor RU consumption** using `onProgress` callbacks
+4. **Use partition keys** when possible (much faster than cross-partition queries)
+5. **Test with dry runs** if implementing custom logic
+
+Bulk operations are built into CosmosQL and work seamlessly with your existing containers.
+
+## Error Handling
+
+```typescript
+try {
+  await db.users.update({
+    where: { id: 'user_123', email: 'john@example.com' },
+    data: { age: 31 }
+  });
+} catch (error) {
+  if (error.code === 404) {
+    // Document not found
+    console.error('User not found');
+  } else if (error.code === 429) {
+    // Rate limit exceeded
+    console.error('Rate limit exceeded, please retry');
+  } else if (error.code === 412) {
+    // Precondition failed (e.g., ETag mismatch)
+    console.error('Document was modified, please retry');
+  } else {
+    console.error('Failed to update user:', error);
+  }
+}
+```
+
+## Performance Considerations
+
+**1. Use Partial Updates**
+
+```typescript
+// ✅ Good: Only update what changed
+await db.posts.update({
+  where: { id: 'post_1', userId: 'user_123' },
+  data: { title: 'New Title' }
+});
+```
+
+**2. Batch Related Updates**
+
+```typescript
+// ✅ Good: Single atomic operation
+await db.posts.update({
+  where: { id: 'post_1', userId: 'user_123' },
+  data: {
+    viewCount: { increment: 1 },
+    lastViewedAt: new Date()
+  }
+});
+```
+
+## Next Steps
+
+- Read [Deleting Documents](/docs/guide/delete) to learn deletion patterns
+- See [Common Patterns](/docs/guide/common-patterns) for real-world scenarios
+- Review [Performance Guide](/docs/advanced/performance) for optimization tips

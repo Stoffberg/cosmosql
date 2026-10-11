@@ -1,0 +1,153 @@
+---
+title: Introduction
+description: Why CosmosQL exists and the problems it solves
+---
+
+A type-safe, zero-dependency library for Azure CosmosDB. Catch expensive query mistakes at compile time, not when your bill arrives.
+
+## The Problem
+
+CosmosDB is powerful but unforgiving. Three common mistakes:
+
+**1. Forgotten Partition Keys** → $2,400/month mistake
+
+A developer wrote a query without a partition key. With 1,000 users it cost $5/month. With 100,000 users it cost $2,400/month. CosmosDB had to scan every partition.
+
+**2. Type Errors at Runtime** → Production bugs
+
+Try to access `user.emial` instead of `user.email`? JavaScript won't catch it. The bug ships, users get `undefined` emails.
+
+**3. Heavy Dependencies** → Slow cold starts
+
+The official Azure SDK pulls in 50+ packages. For serverless functions, this means slower cold starts and bigger bundles.
+
+## The Solution
+
+CosmosQL prevents these at compile time:
+
+- **Partition keys required** - TypeScript won't compile without them
+- **Type-safe queries** - Autocomplete catches field name typos
+- **Zero dependencies** - Just TypeScript, direct REST API calls
+- **Prisma-inspired API** - Familiar patterns with CosmosDB-specific optimizations
+
+```typescript
+import { createClient, container, field } from 'cosmosql';
+
+const users = container('users', {
+  id: field.string(),
+  email: field.string(),
+  name: field.string()
+}).partitionKey('email');
+
+const db = await createClient({
+  connectionString: process.env.COSMOS_CONNECTION_STRING!,
+  database: 'myapp',
+  mode: 'auto-create'
+}).withContainers({ users });
+
+// Point read (1 RU - cheapest possible)
+const user = await db.users.findUnique({
+  where: { id: 'user_123', email: 'john@example.com' }
+});
+
+// Query within partition (5 RU - still cheap)
+const posts = await db.posts.findMany({
+  partitionKey: 'user_123',
+  where: { isPublished: true }
+});
+
+// TypeScript knows all return types automatically
+```
+
+## Built-In Features
+
+CosmosQL includes everything you need for production:
+
+**Migrations** - Structured schema evolution with rollback support:
+
+```typescript
+const addPreferences = defineMigration({
+  version: 1,
+  name: 'add-user-preferences',
+  async up({ db, logger }) {
+    await db.users.updateMany({
+      where: {},
+      data: (doc) => ({ preferences: { theme: 'light' } }),
+      enableCrossPartitionQuery: true
+    });
+  }
+});
+
+await db.migrations.apply({ target: 'latest', confirm: true });
+```
+
+**Database Management** - Health checks, schema validation, and container management:
+
+```typescript
+// Health check
+const health = await db.management.healthCheck();
+console.log(`Health: ${health.overallHealth}`);
+
+// Schema diff
+const diff = await db.management.diffSchema();
+if (diff.requiresAction) {
+  console.log('Schema drift detected!');
+}
+```
+
+**Bulk Operations** - Efficient batch updates and deletes with progress tracking:
+
+```typescript
+// Update many documents
+await db.users.updateMany({
+  where: { isActive: false },
+  data: { status: 'archived' },
+  enableCrossPartitionQuery: true,
+  onProgress: (stats) => console.log(`${stats.percentage}%`)
+});
+```
+
+Learn more: [Migrations](/docs/guides/schema-migrations) | [Management](/docs/guides/database-management) | [Bulk Operations](/docs/guides/updating-documents#bulk-operations)
+
+## Is This For You?
+
+Are you using TypeScript?
+- No → Use the [Azure SDK](https://docs.microsoft.com/azure/cosmos-db)
+- Yes ↓
+
+Need change feed or stored procedures?
+- Yes → Use the Azure SDK
+- No ↓
+
+Want type safety and minimal dependencies?
+- Yes → **Use CosmosQL** ✓
+
+## Quick Start
+
+Get working code in 5 minutes:
+
+```bash
+npm install cosmosql
+```
+
+See the [Quickstart Guide](/docs/getting-started/quickstart) for your first query → understanding → customization flow.
+
+## Production Ready
+
+Used in production by teams handling real traffic. Comprehensive test coverage ensures reliability.
+
+**Features:**
+- **100% Type-Safe** - Compile-time error catching for all operations
+- **Zero Overhead** - Direct REST API calls, minimal bundle size (43.6 kB packed)
+- **Partition Key Aware** - Enforces partition key usage to avoid expensive cross-partition queries
+- **Zero Dependencies** - Only TypeScript required, works with Node.js 18+ and Bun 1.0+
+- **Built-in Migrations** - Schema evolution with versioning and rollback support
+- **Database Management** - Health checks, schema validation, and container management
+- **Bulk Operations** - Efficient batch updates and deletes with progress tracking
+
+**Next Steps:**
+- **New to CosmosDB?** → [Core Concepts](/docs/getting-started/core-concepts)
+- **Ready to code?** → [Quickstart](/docs/getting-started/quickstart)
+- **Need migrations?** → [Schema Migrations](/docs/guides/schema-migrations)
+- **Database management?** → [Database Management](/docs/guides/database-management)
+- **Migrating from Azure SDK?** → [Migrating from Azure SDK](/docs/project-info/migrating-from-azure-sdk)

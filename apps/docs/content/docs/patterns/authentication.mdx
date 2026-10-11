@@ -1,0 +1,168 @@
+---
+title: Authentication
+description: User login and registration patterns using CosmosQL
+---
+
+**The pattern**: Use email as both ID and partition key for user documents.
+
+**Why this works**:
+
+- Login queries are partition-scoped (fast + cheap)
+- Natural 1:1 mapping between user and partition
+- Scales to millions of users
+- No "hot partitions" (even distribution)
+
+**When to avoid**:
+
+- Users can change email addresses → Use immutable `userId` instead
+- Multiple authentication providers → Requires composite keys
+
+## Schema Design
+
+```typescript
+const users = container('users', {
+  id: field.string(),        // Using email as ID
+  email: field.string(),     // Also the partition key
+  passwordHash: field.string(),
+  profile: field.object({
+    name: field.string(),
+    avatar: field.string().optional()
+  }),
+  createdAt: field.date(),
+  lastLoginAt: field.date().optional()
+}).partitionKey('email'); // Key decision: email is partition key
+```
+
+**Why email as both ID and partition key?**
+
+- Point reads during login (fastest possible: 1 RU)
+- No duplicate emails (ID uniqueness)
+- Even distribution across partitions
+
+## Registration
+
+```typescript
+async function register(email: string, password: string) {
+  const passwordHash = await bcrypt.hash(password, 10);
+  
+  try {
+    const user = await db.users.create({
+      data: {
+        id: email,           // Using email as ID
+        email: email,        // And partition key
+        passwordHash,
+        profile: { name: email.split('@')[0] },
+        createdAt: new Date()
+      }
+    });
+    
+    return { success: true, user };
+  } catch (error) {
+    if (isCosmosError(error) && error.statusCode === 409) {
+      // Conflict = duplicate email
+      return { success: false, error: 'Email already exists' };
+    }
+    throw error;
+  }
+}
+```
+
+**What makes this efficient**:
+
+- One partition write (5 RU)
+- Automatic duplicate detection (409 conflict)
+- Type-safe return values
+
+## Login
+
+```typescript
+async function login(email: string, password: string) {
+  // Point read: fastest possible query (1 RU)
+  const user = await db.users.findUnique({
+    where: {
+      id: email,
+      email: email // Partition key
+    },
+    select: {
+      id: true,
+      email: true,
+      passwordHash: true,
+      profile: true
+    }
+  });
+  
+  if (!user) {
+    return { success: false, error: 'Invalid credentials' };
+  }
+  
+  // Verify password
+  const valid = await bcrypt.compare(password, user.passwordHash);
+  if (!valid) {
+    return { success: false, error: 'Invalid credentials' };
+  }
+  
+  // Update last login (separate operation to keep read fast)
+  await db.users.update({
+    where: { id: email, email },
+    data: { lastLoginAt: new Date() }
+  });
+  
+  return { success: true, user };
+}
+```
+
+**Performance breakdown**:
+
+- Read: 1 RU (point read)
+- Update: 5 RU (partition-scoped write)
+- Total: 6 RU per login
+
+**Alternative**: Skip the update to save 5 RU if you don't need `lastLoginAt`.
+
+## Email Change (Advanced)
+
+**Problem**: User wants to change email, but email is the partition key.
+
+**Solution**: Create new document, migrate data, delete old.
+
+```typescript
+async function changeEmail(oldEmail: string, newEmail: string) {
+  // 1. Check if new email exists
+  const existing = await db.users.findUnique({
+    where: { id: newEmail, email: newEmail }
+  });
+  
+  if (existing) {
+    return { success: false, error: 'Email already in use' };
+  }
+  
+  // 2. Get current user
+  const user = await db.users.findUnique({
+    where: { id: oldEmail, email: oldEmail }
+  });
+  
+  if (!user) {
+    return { success: false, error: 'User not found' };
+  }
+  
+  // 3. Create new document with new email
+  await db.users.create({
+    data: {
+      ...user,
+      id: newEmail,
+      email: newEmail
+    }
+  });
+  
+  // 4. Delete old document
+  await db.users.delete({
+    where: { id: oldEmail, email: oldEmail }
+  });
+  
+  return { success: true };
+}
+```
+
+**Cost**: ~15 RU (read + create + delete)  
+**Caveat**: Not atomic—handle failures appropriately
+

@@ -1,0 +1,130 @@
+---
+title: Aggregation Methods
+description: Complete reference for count, aggregate, groupBy, and convenience methods
+---
+
+## Aggregation Operations
+
+### `count(options)`
+
+Count documents matching criteria.
+
+```typescript
+const count = await db.users.count({
+  partitionKey: 'john@example.com',
+  where: { isActive: true }
+});
+// Returns: number
+```
+
+### `aggregate(options)`
+
+Perform aggregation operations (count, sum, avg, min, max).
+
+```typescript
+const stats = await db.orders.aggregate({
+  partitionKey: 'customer-123',
+  where: { status: 'completed' },
+  _count: true,
+  _sum: { amount: true, tax: true },
+  _avg: { amount: true },
+  _min: { createdAt: true },
+  _max: { amount: true }
+});
+// Returns: {
+//   _count: number,
+//   _sum: { amount: number | null, tax: number | null },
+//   _avg: { amount: number | null },
+//   _min: { createdAt: Date | null },
+//   _max: { amount: number | null }
+// }
+```
+
+### `groupBy(options)`
+
+Group data and perform aggregations on each group.
+
+```typescript
+const salesByCategory = await db.sales.groupBy({
+  by: 'category',
+  enableCrossPartitionQuery: true,
+  _count: true,
+  _sum: { amount: true },
+  _avg: { amount: true },
+  orderBy: { _sum_amount: 'desc' },
+  take: 10
+});
+// Returns: Array<{
+//   category: string,
+//   _count: number,
+//   _sum: { amount: number | null },
+//   _avg: { amount: number | null }
+// }>
+```
+
+## Convenience Methods
+
+Quick aggregations for single fields:
+
+```typescript
+// Sum
+const totalRevenue = await db.orders.sum('amount', {
+  partitionKey: 'customer-123',
+  where: { status: 'completed' }
+});
+// Returns: number | null
+
+// Average
+const avgAge = await db.users.avg('age', {
+  partitionKey: 'tenant-1'
+});
+// Returns: number | null
+
+// Minimum
+const minPrice = await db.products.min('price', {
+  partitionKey: 'category-electronics'
+});
+// Returns: number | null
+
+// Maximum
+const maxPrice = await db.products.max('price', {
+  partitionKey: 'category-electronics'
+});
+// Returns: number | null
+```
+
+## Aggregation Options
+
+### `partitionKey` - Scope to partition
+
+```typescript
+partitionKey: 'john@example.com'        // Single value
+partitionKey: ['tenant_1', 'org_a']      // Composite partition key (array)
+```
+
+### `where` - Filter conditions
+
+```typescript
+where: {
+  status: 'completed',
+  amount: { gte: 100 },
+  createdAt: { gte: new Date('2024-01-01') }
+}
+```
+
+### `enableCrossPartitionQuery` - Allow cross-partition aggregations
+
+```typescript
+enableCrossPartitionQuery: true // Required for groupBy across partitions
+```
+
+### Aggregation Fields
+
+- `_count: true` - Count documents
+- `_sum: { field: true }` - Sum numeric fields
+- `_avg: { field: true }` - Average numeric fields
+- `_min: { field: true }` - Minimum value
+- `_max: { field: true }` - Maximum value
+
+See [Aggregations Guide](/docs/guides/aggregations) for complete documentation with examples.
+

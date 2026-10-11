@@ -1,0 +1,244 @@
+---
+title: Advanced Patterns
+description: Working with partition keys, TTL, raw queries, and error handling
+---
+
+### Working with Partition Keys
+
+**Understanding the Trade-offs:**
+
+<Callout type="warning" title="Cost Comparison">
+
+```typescript
+// ✅ GOOD: Query with partition key (1-5 RU)
+const posts = await db.posts.findMany({
+  partitionKey: 'user_123',
+  where: { isPublished: true }
+});
+
+// ⚠️ EXPENSIVE: Cross-partition query (50-100+ RU)
+const posts = await db.posts.findMany({
+  enableCrossPartitionQuery: true,
+  where: { isPublished: true }
+});
+```
+
+**The cost difference is 10-100x higher for cross-partition queries.**
+
+</Callout>
+
+**Choosing a Good Partition Key:**
+
+<Callout type="info" title="Good Partition Keys Have">
+
+- **High cardinality** - Many unique values (e.g., userId, email)
+- **Even distribution** - Data spread evenly across values
+- **Query alignment** - Most queries filter by this field
+
+</Callout>
+
+```typescript
+// ✅ Good: User emails (high cardinality, even distribution)
+const users = container('users', schema).partitionKey('email');
+
+// ✅ Good: UserId for user-specific data
+const posts = container('posts', schema).partitionKey('userId');
+
+// ❌ Bad: Boolean field (only 2 values, uneven distribution)
+const users = container('users', schema).partitionKey('isActive');
+
+// ❌ Bad: Status with few values
+const orders = container('orders', schema).partitionKey('status');
+```
+
+### Composite Partition Keys
+
+When you need multi-tenant data or hierarchical structures:
+
+```typescript
+const documents = container('documents', {
+  id: field.string(),
+  tenantId: field.string(),
+  organizationId: field.string(),
+  name: field.string(),
+  content: field.string()
+}).partitionKey('tenantId', 'organizationId'); // Composite key
+
+// Querying requires both parts
+const docs = await db.documents.findMany({
+  partitionKey: ['tenant_1', 'org_a'], // Array for composite keys
+  where: { name: { startsWith: 'Report' } }
+});
+```
+
+### TTL (Time-To-Live)
+
+Auto-expire documents after a period:
+
+```typescript
+const sessions = container('sessions', {
+  id: field.string(),
+  userId: field.string(),
+  token: field.string(),
+  createdAt: field.date(),
+  ttl: field.number() // Seconds until auto-delete
+}).partitionKey('userId');
+
+// Create session that expires in 1 hour
+await db.sessions.create({
+  data: {
+    id: 'session_123',
+    userId: 'user_123',
+    token: 'abc...',
+    createdAt: new Date(),
+    ttl: 3600 // 1 hour in seconds
+  }
+});
+
+// CosmosDB automatically deletes after 1 hour
+```
+
+### Raw Queries
+
+For advanced use cases beyond the query builder:
+
+```typescript
+const result = await db.users.query<{ name: string; age: number }>({
+  sql: `
+    SELECT c.name, c.age 
+    FROM c 
+    WHERE c.age > @minAge 
+    AND c.isActive = @active
+  `,
+  parameters: [
+    { name: '@minAge', value: 18 },
+    { name: '@active', value: true }
+  ],
+  partitionKey: 'john@example.com' // Optional: for partition-scoped query
+});
+
+// Type: Array<{ name: string; age: number }>
+```
+
+**When to Use Raw Queries:**
+
+- Complex aggregations
+
+- CosmosDB-specific functions (e.g., spatial queries)
+
+- Performance optimization with custom SQL
+
+- Features not yet supported by query builder
+
+### Error Handling
+
+CosmosQL provides comprehensive error handling through the `CosmosError` class:
+
+```typescript
+import { CosmosError, isCosmosError } from 'cosmosql';
+
+try {
+  await db.users.create({ data: user });
+} catch (error) {
+  if (isCosmosError(error)) {
+    // Type-safe error handling
+    switch (error.statusCode) {
+      case 400: // Bad Request
+        console.error('Invalid request:', error.message);
+        break;
+      case 401: // Unauthorized
+        console.error('Authentication failed - check your connection string');
+        break;
+      case 403: // Forbidden
+        console.error('Access denied - check permissions');
+        break;
+      case 404: // Not Found
+        console.error('Container or database not found');
+        break;
+      case 409: // Conflict (duplicate ID)
+        console.error('Document already exists with this ID');
+        break;
+      case 412: // Precondition Failed (ETag mismatch)
+        console.error('Document was modified, please retry');
+        break;
+      case 429: // Too Many Requests (rate limit)
+        console.error('Rate limited, retry after:', error.retryAfter, 'seconds');
+        // CosmosError includes retryAfter property
+        break;
+      case 500: // Internal Server Error
+        console.error('CosmosDB service error:', error.message);
+        break;
+      default:
+        console.error('CosmosDB error:', error.code, error.message);
+    }
+  } else {
+    // Not a CosmosDB error, rethrow
+    throw error;
+  }
+}
+```
+
+**CosmosError Class:**
+
+```typescript
+class CosmosError extends Error {
+  statusCode: number;      // HTTP status code (400, 404, 429, etc.)
+  code: string;            // CosmosDB error code
+  message: string;         // Error message
+  retryAfter?: number;     // Seconds to wait before retry (for 429 errors)
+}
+```
+
+**Common Error Codes:**
+
+| Code | Status | Description | Common Causes |
+|------|--------|-------------|----------------|
+| `BadRequest` | 400 | Invalid request | Malformed query syntax, invalid parameters |
+| `Unauthorized` | 401 | Authentication failed | Invalid connection string or key |
+| `Forbidden` | 403 | Access denied | Insufficient permissions |
+| `NotFound` | 404 | Resource not found | Container/database doesn't exist, document not found |
+| `Conflict` | 409 | Duplicate resource | Document with same ID already exists |
+| `PreconditionFailed` | 412 | ETag mismatch | Document was modified (optimistic concurrency) |
+| `TooManyRequests` | 429 | Rate limited | RU/s limit exceeded, automatic retry available |
+| `InternalServerError` | 500 | Service error | CosmosDB service issue |
+| `CROSS_PARTITION_QUERY_ERROR` | - | Cross-partition query error | Empty container cross-partition query |
+
+**Common Error Scenarios:**
+
+- **404**: Document not found (returns `null` for `findUnique`/`findMany`, throws for `update`/`delete`)
+- **429**: Rate limited (automatic retry with backoff if configured via `retryOptions`)
+- **401/403**: Authentication/authorization failures (check connection string and keys)
+- **400**: Bad request (validation errors, invalid query syntax)
+- **409**: Conflict (duplicate ID on create - indicates business logic issue)
+- **412**: Precondition failed (ETag mismatch on updates - document was modified)
+- **CROSS_PARTITION_QUERY_ERROR**: Cross-partition queries on empty containers (CosmosDB limitation)
+
+**Auto-Retry on 429:**
+
+CosmosQL automatically retries rate-limited requests with exponential backoff:
+
+```typescript
+const db = await createClient({
+  connectionString: '...',
+  database: 'myapp',
+  mode: 'verify', // Production: fail-fast on misconfiguration
+  retryOptions: {
+    maxRetries: 3,        // Maximum retry attempts
+    initialDelay: 100,    // Initial delay in ms
+    maxDelay: 5000        // Maximum delay in ms
+  }
+}).withContainers({ users });
+
+// Automatically retries with exponential backoff on 429 errors
+// Uses retryAfter from CosmosDB response when available
+```
+
+**Error Handling Best Practices:**
+
+1. **Always check error types** - Use `isCosmosError()` for type-safe error handling
+2. **Handle rate limits gracefully** - Use built-in retry options or implement custom retry logic
+3. **Log error details** - Include `statusCode`, `code`, and `message` in error logs for debugging
+4. **Don't ignore conflicts** - 409 errors indicate business logic issues (duplicate IDs)
+5. **Handle ETag mismatches** - 412 errors mean document was modified; refetch and retry
+6. **Check for cross-partition query errors** - Ensure containers have data before cross-partition queries
+

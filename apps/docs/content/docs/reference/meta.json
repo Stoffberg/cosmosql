@@ -1,0 +1,12 @@
+{
+  "title": "API Reference",
+  "icon": "Code",
+  "pages": [
+    "client-configuration",
+    "schema-definition",
+    "query-methods",
+    "write-methods",
+    "aggregation-methods",
+    "type-system"
+  ]
+}

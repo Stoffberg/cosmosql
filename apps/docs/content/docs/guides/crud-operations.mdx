@@ -1,0 +1,102 @@
+---
+title: CRUD Operations
+description: Overview of Create, Read, Update, and Delete operations in CosmosQL
+---
+
+CosmosQL provides a complete set of CRUD (Create, Read, Update, Delete) operations with full type safety. This page provides an overview of all operations.
+
+## Create Operations
+
+- **[Creating Documents](/docs/guides/creating-documents)** - Create single and multiple documents
+- `create()` - Create a single document
+- `createMany()` - Create multiple documents in one operation
+
+## Read Operations
+
+- **[Reading Documents](/docs/guides/reading-documents)** - Query and retrieve documents
+- `findUnique()` - Get a single document by ID + partition key (fastest: 1 RU)
+- `findMany()` - Query multiple documents with filtering, sorting, and pagination
+- `query()` - Execute raw SQL queries for advanced use cases
+
+## Update Operations
+
+- **[Updating Documents](/docs/guides/updating-documents)** - Modify existing documents
+- `update()` - Update a single document
+- `updateMany()` - Update multiple documents matching criteria
+- `upsert()` - Update if exists, create if doesn't
+
+## Delete Operations
+
+- **[Deleting Documents](/docs/guides/deleting-documents)** - Remove documents
+- `delete()` - Delete a single document
+- `deleteMany()` - Delete multiple documents matching criteria
+
+## Common Patterns
+
+All operations follow consistent patterns:
+
+### Partition Key Requirement
+
+Most operations require a partition key to ensure efficient queries:
+
+```typescript
+// ✅ Good: Partition-scoped operation
+const user = await db.users.findUnique({
+  where: {
+    id: 'user_123',
+    email: 'john@example.com' // Partition key required
+  }
+});
+
+// ⚠️ Expensive: Cross-partition (must explicitly opt-in)
+const users = await db.users.findMany({
+  enableCrossPartitionQuery: true,
+  where: { isActive: true }
+});
+```
+
+### Type Safety
+
+All operations are fully typed:
+
+```typescript
+// TypeScript knows the exact return type
+const user = await db.users.create({
+  data: {
+    id: 'user_123',
+    email: 'john@example.com',
+    name: 'John Doe',
+    age: 30
+  }
+});
+// user is typed as: { id: string; email: string; name: string; age: number; ... }
+```
+
+### Error Handling
+
+All operations can throw `CosmosError`:
+
+```typescript
+import { isCosmosError } from 'cosmosql';
+
+try {
+  await db.users.create({ data: user });
+} catch (error) {
+  if (isCosmosError(error)) {
+    // Handle CosmosDB-specific errors
+    if (error.statusCode === 409) {
+      // Duplicate ID
+    }
+  }
+}
+```
+
+See [Error Handling](/docs/guides/error-handling) for complete error handling guide.
+
+## Next Steps
+
+- Learn about [Creating Documents](/docs/guides/creating-documents)
+- Learn about [Reading Documents](/docs/guides/reading-documents)
+- Learn about [Updating Documents](/docs/guides/updating-documents)
+- Learn about [Deleting Documents](/docs/guides/deleting-documents)
+

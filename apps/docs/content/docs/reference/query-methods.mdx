@@ -1,0 +1,239 @@
+---
+title: Query Methods
+description: Complete reference for querying documents with findUnique, findMany, and query
+---
+
+## Query Operations
+
+### `findUnique(options)`
+
+Retrieves a single document by ID and partition key. This is the most efficient operation (point read).
+
+```typescript
+const user = await db.users.findUnique({
+  where: {
+    id: 'user_123',
+    email: 'john@example.com' // Partition key required
+  },
+  select: {
+    name: true,
+    email: true
+  }
+});
+// Returns: { name: string; email: string } | null
+```
+
+### `findMany(options)`
+
+Queries multiple documents with filtering, sorting, and pagination. Optionally include aggregations to get both data and statistics in a single query.
+
+```typescript
+// Without aggregations
+const users = await db.users.findMany({
+  partitionKey: 'john@example.com',
+  where: {
+    isActive: true,
+    age: { gte: 18 }
+  },
+  select: { id: true, name: true },
+  orderBy: { age: 'desc' },
+  take: 10,
+  skip: 0
+});
+// Returns: Array<{ id: string; name: string }>
+
+// With aggregations
+const result = await db.users.findMany({
+  partitionKey: 'john@example.com',
+  where: { isActive: true },
+  aggregate: {
+    _count: true,
+    _avg: { age: true },
+    _sum: { score: true },
+    _min: { createdAt: true },
+    _max: { createdAt: true }
+  }
+});
+// Returns: { 
+//   data: User[],
+//   _count: number,
+//   _avg: { age: number | null },
+//   _sum: { score: number | null },
+//   _min: { createdAt: Date | null },
+//   _max: { createdAt: Date | null }
+// }
+```
+
+See [Aggregations Guide](/docs/guides/aggregations#findmany-with-aggregations) for complete documentation.
+
+### `query<T>(options)`
+
+Execute raw SQL queries for advanced use cases.
+
+```typescript
+const result = await db.users.query<{ count: number }>({
+  sql: 'SELECT COUNT(1) as count FROM c WHERE c.isActive = true',
+  parameters: [
+    { name: '@active', value: true }
+  ],
+  partitionKey: 'john@example.com' // Optional: for partition-scoped queries
+});
+// Returns: Array<T>
+```
+
+## Query Options
+
+### `where` - Filter conditions
+
+```typescript
+where: {
+  // Exact match
+  isActive: true,
+  
+  // Comparisons
+  age: { gte: 18, lte: 65 },
+  
+  // String operations
+  name: { startsWith: 'John' },
+  bio: { contains: 'developer' },
+  
+  // Array operations
+  tags: { contains: 'javascript' },
+  
+  // Nested objects
+  profile: {
+    settings: { theme: 'dark' }
+  }
+}
+```
+
+### `select` - Choose fields to return
+
+```typescript
+select: {
+  id: true,
+  name: true,
+  email: true,
+  profile: {
+    website: true
+  }
+}
+// Returns only selected fields
+```
+
+### `orderBy` - Sort results
+
+```typescript
+orderBy: {
+  age: 'desc',      // Sort by age descending
+  name: 'asc'       // Then by name ascending
+}
+```
+
+### `take` - Limit results (maximum number)
+
+```typescript
+take: 10 // Return maximum 10 documents
+```
+
+### `skip` - Offset results
+
+```typescript
+skip: 20 // Skip first 20 documents (for pagination)
+```
+
+### `partitionKey` - Scope query to partition
+
+```typescript
+partitionKey: 'john@example.com'        // Single value
+partitionKey: ['tenant_1', 'org_a']      // Composite partition key (array)
+```
+
+### `enableCrossPartitionQuery` - Allow expensive cross-partition queries
+
+```typescript
+enableCrossPartitionQuery: true // Must explicitly opt-in
+```
+
+## Query Operators
+
+### String Operators
+
+```typescript
+where: {
+  name: { contains: 'John' },      // CONTAINS(c.name, 'John')
+  email: { startsWith: 'user' },   // STARTSWITH(c.email, 'user')
+  bio: { endsWith: 'developer' }    // ENDSWITH(c.bio, 'developer')
+}
+```
+
+### Number Operators
+
+```typescript
+where: {
+  age: { gt: 21 },     // c.age > 21 (greater than)
+  score: { gte: 85 },  // c.score >= 85 (greater than or equal)
+  rating: { lt: 5 },   // c.rating < 5 (less than)
+  count: { lte: 100 },  // c.count <= 100 (less than or equal)
+  // Multiple conditions (range)
+  age: { gte: 18, lte: 65 }  // 18 <= c.age <= 65
+}
+```
+
+### Array Operators
+
+```typescript
+where: {
+  tags: { contains: 'javascript' },              // CONTAINS(c.tags, 'javascript')
+  skills: { containsAny: ['react', 'node'] },    // Any element matches (planned)
+  permissions: { containsAll: ['read', 'write'] } // All elements must match (planned)
+}
+```
+
+**Note:** `containsAny` and `containsAll` are planned features. Currently, use `contains` for single element checks or raw SQL queries for complex array operations.
+
+### Boolean Operators
+
+```typescript
+where: {
+  isActive: true,           // Exact match
+  isActive: { equals: true }, // Explicit equals (same as above)
+  isVerified: false
+}
+```
+
+### Date Operators
+
+```typescript
+where: {
+  createdAt: { gte: new Date('2024-01-01') },  // Greater than or equal
+  publishedAt: { lt: new Date() },              // Less than
+  lastLoginAt: { lte: new Date() }              // Less than or equal
+}
+```
+
+### Nested Object Queries
+
+```typescript
+where: {
+  profile: {
+    settings: {
+      theme: 'dark',
+      notifications: true
+    }
+  }
+}
+```
+
+### Combining Operators
+
+```typescript
+where: {
+  // Multiple conditions (AND logic)
+  isActive: true,
+  age: { gte: 18, lte: 65 },
+  name: { startsWith: 'John' },
+  tags: { contains: 'developer' }
+}
+```
+

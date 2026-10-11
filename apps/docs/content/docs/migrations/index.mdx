@@ -1,0 +1,208 @@
+---
+title: Migrations
+description: Structured schema and data evolution for your CosmosDB database
+---
+
+Migrations provide a structured way to evolve your database schema and data over time. Define migrations, track their status, apply them safely, and rollback when needed.
+
+**Navigation**:
+- [Defining Migrations](#defining-migrations) - Create migration files
+- [Registering Migrations](#registering-migrations) - Register with your client
+- [Migration Status](#migration-status) - Check applied migrations
+- [Planning Migrations](#planning-migrations) - Preview changes
+- [Applying Migrations](#applying-migrations) - Run migrations
+- [Rolling Back](#rolling-back) - Undo migrations
+
+---
+
+## Defining Migrations
+
+Create migrations using `defineMigration`:
+
+```typescript
+import { defineMigration } from 'cosmosql';
+
+export const addPreferences = defineMigration({
+  version: 1,
+  name: 'add-user-preferences',
+  description: 'Add preferences object to all users',
+  
+  async up({ db, logger, progress }) {
+    logger.info('Adding preferences to users...');
+    
+    const result = await db.users.updateMany({
+      where: {},
+      data: (doc) => ({
+        preferences: {
+          theme: doc.oldTheme || 'light',
+          notifications: true
+        }
+      }),
+      enableCrossPartitionQuery: true,
+      onProgress: progress.track('users')
+    });
+    
+    logger.info(`Updated ${result.updated} users`);
+  },
+  
+  async down({ db, logger }) {
+    logger.info('Removing preferences from users...');
+    
+    await db.users.updateMany({
+      where: {},
+      data: { preferences: undefined },
+      enableCrossPartitionQuery: true
+    });
+  }
+});
+```
+
+**Migration Context:**
+
+- `db`: Your database client with all containers
+- `logger`: Logger with `info`, `warn`, `error`, `debug` methods
+- `progress`: Progress tracker for bulk operations
+- `dryRun`: Boolean indicating if this is a dry run
+
+**Rules:**
+
+- Versions must be sequential integers (1, 2, 3...)
+- Names must be lowercase alphanumeric with hyphens
+- `up()` is required, `down()` is optional (but recommended)
+
+## Registering Migrations
+
+Pass migrations when creating the client:
+
+```typescript
+const db = await createClient({
+  connectionString: process.env.COSMOS_CONNECTION_STRING!,
+  database: 'myapp',
+  migrations: [addPreferences, migration2, migration3]
+}).withContainers({ users, posts });
+```
+
+## Migration Status
+
+Check which migrations are applied:
+
+```typescript
+const status = await db.migrations.status();
+
+console.log(`Current version: ${status.current?.version}`);
+console.log(`Pending: ${status.pending.length}`);
+console.log(`Can rollback: ${status.canRollback}`);
+
+// List all applied migrations
+status.applied.forEach(m => {
+  console.log(`v${m.version}: ${m.name} (${m.ruConsumed} RU)`);
+});
+```
+
+## Planning Migrations
+
+Preview what will happen before applying:
+
+```typescript
+const plan = await db.migrations.plan({ dryRun: true });
+
+console.log(`Will apply ${plan.migrationsToApply.length} migrations`);
+console.log(`Estimated cost: ${plan.totalEstimatedRU} RU`);
+console.log(`Estimated duration: ${plan.totalEstimatedDuration}`);
+
+// Warnings
+plan.warnings.forEach(w => console.log(`⚠️  ${w}`));
+```
+
+## Applying Migrations
+
+Apply pending migrations:
+
+```typescript
+const result = await db.migrations.apply({
+  target: 'latest', // or specific version number
+  confirm: true,    // Safety confirmation
+  onProgress: (p) => {
+    console.log(
+      `[Migration ${p.migration.version}] ${p.status} - ` +
+      `${p.percentage}% (${p.ruConsumed} RU)`
+    );
+  }
+});
+
+console.log(`Applied ${result.applied.length} migrations`);
+console.log(`Total RU: ${result.performance.totalRuConsumed}`);
+```
+
+**Dry Run:**
+
+Test migrations without applying them:
+
+```typescript
+await db.migrations.apply({
+  target: 'latest',
+  dryRun: true,
+  onProgress: (p) => console.log(`Would apply: ${p.migration.name}`)
+});
+```
+
+## Rolling Back
+
+Rollback to a previous version:
+
+```typescript
+await db.migrations.rollback({
+  to: 3,        // Roll back to version 3
+  confirm: true, // Safety confirmation
+  onProgress: (p) => {
+    console.log(`Rolling back: ${p.migration.name}`);
+  }
+});
+```
+
+**Requirements:**
+
+- All migrations being rolled back must have `down()` functions
+- Migrations are rolled back in reverse order
+
+---
+
+## Best Practices
+
+1. **Never modify applied migrations** - the system detects changes via checksums
+2. **Always provide `down()` functions** for rollback capability
+3. **Test migrations on dev/staging** before production
+4. **Use `dryRun: true`** to preview changes
+5. **Keep migrations small and focused** - one logical change per migration
+6. **Version sequentially** - no gaps in version numbers
+
+---
+
+## Performance Tips
+
+- Migrations are tracked in a special `_migrations` container
+- Progress tracking adds minimal overhead
+- Use bulk operations within migrations for efficiency
+
+---
+
+## Troubleshooting
+
+### "Migrations must be sequential"
+
+**Cause:** Gap in version numbers  
+**Solution:** Ensure versions are 1, 2, 3... with no gaps
+
+### "Cannot rollback: migration has no down() function"
+
+**Cause:** Trying to rollback a migration without `down()`  
+**Solution:** Add `down()` function or remove the migration
+
+---
+
+## Next Steps
+
+- Learn about [Bulk Operations](/docs/guide/update#bulk-operations) for efficient data migrations
+- See [Database Management](/docs/management) for health checks and monitoring
+- Review [Common Patterns](/docs/guide/common-patterns) for real-world scenarios
+
