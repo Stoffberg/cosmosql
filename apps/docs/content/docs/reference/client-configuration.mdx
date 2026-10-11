@@ -1,0 +1,109 @@
+---
+title: Client & Configuration
+description: Complete reference for creating and configuring CosmosQL clients
+---
+
+## Client Creation
+
+Create a CosmosQL client with connection options:
+
+```typescript
+const db = await createClient({
+  // Option 1: Connection string (recommended)
+  connectionString: process.env.COSMOS_CONNECTION_STRING!,
+  
+  // Option 2: Explicit endpoint + key
+  endpoint: 'https://myaccount.documents.azure.com:443/',
+  key: process.env.COSMOS_KEY!,
+  
+  // Required: Database name
+  database: 'myapp',
+  
+  // Optional: Container validation mode
+  mode: 'auto-create', // 'auto-create' | 'verify' | 'skip'
+  
+  // Optional: Retry configuration
+  retryOptions: {
+    maxRetries: 3,        // Default: 3
+    initialDelay: 100,    // Default: 100ms
+    maxDelay: 5000        // Default: 5000ms
+  }
+}).withContainers({ users, posts });
+```
+
+## Configuration Options
+
+| Option | Type | Default | Description |
+|--------|------|---------|-------------|
+| `endpoint` | `string` | - | Azure CosmosDB endpoint URL |
+| `key` | `string` | - | Azure CosmosDB master key |
+| `connectionString` | `string` | - | Full connection string (alternative to endpoint+key) |
+| `database` | `string` | **Required** | Database name |
+| `mode` | `ContainerMode` | `'verify'` | Container management mode |
+| `retryOptions` | `object` | See below | Retry configuration |
+
+## Container Modes
+
+- **`'auto-create'`** - Automatically creates database and containers if they don't exist
+- **`'verify'`** - Validates that database and containers exist with correct configuration (production default)
+- **`'skip'`** - Skips all checks for maximum performance
+
+## Retry Options
+
+```typescript
+retryOptions: {
+  maxRetries?: number;    // Default: 3
+  initialDelay?: number;  // Default: 100ms
+  maxDelay?: number;      // Default: 5000ms
+}
+```
+
+**Note**: Client creation is async. It validates and optionally creates containers based on the `mode` parameter. See [Getting Started](/docs/getting-started/quickstart) for detailed mode documentation.
+
+## Container Registration
+
+```typescript
+.withContainers({
+  users,
+  posts,
+  comments
+  // Add all your container schemas here
+})
+```
+
+## Database Operations
+
+### Container Management
+
+**`listOrphanedContainers()`**
+
+Lists containers in the database that are not registered in your schema. Useful for identifying containers that may need cleanup.
+
+```typescript
+const orphaned = await db.listOrphanedContainers();
+// Returns: string[] - Array of container names not in schema
+```
+
+**`deleteContainers(names)`**
+
+Deletes specific containers by name. Use with caution as this permanently removes containers and all their data.
+
+```typescript
+await db.deleteContainers(['old_container', 'temp_container']);
+```
+
+**`pruneContainers(options)`**
+
+Removes all orphaned containers (containers not in your schema). Requires explicit confirmation.
+
+```typescript
+// Prune all orphaned containers (requires confirmation)
+await db.pruneContainers({ confirm: true });
+
+// Get list of containers that would be pruned without deleting
+const orphaned = await db.listOrphanedContainers();
+console.log('Would delete:', orphaned);
+```
+
+**⚠️ Warning**: These operations permanently delete containers and all their data. Always back up important data before using these methods.
+

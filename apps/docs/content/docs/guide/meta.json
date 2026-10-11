@@ -1,0 +1,15 @@
+{
+  "title": "Guide",
+  "icon": "Book",
+  "pages": [
+    "core-concepts",
+    "type-system",
+    "create",
+    "read",
+    "update",
+    "delete",
+    "aggregations",
+    "common-patterns",
+    "advanced-patterns"
+  ]
+}

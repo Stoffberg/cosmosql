@@ -1,0 +1,130 @@
+---
+title: Schema Definition
+description: Complete reference for field types and container configurations
+---
+
+## Field Types
+
+CosmosQL provides a fluent API for defining field types in your schema:
+
+```typescript
+// Primitive types
+field.string()           // String type
+field.number()           // Number type
+field.boolean()          // Boolean type
+field.date()             // Date type (stored as ISO strings)
+
+// Complex types
+field.array(type)        // Array of any field type
+field.object(schema)     // Nested object with its own schema
+
+// Modifiers
+.optional()              // Makes field optional (can be undefined)
+.default(value)          // Provides default value for optional fields
+```
+
+## Example Schema with All Field Types
+
+```typescript
+const users = container('users', {
+  // Required fields
+  id: field.string(),
+  email: field.string(),
+  name: field.string(),
+  age: field.number(),
+  isActive: field.boolean(),
+  createdAt: field.date(),
+  
+  // Optional fields
+  bio: field.string().optional(),
+  lastLoginAt: field.date().optional(),
+  
+  // Fields with defaults
+  viewCount: field.number().default(0),
+  settings: field.object({
+    theme: field.string().default('light'),
+    notifications: field.boolean().default(true)
+  }).optional(),
+  
+  // Arrays
+  tags: field.array(field.string()),
+  scores: field.array(field.number()),
+  
+  // Nested objects
+  profile: field.object({
+    website: field.string().optional(),
+    location: field.string().optional()
+  }).optional()
+}).partitionKey('email');
+```
+
+## Container Configuration
+
+Containers can be configured with throughput, indexing policies, and more:
+
+```typescript
+const posts = container('posts', {
+  id: field.string(),
+  userId: field.string(),
+  title: field.string(),
+  content: field.string(),
+  tags: field.array(field.string()),
+  createdAt: field.date()
+})
+.partitionKey('userId')
+.throughput(400)                    // Optional: Set RU/s (Request Units per second)
+.indexing({                         // Optional: Configure indexing policy
+  automatic: true,
+  includedPaths: [
+    { path: '/title/?' },
+    { path: '/tags/[]/?' }
+  ],
+  excludedPaths: [
+    { path: '/content/?' }
+  ],
+  compositeIndexes: [
+    [
+      { path: '/createdAt', order: 'ascending' },
+      { path: '/userId', order: 'ascending' }
+    ]
+  ]
+});
+```
+
+## Container Configuration Options
+
+- **`.partitionKey(field)`** - Required: Specifies the partition key field
+- **`.throughput(ru)`** - Optional: Sets RU/s for the container (default: auto-scale)
+- **`.indexing(policy)`** - Optional: Configures indexing policy
+
+## Indexing Policy Options
+
+```typescript
+indexing: {
+  automatic: boolean;              // Enable automatic indexing
+  includedPaths?: Array<{          // Paths to index
+    path: string;                  // Path pattern (e.g., '/title/?')
+    indexes?: Array<{
+      kind: 'Range' | 'Hash';      // Index kind
+      precision?: number;           // Precision for range indexes
+      dataType: 'String' | 'Number' // Data type
+    }>
+  }>;
+  excludedPaths?: Array<{          // Paths to exclude from indexing
+    path: string;
+  }>;
+  compositeIndexes?: Array<        // Composite indexes for multi-field sorting
+    Array<{
+      path: string;
+      order: 'ascending' | 'descending';
+    }>
+  >;
+  spatialIndexes?: Array<{         // Spatial indexes (advanced)
+    path: string;
+    types: Array<'Point' | 'LineString' | 'Polygon' | 'MultiPolygon'>;
+  }>;
+}
+```
+
+See [Core Concepts](/docs/getting-started/core-concepts) for guidance on choosing partition keys.
+

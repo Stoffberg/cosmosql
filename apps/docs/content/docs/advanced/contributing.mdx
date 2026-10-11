@@ -1,0 +1,222 @@
+---
+title: Contributing
+description: Development setup, code quality, and contribution guidelines for CosmosQL
+---
+
+Thank you for your interest in contributing to CosmosQL! This guide will help you get started with development.
+
+## Development Setup
+
+### Prerequisites
+
+- **Node.js 18+** or **Bun 1.0+**
+- **TypeScript 5.0+**
+- **Git** for version control
+
+### Getting Started
+
+1. **Clone the repository:**
+
+```bash
+git clone https://github.com/Stoffberg/cosmosql.git
+cd cosmosql
+```
+
+2. **Install dependencies:**
+
+```bash
+# Using Bun (recommended)
+bun install
+
+# Or using npm
+npm install
+```
+
+3. **Build the project:**
+
+```bash
+bun run build
+
+# Or
+npm run build
+```
+
+4. **Run tests:**
+
+```bash
+# All tests
+bun test
+
+# Unit tests only
+bun test tests/unit
+
+# Integration tests only
+bun test tests/integration
+```
+
+**Note:** Integration tests require a real Azure CosmosDB account. Set up environment variables:
+
+```bash
+COSMOS_ENDPOINT=https://your-account.documents.azure.com:443/
+COSMOS_KEY=your-key
+COSMOS_DATABASE=test-db
+```
+
+## Code Quality
+
+CosmosQL maintains high code quality standards:
+
+### Linting and Formatting
+
+**Biome** is used for linting and formatting:
+
+```bash
+# Check for issues
+bun run lint
+
+# Auto-fix issues
+bun run format
+```
+
+### TypeScript
+
+- **Strict mode** is enabled
+- All code must be fully typed
+- Avoid `any` types unless absolutely necessary
+
+### Testing
+
+- **Comprehensive test suite** required for all changes
+- Maintain high test coverage
+- Add tests for new features and bug fixes
+
+## Architecture
+
+Understanding CosmosQL's architecture helps when contributing:
+
+### Core Principles
+
+1. **Zero Dependencies** - Only TypeScript, no external runtime dependencies
+2. **Type-Level Programming** - Leverage TypeScript's type system for schema inference
+3. **REST API Direct** - Direct HTTP calls to CosmosDB REST API, no SDK wrapper
+4. **Bun Runtime Optimized** - Built and tested with Bun, works with Node.js
+
+### Project Structure
+
+```
+cosmosql/
+├── src/
+│   ├── client/          # Client creation and configuration
+│   ├── container/       # Container schema definitions
+│   ├── query/           # Query builder and execution
+│   ├── types/           # Type definitions and inference
+│   └── utils/           # Utilities and helpers
+├── tests/
+│   ├── unit/            # Unit tests
+│   └── integration/     # Integration tests with real CosmosDB
+└── package.json
+```
+
+### Key Concepts
+
+- **Schema Definition**: TypeScript-only schemas that don't exist at runtime
+- **Type Inference**: Automatic type inference from schemas
+- **Partition Key Enforcement**: Compile-time enforcement via TypeScript
+- **Query Builder**: Type-safe SQL query generation
+
+## Making Changes
+
+### Workflow
+
+1. **Create a branch:**
+
+```bash
+git checkout -b feature/your-feature-name
+# or
+git checkout -b fix/your-bug-fix
+```
+
+2. **Make your changes** - Write code, add tests
+
+3. **Run tests and linting:**
+
+```bash
+bun test
+bun run lint
+```
+
+4. **Commit your changes:**
+
+```bash
+git commit -m "feat: add new feature description"
+```
+
+Follow [Conventional Commits](https://www.conventionalcommits.org/) format:
+- `feat:` - New feature
+- `fix:` - Bug fix
+- `docs:` - Documentation changes
+- `test:` - Test additions/changes
+- `refactor:` - Code refactoring
+- `perf:` - Performance improvements
+
+5. **Push and create a PR:**
+
+```bash
+git push origin feature/your-feature-name
+```
+
+### Pull Request Guidelines
+
+- **Clear description** of what changed and why
+- **Reference issues** if fixing a bug or feature request
+- **Add tests** for new features or bug fixes
+- **Update documentation** if API changes or new features added
+- **Ensure all tests pass** and linting is clean
+
+### Testing Requirements
+
+- New features must include unit tests
+- Integration tests for database operations
+- Edge cases should be covered
+- Maintain or improve test coverage
+
+## Areas for Contribution
+
+### High Priority
+
+- **Bug fixes** - Report and fix bugs
+- **Documentation** - Improve clarity and completeness
+- **Performance** - Optimize queries and operations
+- **Type safety** - Enhance type inference and error messages
+
+### Feature Ideas
+
+- Aggregation functions (`count`, `sum`, `avg`, etc.)
+- Cursor-based pagination
+- Batch operations across partitions
+- Additional query operators
+
+### Documentation
+
+- Code examples
+- Best practices guides
+- Migration guides
+- API reference improvements
+
+## Getting Help
+
+If you need help:
+
+1. **Check existing issues** on GitHub
+2. **Ask questions** in discussions
+3. **Join Discord** community (if available)
+4. **Read existing code** to understand patterns
+
+## License
+
+CosmosQL is licensed under the MIT License. By contributing, you agree that your contributions will be licensed under the same license.
+
+---
+
+Thank you for contributing to CosmosQL! Your efforts help make CosmosDB development safer and more enjoyable for everyone.
+

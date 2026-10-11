@@ -1,0 +1,475 @@
+---
+title: Reading Documents
+description: Learn how to query and read documents from CosmosDB efficiently
+---
+
+Reading data is the most common operation. CosmosQL provides three methods optimized for different scenarios.
+
+**Navigation**:
+- [Point Read](#point-read-fastest) - By ID and partition key
+- [Query Within Partition](#query-within-partition) - Filtering and sorting
+- [Cross-Partition Query](#cross-partition-query) - Admin and analytics
+- [Aggregations with findMany](#aggregations-with-findmany) - Data + statistics in one query
+
+---
+
+## Point Read (Fastest)
+
+**Use when**: You know the exact ID and partition key.
+
+**Why it's fastest**: Direct lookup, no scanning required.
+
+**Cost**: ~1 RU (cheapest possible)
+
+**Example scenario**: Loading a user's profile.
+
+```typescript
+const user = await db.users.findUnique({
+  where: {
+    id: 'user_123',
+    email: 'john@example.com' // Partition key required
+  }
+});
+// Returns: User | null
+```
+
+**Type safety**: TypeScript enforces both ID and partition key.
+
+```typescript
+// ❌ This won't compile
+const user = await db.users.findUnique({
+  where: { id: 'user_123' }
+  // Error: Property 'email' is missing
+});
+```
+
+## Query Within Partition
+
+**Use when**: Filtering, sorting, or paginating within one partition.
+
+**Cost**: ~3-5 RU (depends on result size)
+
+**Example scenario**: Getting a user's posts.
+
+```typescript
+const posts = await db.posts.findMany({
+  partitionKey: 'user_123', // Required
+  where: {
+    isPublished: true,
+    createdAt: { gte: new Date('2024-01-01') }
+  },
+  orderBy: { createdAt: 'desc' },
+  take: 10
+});
+// Returns: Post[]
+```
+
+### findMany with Aggregations
+
+`findMany` can also return aggregations alongside your data - perfect for paginated lists with counts or statistics.
+
+**Example: Pagination with total count**
+
+```typescript
+const result = await db.posts.findMany({
+  partitionKey: 'user_123',
+  where: { isPublished: true },
+  orderBy: { createdAt: 'desc' },
+  take: 10,
+  skip: 0,
+  aggregate: {
+    _count: true  // Count ALL matching posts
+  }
+});
+
+console.log(`Showing ${result.data.length} of ${result._count} posts`);
+console.log(`Page 1 of ${Math.ceil(result._count / 10)}`);
+// Returns: { data: Post[], _count: number }
+```
+
+**Example: Data with statistics**
+
+```typescript
+const result = await db.orders.findMany({
+  partitionKey: 'customer-123',
+  where: { status: 'completed' },
+  take: 5,  // Last 5 orders
+  orderBy: { createdAt: 'desc' },
+  aggregate: {
+    _count: true,
+    _sum: { amount: true },
+    _avg: { amount: true },
+    _min: { createdAt: true },
+    _max: { createdAt: true }
+  }
+});
+
+// Access both data and stats
+console.log(`Recent orders:`, result.data);
+console.log(`Total completed orders: ${result._count}`);
+console.log(`Total revenue: $${result._sum.amount}`);
+console.log(`Average order value: $${result._avg.amount}`);
+console.log(`Customer since: ${result._min.createdAt}`);
+// Returns: { 
+//   data: Order[],
+//   _count: number,
+//   _sum: { amount: number | null },
+//   _avg: { amount: number | null },
+//   _min: { createdAt: Date | null },
+//   _max: { createdAt: Date | null }
+// }
+```
+
+**How it works:**
+- Data query and aggregation execute in parallel
+- Both use the same `where` filter
+- Pagination (`take`/`skip`) only applies to `data`, not aggregations
+- Full type safety: TypeScript infers the complete return type
+
+See [full aggregations documentation](#aggregations-with-findmany) below for more examples.
+
+## Cross-Partition Query
+
+**Use when**: You need data across multiple partitions.
+
+**Cost**: ~50-100+ RU (10-100x more expensive)
+
+**Requires**: Explicit opt-in via `enableCrossPartitionQuery: true`
+
+**Example scenario**: Global search across all users.
+
+```typescript
+const recentUsers = await db.users.findMany({
+  enableCrossPartitionQuery: true, // Must be explicit
+  where: {
+    createdAt: { gte: new Date('2024-01-01') }
+  },
+  orderBy: { createdAt: 'desc' },
+  take: 20
+});
+```
+
+**When to use**: Admin dashboards, analytics, reports—not user-facing queries.
+
+## Selecting Specific Fields
+
+**Use when**: You don't need the full document.
+
+**Why**: Reduces data transfer, faster queries, lower latency.
+
+```typescript
+const user = await db.users.findUnique({
+  where: { id: 'user_123', email: 'john@example.com' },
+  select: {
+    name: true,
+    email: true
+  }
+});
+// Returns: { name: string; email: string } | null
+```
+
+**Nested fields**: Select specific fields from nested objects.
+
+```typescript
+const post = await db.posts.findUnique({
+  where: { id: 'post_1', userId: 'user_123' },
+  select: {
+    title: true,
+    metadata: {
+      source: true
+    }
+  }
+});
+// Returns: { title: string; metadata?: { source: string } } | null
+```
+
+## Filtering with Where Clauses
+
+Comprehensive filtering options:
+
+```typescript
+await db.users.findMany({
+  partitionKey: 'john@example.com',
+  where: {
+    // Exact match
+    isActive: true,
+    
+    // Number comparisons
+    age: { gt: 21 },        // Greater than
+    score: { gte: 85 },     // Greater than or equal
+    rating: { lt: 5 },      // Less than
+    count: { lte: 100 },    // Less than or equal
+    age: { gte: 18, lte: 65 }, // Range
+    
+    // String operations
+    name: { startsWith: 'John' },    // STARTSWITH(c.name, 'John')
+    email: { contains: 'gmail' },    // CONTAINS(c.email, 'gmail')
+    bio: { endsWith: 'developer' },  // ENDSWITH(c.bio, 'developer')
+    
+    // Array operations
+    tags: { contains: 'premium' },                    // CONTAINS array element
+    // Note: containsAny and containsAll are planned features
+    // For now, use contains for single checks or raw SQL for complex operations
+    
+    // Date comparisons
+    createdAt: { gte: new Date('2024-01-01') },
+    lastLoginAt: { lt: new Date() }
+  }
+});
+```
+
+## Pagination
+
+Implement pagination with `take` and `skip`:
+
+```typescript
+const ITEMS_PER_PAGE = 20;
+
+// Page 1
+const page1 = await db.posts.findMany({
+  partitionKey: 'user_123',
+  take: ITEMS_PER_PAGE,
+  skip: 0
+});
+
+// Page 2
+const page2 = await db.posts.findMany({
+  partitionKey: 'user_123',
+  take: ITEMS_PER_PAGE,
+  skip: ITEMS_PER_PAGE
+});
+```
+
+**Note**: Large offsets can be expensive. For better performance, use cursor-based pagination with date filters.
+
+## Ordering Results
+
+Sort results using `orderBy`:
+
+```typescript
+// Single field ordering
+await db.posts.findMany({
+  partitionKey: 'user_123',
+  orderBy: {
+    createdAt: 'desc' // or 'asc'
+  }
+});
+
+// Multiple field ordering
+await db.posts.findMany({
+  partitionKey: 'user_123',
+  orderBy: [
+    { createdAt: 'desc' },
+    { title: 'asc' }
+  ]
+});
+```
+
+## Raw SQL Queries
+
+**Use when**: The query builder doesn't support your use case.
+
+**Example**: Complex joins, CosmosDB-specific functions.
+
+```typescript
+const result = await db.users.query<{ count: number }>({
+  sql: `
+    SELECT COUNT(1) as count 
+    FROM c 
+    WHERE c.isActive = @active 
+    AND c.age > @minAge
+  `,
+  parameters: [
+    { name: '@active', value: true },
+    { name: '@minAge', value: 18 }
+  ],
+  partitionKey: 'john@example.com' // Optional: for partition-scoped query
+});
+```
+
+## Aggregations with findMany
+
+**Use when**: You need both data and statistics in a single query.
+
+**Benefit**: Combines data retrieval with aggregations efficiently.
+
+`findMany` now supports aggregations, allowing you to fetch documents and calculate statistics (count, sum, avg, min, max) in a single query with full type safety.
+
+### Basic Example
+
+```typescript
+const result = await db.orders.findMany({
+  partitionKey: 'customer-123',
+  where: { status: 'completed' },
+  aggregate: {
+    _count: true,
+    _sum: { amount: true },
+    _avg: { amount: true }
+  }
+});
+
+console.log(`Found ${result._count} orders`);
+console.log(`Total: $${result._sum.amount}`);
+console.log(`Average: $${result._avg.amount}`);
+console.log(`Orders:`, result.data);
+```
+
+### Return Type Changes
+
+**Without aggregations:**
+```typescript
+const orders = await db.orders.findMany({ partitionKey: 'customer-123' });
+// Type: Order[]
+```
+
+**With aggregations:**
+```typescript
+const result = await db.orders.findMany({
+  partitionKey: 'customer-123',
+  aggregate: { _count: true }
+});
+// Type: { data: Order[], _count: number }
+```
+
+### Pagination with Total Count
+
+Perfect for building paginated UIs:
+
+```typescript
+const result = await db.users.findMany({
+  partitionKey: 'tenant-1',
+  take: 20,
+  skip: 0,
+  aggregate: { _count: true }  // Counts ALL matching records
+});
+
+console.log(`Page 1 of ${Math.ceil(result._count / 20)}`);
+console.log(`Showing ${result.data.length} of ${result._count} users`);
+```
+
+### Available Aggregations
+
+All aggregation operations are supported:
+
+```typescript
+const result = await db.products.findMany({
+  partitionKey: 'category-electronics',
+  aggregate: {
+    _count: true,                         // Count all records
+    _sum: { price: true, stock: true },   // Sum numeric fields
+    _avg: { price: true },                // Average values
+    _min: { price: true, createdAt: true }, // Minimum values
+    _max: { price: true, createdAt: true }  // Maximum values
+  }
+});
+```
+
+**See the [Aggregations Guide](/docs/guide/aggregations#findmany-with-aggregations) for complete documentation.**
+
+## Performance Best Practices
+
+**1. Always Prefer Point Reads**
+
+```typescript
+// ✅ Good: Point read (~1 RU)
+const user = await db.users.findUnique({
+  where: { id: 'user_123', email: 'john@example.com' }
+});
+
+// ⚠️ Slower: Query even with unique result (~5 RU)
+const user = await db.users.findMany({
+  partitionKey: 'john@example.com',
+  where: { id: 'user_123' },
+  take: 1
+});
+```
+
+**2. Use Partition Keys Efficiently**
+
+```typescript
+// ✅ Good: All queries scoped to partition
+await db.posts.findMany({
+  partitionKey: 'user_123',
+  where: { isPublished: true }
+});
+
+// ❌ Bad: Cross-partition query when not needed
+await db.posts.findMany({
+  where: { userId: 'user_123', isPublished: true },
+  enableCrossPartitionQuery: true
+});
+```
+
+**3. Limit Result Sets**
+
+```typescript
+// ✅ Good: Limit to what you need
+await db.posts.findMany({
+  partitionKey: 'user_123',
+  take: 10 // Only fetch 10 results
+});
+```
+
+**4. Use Select to Reduce Data Transfer**
+
+```typescript
+// ✅ Good: Only fetch needed fields
+await db.users.findMany({
+  partitionKey: 'tenant_123',
+  select: { id: true, name: true }
+});
+```
+
+## Common Query Patterns
+
+**Pattern: Getting a Count**
+
+```typescript
+const count = await db.posts.query<{ count: number }>({
+  sql: `
+    SELECT VALUE COUNT(1)
+    FROM c
+    WHERE c.isPublished = true
+    AND c.publishedAt > @date
+  `,
+  parameters: [{ name: '@date', value: new Date('2024-01-01') }],
+  enableCrossPartitionQuery: true
+});
+```
+
+**Pattern: Search Within Partition**
+
+```typescript
+const matchingPosts = await db.posts.findMany({
+  partitionKey: 'user_123',
+  where: {
+    title: { contains: searchTerm },
+    isPublished: true
+  }
+});
+```
+
+**Pattern: Conditional Queries**
+
+```typescript
+const where: any = { isPublished: true };
+
+if (minDate) {
+  where.publishedAt = { gte: minDate };
+}
+
+if (category) {
+  where.category = category;
+}
+
+const posts = await db.posts.findMany({
+  partitionKey: 'user_123',
+  where
+});
+```
+
+## Next Steps
+
+- See [Update Operations](/docs/guide/update) for modifying documents
+- Check [Common Patterns](/docs/guide/common-patterns) for real-world scenarios
+- Review [Performance Guide](/docs/advanced/performance) for optimization tips

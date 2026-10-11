@@ -1,0 +1,90 @@
+---
+title: Social Platform Feeds
+description: User-generated content and social feed patterns
+---
+
+**The pattern**: Partition by userId to keep all user content together.
+
+**Why this works**:
+
+- Fast queries for a user's posts, comments, activity
+- All related data in one partition
+- Efficient for user profiles and feeds
+
+## Schema Design
+
+```typescript
+const posts = container('posts', {
+  id: field.string(),
+  userId: field.string(), // Partition key
+  content: field.string(),
+  likes: field.number().default(0),
+  createdAt: field.date(),
+  tags: field.array(field.string()),
+  author: field.object({
+    name: field.string(),
+    avatar: field.string().optional()
+  })
+}).partitionKey('userId');
+```
+
+## User Content Queries
+
+```typescript
+// Find user's recent posts with engagement
+const userPosts = await db.posts.findMany({
+  partitionKey: 'user_123',
+  where: {
+    createdAt: { gte: new Date('2024-01-01') },
+    likes: { gt: 10 }
+  },
+  select: {
+    id: true,
+    content: true,
+    likes: true,
+    author: {
+      name: true
+    }
+  },
+  orderBy: { createdAt: 'desc' },
+  take: 50
+});
+```
+
+## Global Feed (Cross-Partition)
+
+For a global feed showing posts from all users:
+
+```typescript
+// Global feed (requires cross-partition query)
+const globalFeed = await db.posts.findMany({
+  enableCrossPartitionQuery: true,
+  where: {
+    createdAt: { gte: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000) } // Last 7 days
+  },
+  orderBy: { likes: 'desc' },
+  take: 100
+});
+```
+
+## Engagement Tracking
+
+```typescript
+// Increment likes (atomic update)
+await db.posts.update({
+  where: {
+    id: postId,
+    userId: userId
+  },
+  data: {
+    likes: { increment: 1 }
+  }
+});
+```
+
+## Best Practices
+
+1. **Prefer user-scoped queries** - Most social platforms show user-specific content
+2. **Cache global feeds** - Cross-partition queries are expensive; cache frequently
+3. **Consider denormalization** - Store author info in posts to avoid joins
+

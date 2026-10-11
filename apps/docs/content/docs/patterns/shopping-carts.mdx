@@ -1,0 +1,117 @@
+---
+title: Shopping Carts
+description: E-commerce shopping cart patterns with TTL for abandoned carts
+---
+
+**The pattern**: Use userId as partition key with TTL for abandoned carts.
+
+## Schema Design
+
+```typescript
+const carts = container('carts', {
+  id: field.string(),
+  userId: field.string(),
+  items: field.array(field.object({
+    productId: field.string(),
+    quantity: field.number(),
+    price: field.number()
+  })),
+  total: field.number(),
+  updatedAt: field.date(),
+  ttl: field.number() // Expire abandoned carts
+}).partitionKey('userId');
+```
+
+## Cart Operations
+
+```typescript
+async function addToCart(userId: string, item: CartItem) {
+  const cart = await db.carts.findUnique({
+    where: { id: userId, userId }
+  });
+  
+  if (!cart) {
+    return await db.carts.create({
+      data: {
+        id: userId,
+        userId,
+        items: [item],
+        total: item.price * item.quantity,
+        updatedAt: new Date(),
+        ttl: 7 * 24 * 60 * 60 // Expire after 7 days
+      }
+    });
+  }
+  
+  // Update existing cart
+  const newItems = [...cart.items, item];
+  const newTotal = newItems.reduce((sum, i) => sum + i.price * i.quantity, 0);
+  
+  return await db.carts.update({
+    where: { id: userId, userId },
+    data: {
+      items: newItems,
+      total: newTotal,
+      updatedAt: new Date()
+    }
+  });
+}
+```
+
+## Cart Retrieval
+
+```typescript
+// Get user's cart (fast point read)
+const cart = await db.carts.findUnique({
+  where: {
+    id: userId,
+    userId
+  }
+});
+
+if (!cart) {
+  // Cart expired or doesn't exist
+  return { items: [], total: 0 };
+}
+```
+
+## Checkout
+
+```typescript
+async function checkout(userId: string) {
+  const cart = await db.carts.findUnique({
+    where: { id: userId, userId }
+  });
+  
+  if (!cart || cart.items.length === 0) {
+    throw new Error('Cart is empty');
+  }
+  
+  // Create order (in different container)
+  const order = await db.orders.create({
+    data: {
+      id: generateId(),
+      userId: userId,
+      items: cart.items,
+      total: cart.total,
+      status: 'pending',
+      createdAt: new Date()
+    }
+  });
+  
+  // Clear cart (or let TTL expire it)
+  await db.carts.delete({
+    where: { id: userId, userId }
+  });
+  
+  return order;
+}
+```
+
+## Best Practices
+
+1. **TTL for abandoned carts** - Automatically clean up old carts
+2. **Update TTL on cart activity** - Refresh expiration when user interacts
+3. **Partition by userId** - All cart operations scoped to user
+4. **Consider cart expiration** - Match business requirements (7-30 days typical)
+

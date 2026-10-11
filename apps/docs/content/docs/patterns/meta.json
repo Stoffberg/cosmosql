@@ -1,0 +1,13 @@
+{
+  "title": "Patterns & Use Cases",
+  "icon": "Layers",
+  "pages": [
+    "authentication",
+    "multi-tenant-saas",
+    "e-commerce-catalog",
+    "social-platform-feeds",
+    "time-series-data",
+    "shopping-carts"
+  ]
+}
+

@@ -1,0 +1,660 @@
+---
+title: API Reference
+description: Complete API reference for CosmosQL field types, container methods, and query options
+---
+
+
+Complete reference for CosmosQL's API, including field types, container methods, query operators, and configuration options.
+
+### Field Types
+
+CosmosQL provides a fluent API for defining field types in your schema:
+
+```typescript
+// Primitive types
+field.string()           // String type
+field.number()           // Number type
+field.boolean()          // Boolean type
+field.date()             // Date type (stored as ISO strings)
+
+// Complex types
+field.array(type)        // Array of any field type
+field.object(schema)     // Nested object with its own schema
+
+// Modifiers
+.optional()              // Makes field optional (can be undefined)
+.default(value)          // Provides default value for optional fields
+```
+
+**Example Schema with All Field Types:**
+
+```typescript
+const users = container('users', {
+  // Required fields
+  id: field.string(),
+  email: field.string(),
+  name: field.string(),
+  age: field.number(),
+  isActive: field.boolean(),
+  createdAt: field.date(),
+  
+  // Optional fields
+  bio: field.string().optional(),
+  lastLoginAt: field.date().optional(),
+  
+  // Fields with defaults
+  viewCount: field.number().default(0),
+  settings: field.object({
+    theme: field.string().default('light'),
+    notifications: field.boolean().default(true)
+  }).optional(),
+  
+  // Arrays
+  tags: field.array(field.string()),
+  scores: field.array(field.number()),
+  
+  // Nested objects
+  profile: field.object({
+    website: field.string().optional(),
+    location: field.string().optional()
+  }).optional()
+}).partitionKey('email');
+```
+
+### Container Configuration
+
+Containers can be configured with throughput, indexing policies, and more:
+
+```typescript
+const posts = container('posts', {
+  id: field.string(),
+  userId: field.string(),
+  title: field.string(),
+  content: field.string(),
+  tags: field.array(field.string()),
+  createdAt: field.date()
+})
+.partitionKey('userId')
+.throughput(400)                    // Optional: Set RU/s (Request Units per second)
+.indexing({                         // Optional: Configure indexing policy
+  automatic: true,
+  includedPaths: [
+    { path: '/title/?' },
+    { path: '/tags/[]/?' }
+  ],
+  excludedPaths: [
+    { path: '/content/?' }
+  ],
+  compositeIndexes: [
+    [
+      { path: '/createdAt', order: 'ascending' },
+      { path: '/userId', order: 'ascending' }
+    ]
+  ]
+});
+```
+
+**Container Configuration Options:**
+
+- **`.partitionKey(field)`** - Required: Specifies the partition key field
+- **`.throughput(ru)`** - Optional: Sets RU/s for the container (default: auto-scale)
+- **`.indexing(policy)`** - Optional: Configures indexing policy
+
+**Indexing Policy Options:**
+
+```typescript
+indexing: {
+  automatic: boolean;              // Enable automatic indexing
+  includedPaths?: Array<{          // Paths to index
+    path: string;                  // Path pattern (e.g., '/title/?')
+    indexes?: Array<{
+      kind: 'Range' | 'Hash';      // Index kind
+      precision?: number;           // Precision for range indexes
+      dataType: 'String' | 'Number' // Data type
+    }>
+  }>;
+  excludedPaths?: Array<{          // Paths to exclude from indexing
+    path: string;
+  }>;
+  compositeIndexes?: Array<        // Composite indexes for multi-field sorting
+    Array<{
+      path: string;
+      order: 'ascending' | 'descending';
+    }>
+  >;
+  spatialIndexes?: Array<{         // Spatial indexes (advanced)
+    path: string;
+    types: Array<'Point' | 'LineString' | 'Polygon' | 'MultiPolygon'>;
+  }>;
+}
+```
+
+### Container Methods
+
+#### Query Operations
+
+**`findUnique(options)`**
+
+Retrieves a single document by ID and partition key. This is the most efficient operation (point read).
+
+```typescript
+const user = await db.users.findUnique({
+  where: {
+    id: 'user_123',
+    email: 'john@example.com' // Partition key required
+  },
+  select: {
+    name: true,
+    email: true
+  }
+});
+// Returns: { name: string; email: string } | null
+```
+
+**`findMany(options)`**
+
+Queries multiple documents with filtering, sorting, and pagination. Optionally include aggregations to get both data and statistics in a single query.
+
+```typescript
+// Without aggregations
+const users = await db.users.findMany({
+  partitionKey: 'john@example.com',
+  where: {
+    isActive: true,
+    age: { gte: 18 }
+  },
+  select: { id: true, name: true },
+  orderBy: { age: 'desc' },
+  take: 10,
+  skip: 0
+});
+// Returns: Array<{ id: string; name: string }>
+
+// With aggregations
+const result = await db.users.findMany({
+  partitionKey: 'john@example.com',
+  where: { isActive: true },
+  aggregate: {
+    _count: true,
+    _avg: { age: true },
+    _sum: { score: true },
+    _min: { createdAt: true },
+    _max: { createdAt: true }
+  }
+});
+// Returns: { 
+//   data: User[],
+//   _count: number,
+//   _avg: { age: number | null },
+//   _sum: { score: number | null },
+//   _min: { createdAt: Date | null },
+//   _max: { createdAt: Date | null }
+// }
+```
+
+See [Aggregations Guide](/docs/guide/aggregations#findmany-with-aggregations) for complete documentation.
+
+**`query<T>(options)`**
+
+Execute raw SQL queries for advanced use cases.
+
+```typescript
+const result = await db.users.query<{ count: number }>({
+  sql: 'SELECT COUNT(1) as count FROM c WHERE c.isActive = true',
+  parameters: [
+    { name: '@active', value: true }
+  ],
+  partitionKey: 'john@example.com' // Optional: for partition-scoped queries
+});
+// Returns: Array<T>
+```
+
+#### Write Operations
+
+**`create(options)`**
+
+Creates a single document.
+
+```typescript
+const user = await db.users.create({
+  data: {
+    id: 'user_123',
+    email: 'john@example.com',
+    name: 'John Doe',
+    age: 30,
+    createdAt: new Date()
+    // isActive will use default value if defined
+  }
+});
+// Returns: Full user object (fully typed)
+```
+
+**`createMany(options)`**
+
+Creates multiple documents in a single operation. All documents must share the same partition key.
+
+```typescript
+await db.users.createMany({
+  data: [
+    { id: 'user_1', email: 'user1@test.com', name: 'User 1', age: 25 },
+    { id: 'user_2', email: 'user2@test.com', name: 'User 2', age: 30 }
+  ],
+  partitionKey: 'shared@email.com' // All must share partition key
+});
+```
+
+**`update(options)`**
+
+Updates a single document by ID and partition key.
+
+```typescript
+await db.users.update({
+  where: {
+    id: 'user_123',
+    email: 'john@example.com' // Partition key required
+  },
+  data: {
+    age: 31,
+    name: 'John Smith'
+  }
+});
+// Returns: Updated user object
+```
+
+**`upsert(options)`**
+
+Updates a document if it exists, creates it if it doesn't.
+
+```typescript
+await db.users.upsert({
+  where: {
+    id: 'user_123',
+    email: 'john@example.com'
+  },
+  create: {
+    id: 'user_123',
+    email: 'john@example.com',
+    name: 'New User',
+    age: 25
+  },
+  update: {
+    age: 26,
+    name: 'Updated Name'
+  }
+});
+```
+
+**`delete(options)`**
+
+Deletes a single document by ID and partition key.
+
+```typescript
+await db.users.delete({
+  where: {
+    id: 'user_123',
+    email: 'john@example.com' // Partition key required
+  }
+});
+```
+
+#### Aggregation Operations
+
+**`count(options)`**
+
+Count documents matching criteria.
+
+```typescript
+const count = await db.users.count({
+  partitionKey: 'john@example.com',
+  where: { isActive: true }
+});
+// Returns: number
+```
+
+**`aggregate(options)`**
+
+Perform aggregation operations (count, sum, avg, min, max).
+
+```typescript
+const stats = await db.orders.aggregate({
+  partitionKey: 'customer-123',
+  where: { status: 'completed' },
+  _count: true,
+  _sum: { amount: true, tax: true },
+  _avg: { amount: true },
+  _min: { createdAt: true },
+  _max: { amount: true }
+});
+// Returns: {
+//   _count: number,
+//   _sum: { amount: number | null, tax: number | null },
+//   _avg: { amount: number | null },
+//   _min: { createdAt: Date | null },
+//   _max: { amount: number | null }
+// }
+```
+
+**`groupBy(options)`**
+
+Group data and perform aggregations on each group.
+
+```typescript
+const salesByCategory = await db.sales.groupBy({
+  by: 'category',
+  enableCrossPartitionQuery: true,
+  _count: true,
+  _sum: { amount: true },
+  _avg: { amount: true },
+  orderBy: { _sum_amount: 'desc' },
+  take: 10
+});
+// Returns: Array<{
+//   category: string,
+//   _count: number,
+//   _sum: { amount: number | null },
+//   _avg: { amount: number | null }
+// }>
+```
+
+**Convenience Methods:**
+
+```typescript
+// Quick aggregations for single fields
+const totalRevenue = await db.orders.sum('amount', {
+  partitionKey: 'customer-123',
+  where: { status: 'completed' }
+});
+// Returns: number | null
+
+const avgAge = await db.users.avg('age', {
+  partitionKey: 'tenant-1'
+});
+// Returns: number | null
+
+const minPrice = await db.products.min('price', {
+  partitionKey: 'category-electronics'
+});
+// Returns: number | null
+
+const maxPrice = await db.products.max('price', {
+  partitionKey: 'category-electronics'
+});
+// Returns: number | null
+```
+
+See [Aggregations Guide](/docs/guide/aggregations) for complete documentation.
+
+### Query Operators
+
+#### String Operators
+
+```typescript
+where: {
+  name: { contains: 'John' },      // CONTAINS(c.name, 'John')
+  email: { startsWith: 'user' },   // STARTSWITH(c.email, 'user')
+  bio: { endsWith: 'developer' }    // ENDSWITH(c.bio, 'developer')
+}
+```
+
+#### Number Operators
+
+```typescript
+where: {
+  age: { gt: 21 },     // c.age > 21 (greater than)
+  score: { gte: 85 },  // c.score >= 85 (greater than or equal)
+  rating: { lt: 5 },   // c.rating < 5 (less than)
+  count: { lte: 100 },  // c.count <= 100 (less than or equal)
+  // Multiple conditions (range)
+  age: { gte: 18, lte: 65 }  // 18 <= c.age <= 65
+}
+```
+
+#### Array Operators
+
+```typescript
+where: {
+  tags: { contains: 'javascript' },              // CONTAINS(c.tags, 'javascript')
+  skills: { containsAny: ['react', 'node'] },    // Any element matches (planned)
+  permissions: { containsAll: ['read', 'write'] } // All elements must match (planned)
+}
+```
+
+**Note:** `containsAny` and `containsAll` are planned features. Currently, use `contains` for single element checks or raw SQL queries for complex array operations.
+
+#### Boolean Operators
+
+```typescript
+where: {
+  isActive: true,           // Exact match
+  isActive: { equals: true }, // Explicit equals (same as above)
+  isVerified: false
+}
+```
+
+#### Date Operators
+
+```typescript
+where: {
+  createdAt: { gte: new Date('2024-01-01') },  // Greater than or equal
+  publishedAt: { lt: new Date() },              // Less than
+  lastLoginAt: { lte: new Date() }              // Less than or equal
+}
+```
+
+#### Nested Object Queries
+
+```typescript
+where: {
+  profile: {
+    settings: {
+      theme: 'dark',
+      notifications: true
+    }
+  }
+}
+```
+
+#### Combining Operators
+
+```typescript
+where: {
+  // Multiple conditions (AND logic)
+  isActive: true,
+  age: { gte: 18, lte: 65 },
+  name: { startsWith: 'John' },
+  tags: { contains: 'developer' }
+}
+```
+
+### Query Options
+
+**`where`** - Filter conditions
+
+```typescript
+where: {
+  // Exact match
+  isActive: true,
+  
+  // Comparisons
+  age: { gte: 18, lte: 65 },
+  
+  // String operations
+  name: { startsWith: 'John' },
+  bio: { contains: 'developer' },
+  
+  // Array operations
+  tags: { contains: 'javascript' },
+  
+  // Nested objects
+  profile: {
+    settings: { theme: 'dark' }
+  }
+}
+```
+
+**`select`** - Choose fields to return
+
+```typescript
+select: {
+  id: true,
+  name: true,
+  email: true,
+  profile: {
+    website: true
+  }
+}
+// Returns only selected fields
+```
+
+**`orderBy`** - Sort results
+
+```typescript
+orderBy: {
+  age: 'desc',      // Sort by age descending
+  name: 'asc'       // Then by name ascending
+}
+```
+
+**`take`** - Limit results (maximum number)
+
+```typescript
+take: 10 // Return maximum 10 documents
+```
+
+**`skip`** - Offset results
+
+```typescript
+skip: 20 // Skip first 20 documents (for pagination)
+```
+
+**`partitionKey`** - Scope query to partition
+
+```typescript
+partitionKey: 'john@example.com'        // Single value
+partitionKey: ['tenant_1', 'org_a']      // Composite partition key (array)
+```
+
+**`enableCrossPartitionQuery`** - Allow expensive cross-partition queries
+
+```typescript
+enableCrossPartitionQuery: true // Must explicitly opt-in
+```
+
+### Client Configuration
+
+**Connection Options:**
+
+```typescript
+const db = await createClient({
+  // Option 1: Connection string (recommended)
+  connectionString: process.env.COSMOS_CONNECTION_STRING!,
+  
+  // Option 2: Explicit endpoint + key
+  endpoint: 'https://myaccount.documents.azure.com:443/',
+  key: process.env.COSMOS_KEY!,
+  
+  // Required: Database name
+  database: 'myapp',
+  
+  // Optional: Container validation mode
+  mode: 'auto-create', // 'auto-create' | 'verify' | 'skip'
+  
+  // Optional: Retry configuration
+  retryOptions: {
+    maxRetries: 3,        // Default: 3
+    initialDelay: 100,    // Default: 100ms
+    maxDelay: 5000        // Default: 5000ms
+  }
+}).withContainers({ users, posts });
+```
+
+**Configuration Options:**
+
+| Option | Type | Default | Description |
+|--------|------|---------|-------------|
+| `endpoint` | `string` | - | Azure CosmosDB endpoint URL |
+| `key` | `string` | - | Azure CosmosDB master key |
+| `connectionString` | `string` | - | Full connection string (alternative to endpoint+key) |
+| `database` | `string` | **Required** | Database name |
+| `mode` | `ContainerMode` | `'verify'` | Container management mode |
+| `retryOptions` | `object` | See below | Retry configuration |
+
+**Container Modes:**
+
+- **`'auto-create'`** - Automatically creates database and containers if they don't exist
+- **`'verify'`** - Validates that database and containers exist with correct configuration (production default)
+- **`'skip'`** - Skips all checks for maximum performance
+
+**Retry Options:**
+
+```typescript
+retryOptions: {
+  maxRetries?: number;    // Default: 3
+  initialDelay?: number;  // Default: 100ms
+  maxDelay?: number;      // Default: 5000ms
+}
+```
+
+**Note**: Client creation is async. It validates and optionally creates containers based on the `mode` parameter. See [Getting Started Guide](/docs/getting-started/quickstart) for detailed mode documentation.
+
+**Container Registration:**
+
+```typescript
+.withContainers({
+  users,
+  posts,
+  comments
+  // Add all your container schemas here
+})
+```
+
+### Database Operations
+
+#### Container Management
+
+**`listOrphanedContainers()`**
+
+Lists containers in the database that are not registered in your schema. Useful for identifying containers that may need cleanup.
+
+```typescript
+const orphaned = await db.listOrphanedContainers();
+// Returns: string[] - Array of container names not in schema
+```
+
+**`deleteContainers(names)`**
+
+Deletes specific containers by name. Use with caution as this permanently removes containers and all their data.
+
+```typescript
+await db.deleteContainers(['old_container', 'temp_container']);
+```
+
+**`pruneContainers(options)`**
+
+Removes all orphaned containers (containers not in your schema). Requires explicit confirmation.
+
+```typescript
+// Prune all orphaned containers (requires confirmation)
+await db.pruneContainers({ confirm: true });
+
+// Get list of containers that would be pruned without deleting
+const orphaned = await db.listOrphanedContainers();
+console.log('Would delete:', orphaned);
+```
+
+**⚠️ Warning**: These operations permanently delete containers and all their data. Always back up important data before using these methods.
+
+---
+
+This documentation provides comprehensive coverage of CosmosQL's API. The library enforces CosmosDB best practices at the type level, preventing costly mistakes before they reach production.
+
+**Next Steps:**
+
+1. Install CosmosQL: `npm install cosmosql`
+
+2. Define your schema using the field types above
+
+3. Start querying with full type safety
+
+For questions or issues, visit the GitHub repository or Discord community.
+

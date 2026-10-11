@@ -1,0 +1,8 @@
+{
+  "title": "Getting Started",
+  "icon": "Rocket",
+  "pages": [
+    "quickstart",
+    "core-concepts"
+  ]
+}

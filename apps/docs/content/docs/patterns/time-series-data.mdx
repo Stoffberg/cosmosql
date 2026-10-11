@@ -1,0 +1,77 @@
+---
+title: Time-Series Data
+description: Metrics, logs, and time-series data patterns with TTL
+---
+
+**The pattern**: Use deviceId as partition key with TTL for automatic cleanup.
+
+**Why this works**:
+
+- Fast queries per device
+- Automatic expiration with TTL
+- Good distribution across devices
+
+## Schema Design
+
+```typescript
+const metrics = container('metrics', {
+  id: field.string(),
+  deviceId: field.string(), // Partition key
+  timestamp: field.date(),
+  temperature: field.number(),
+  humidity: field.number(),
+  ttl: field.number() // Auto-delete old data
+}).partitionKey('deviceId');
+```
+
+## Time-Series Queries
+
+```typescript
+// Ingest metric (auto-expires after 30 days)
+await db.metrics.create({
+  data: {
+    id: generateId(),
+    deviceId: 'device_123',
+    timestamp: new Date(),
+    temperature: 22.5,
+    humidity: 45,
+    ttl: 30 * 24 * 60 * 60 // 30 days in seconds
+  }
+});
+
+// Query recent metrics for device
+const recent = await db.metrics.findMany({
+  partitionKey: 'device_123',
+  where: {
+    timestamp: { gte: new Date(Date.now() - 24 * 60 * 60 * 1000) }
+  },
+  orderBy: { timestamp: 'desc' }
+});
+```
+
+## Aggregations
+
+```typescript
+// Get average temperature over time period
+const stats = await db.metrics.aggregate({
+  partitionKey: 'device_123',
+  where: {
+    timestamp: { 
+      gte: new Date('2024-01-01'),
+      lte: new Date('2024-01-31')
+    }
+  },
+  _avg: { temperature: true, humidity: true },
+  _min: { temperature: true },
+  _max: { temperature: true },
+  _count: true
+});
+```
+
+## Best Practices
+
+1. **Use TTL for automatic cleanup** - Avoids manual deletion jobs
+2. **Partition by device/entity** - Keeps related data together
+3. **Index timestamp** - Ensure efficient time-range queries
+4. **Consider retention policies** - Set TTL based on data retention requirements
+

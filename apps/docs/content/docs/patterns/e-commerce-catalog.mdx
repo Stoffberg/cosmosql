@@ -1,0 +1,97 @@
+---
+title: E-Commerce Catalog
+description: Product catalogs and inventory management patterns
+---
+
+**The pattern**: Partition by category for efficient product queries.
+
+**Why this works**:
+
+- Fast category browsing
+- Good distribution across partitions
+- Cross-partition queries only for global search
+
+## Schema Design
+
+```typescript
+const products = container('products', {
+  id: field.string(),
+  category: field.string(), // Partition key
+  name: field.string(),
+  price: field.number(),
+  inventory: field.number(),
+  tags: field.array(field.string()),
+  metadata: field.object({
+    brand: field.string(),
+    weight: field.number().optional(),
+    dimensions: field.object({
+      length: field.number(),
+      width: field.number(),
+      height: field.number()
+    }).optional()
+  })
+}).partitionKey('category');
+```
+
+## Product Queries
+
+```typescript
+// Query products by category with filtering
+const electronics = await db.products.findMany({
+  partitionKey: 'electronics',
+  where: {
+    price: { lte: 999 },
+    inventory: { gt: 0 },
+    tags: { contains: 'wireless' }
+  },
+  select: {
+    id: true,
+    name: true,
+    price: true,
+    metadata: {
+      brand: true
+    }
+  },
+  orderBy: { price: 'asc' },
+  take: 20
+});
+```
+
+## Global Search
+
+For global search across all categories, use cross-partition queries (expensive but necessary):
+
+```typescript
+// Global product search (requires cross-partition query)
+const searchResults = await db.products.findMany({
+  enableCrossPartitionQuery: true,
+  where: {
+    name: { contains: searchTerm },
+    inventory: { gt: 0 }
+  },
+  orderBy: { price: 'asc' },
+  take: 50
+});
+```
+
+## Inventory Management
+
+```typescript
+// Update inventory after purchase
+await db.products.update({
+  where: {
+    id: productId,
+    category: productCategory
+  },
+  data: {
+    inventory: { decrement: quantity }
+  }
+});
+```
+
+## Best Practices
+
+1. **Category selection** - Choose categories with good distribution (avoid "Other" being too large)
+2. **Cache popular categories** - Frequently browsed categories benefit from caching
+3. **Monitor hot partitions** - If one category has 80% of products, consider sub-categorization
+

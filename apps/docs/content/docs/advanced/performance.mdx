@@ -1,0 +1,113 @@
+---
+title: Performance
+description: Optimize your CosmosQL queries for speed and cost efficiency
+---
+
+## Performance Best Practices
+
+### 1. Always Use Partition Keys When Possible
+
+<Callout type="error" title="The Cost Difference">
+
+```typescript
+// ❌ BAD: Cross-partition query (expensive)
+const user = await db.users.findMany({
+  enableCrossPartitionQuery: true,
+  where: { age: { gt: 18 } }
+});
+// Cost: ~50-100 RU
+
+// ✅ GOOD: Partition-scoped query
+const user = await db.users.findMany({
+  partitionKey: 'john@example.com',
+  where: { age: { gt: 18 } }
+});
+// Cost: ~5 RU (10-20x cheaper)
+```
+
+</Callout>
+
+### 2. Use Point Reads for Single Documents
+
+<Callout type="info" title="Performance Tip">
+
+```typescript
+// ❌ OK: Query for single document
+const user = await db.users.findMany({
+  partitionKey: 'john@example.com',
+  where: { id: 'user_123' },
+  take: 1
+});
+// Cost: ~3-5 RU
+
+// ✅ BEST: Point read (direct lookup)
+const user = await db.users.findUnique({
+  where: { id: 'user_123', email: 'john@example.com' }
+});
+// Cost: ~1 RU (5x cheaper)
+```
+
+</Callout>
+
+### 3. Select Only Needed Fields
+
+```typescript
+// ❌ BAD: Fetch entire document
+const user = await db.users.findUnique({
+  where: { id: 'user_123', email: 'john@example.com' }
+});
+// Returns all fields
+
+// ✅ GOOD: Fetch only what you need
+const user = await db.users.findUnique({
+  where: { id: 'user_123', email: 'john@example.com' },
+  select: { name: true, email: true }
+});
+// Smaller payload = faster transfer = lower latency
+```
+
+### 4. Batch Operations in Same Partition
+
+<Callout type="warning" title="Batch Efficiency">
+
+```typescript
+// ❌ BAD: Individual creates (multiple requests)
+for (const post of posts) {
+  await db.posts.create({ data: post });
+}
+// 10 posts = 10 HTTP requests
+
+// ✅ GOOD: Batch create (single request)
+await db.posts.createMany({
+  data: posts,
+  partitionKey: 'user_123'
+});
+// 10 posts = 1 HTTP request (10x faster)
+```
+
+</Callout>
+
+### 5. Use Appropriate Indexes
+
+CosmosDB automatically indexes all properties by default, but you can optimize:
+
+```typescript
+const users = container('users', {
+  id: field.string(),
+  email: field.string(),
+  name: field.string(),
+  metadata: field.object({ /* large nested object */ })
+}).partitionKey('email')
+  .indexingPolicy({
+    automatic: true,
+    includedPaths: [
+      '/id/?',
+      '/email/?',
+      '/name/?'
+    ],
+    excludedPaths: [
+      '/metadata/*' // Don't index large nested objects
+    ]
+  });
+```
+
