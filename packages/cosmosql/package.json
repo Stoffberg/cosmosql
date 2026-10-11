@@ -40,7 +40,8 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/Stoffberg/cosmosql.git"
+    "url": "git+https://github.com/Stoffberg/cosmosql.git",
+    "directory": "packages/cosmosql"
   },
   "bugs": {
     "url": "https://github.com/Stoffberg/cosmosql/issues"
@@ -61,6 +62,5 @@
     "node": ">=18.0.0",
     "bun": ">=1.0.0"
   },
-  "packageManager": "bun@1.0.0",
   "private": false
 }

@@ -1,0 +1,17 @@
+{
+  "name": "cosmosql-monorepo",
+  "private": true,
+  "workspaces": ["apps/*", "packages/*"],
+  "packageManager": "bun@1.4.2",
+  "scripts": {
+    "dev": "bun run --filter docs dev",
+    "build": "bun run --filter '*' build",
+    "test": "bun run --filter cosmosql test:unit",
+    "type-check": "bun run --filter '*' type-check",
+    "lint": "biome check",
+    "format": "biome format --write"
+  },
+  "devDependencies": {
+    "@biomejs/biome": "2.3.2"
+  }
+}
