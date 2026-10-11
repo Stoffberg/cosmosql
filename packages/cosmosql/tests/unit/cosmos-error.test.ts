@@ -1,3 +1,4 @@
+import { describe, expect, test } from "vitest";
 import { CosmosError, isCosmosError } from "../../src/errors/cosmos-error";
 
 describe("CosmosError", () => {

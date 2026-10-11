@@ -1,3 +1,4 @@
+import { describe, expect, test } from "vitest";
 import { ContainerSchema, container, field } from "../../src/schema";
 
 describe("Schema Index Exports", () => {

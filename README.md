@@ -39,7 +39,7 @@ const user = await db.users.findUnique({
 
 ## Development
 
-Requires [Bun](https://bun.sh) 1.2 or newer.
+Requires [Bun](https://bun.sh) 1.2 or newer. Running the Vitest tests also requires Node.js 22.12 or newer.
 
 ```bash
 bun install          # install every workspace

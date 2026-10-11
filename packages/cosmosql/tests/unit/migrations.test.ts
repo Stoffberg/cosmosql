@@ -1,4 +1,4 @@
-import { describe, expect, test, beforeEach, mock } from "bun:test";
+import { beforeEach, describe, expect, test, vi } from "vitest";
 import { defineMigration } from "../../src/migrations";
 import { MigrationPlanner } from "../../src/migrations/planner";
 import { MigrationTracker } from "../../src/migrations/storage";
@@ -141,9 +141,9 @@ describe("MigrationClient", () => {
 	function createMockClient() {
 		return {
 			getDatabase: () => "test-db",
-			request: mock(() => Promise.resolve({ Documents: [] })),
-			containerExists: mock(() => Promise.resolve(false)),
-			createContainer: mock(() => Promise.resolve()),
+			request: vi.fn(() => Promise.resolve({ Documents: [] })),
+			containerExists: vi.fn(() => Promise.resolve(false)),
+			createContainer: vi.fn(() => Promise.resolve()),
 		} as any;
 	}
 

@@ -1,4 +1,4 @@
-import { afterEach, beforeEach, describe, expect, jest, test } from "bun:test";
+import { afterEach, beforeEach, describe, expect, type Mock, test, vi } from "vitest";
 import { CosmosClient, type CosmosClientConfig } from "../../src/client/cosmos-client";
 import { CosmosError } from "../../src/errors/cosmos-error";
 
@@ -8,8 +8,8 @@ const realFetch = global.fetch;
 describe("CosmosClient", () => {
 	beforeEach(() => {
 		// Mock fetch for each test
-		global.fetch = jest.fn() as any;
-		jest.clearAllMocks();
+		global.fetch = vi.fn() as any;
+		vi.clearAllMocks();
 	});
 
 	afterEach(() => {
@@ -90,14 +90,14 @@ describe("CosmosClient", () => {
 
 			const client = new CosmosClient(config);
 
-			(fetch as unknown as jest.Mock).mockResolvedValueOnce({
+			(fetch as unknown as Mock).mockResolvedValueOnce({
 				ok: true,
 				json: async () => ({}),
 			});
 
 			void client.request("GET", "/dbs/testdb/colls/test/docs/doc1");
 
-			const callArgs = (fetch as unknown as jest.Mock).mock.calls[0];
+			const callArgs = (fetch as unknown as Mock).mock.calls[0];
 			const url = callArgs[0];
 
 			expect(url).toBe("https://test.documents.azure.com/dbs/testdb/colls/test/docs/doc1");
@@ -115,14 +115,14 @@ describe("CosmosClient", () => {
 
 			const client = new CosmosClient(config);
 
-			(fetch as unknown as jest.Mock).mockResolvedValueOnce({
+			(fetch as unknown as Mock).mockResolvedValueOnce({
 				ok: true,
 				json: async () => ({}),
 			});
 
 			void client.request("GET", "/dbs/testdb/colls/test/docs/doc1");
 
-			const callArgs = (fetch as unknown as jest.Mock).mock.calls[0];
+			const callArgs = (fetch as unknown as Mock).mock.calls[0];
 			const url = callArgs[0];
 
 			expect(url).toBe("https://test.documents.azure.com/dbs/testdb/colls/test/docs/doc1");
@@ -140,14 +140,14 @@ describe("CosmosClient", () => {
 
 			const client = new CosmosClient(config);
 
-			(fetch as unknown as jest.Mock).mockResolvedValueOnce({
+			(fetch as unknown as Mock).mockResolvedValueOnce({
 				ok: true,
 				json: async () => ({}),
 			});
 
 			void client.request("GET", "/dbs/testdb/colls/test/docs/doc1");
 
-			const callArgs = (fetch as unknown as jest.Mock).mock.calls[0];
+			const callArgs = (fetch as unknown as Mock).mock.calls[0];
 			const url = callArgs[0];
 
 			expect(url).toBe("https://test.documents.azure.com/dbs/testdb/colls/test/docs/doc1");
@@ -169,7 +169,7 @@ describe("CosmosClient", () => {
 				name: "Test",
 			};
 
-			(fetch as unknown as jest.Mock).mockResolvedValueOnce({
+			(fetch as unknown as Mock).mockResolvedValueOnce({
 				ok: true,
 				json: async () => mockResponse,
 			});
@@ -192,7 +192,7 @@ describe("CosmosClient", () => {
 			const requestBody = { name: "Test", value: 123 };
 			const mockResponse = { id: "doc1", ...requestBody };
 
-			(fetch as unknown as jest.Mock).mockResolvedValueOnce({
+			(fetch as unknown as Mock).mockResolvedValueOnce({
 				ok: true,
 				json: async () => mockResponse,
 			});
@@ -218,14 +218,14 @@ describe("CosmosClient", () => {
 
 			const client = new CosmosClient(config);
 
-			(fetch as unknown as jest.Mock).mockResolvedValueOnce({
+			(fetch as unknown as Mock).mockResolvedValueOnce({
 				ok: true,
 				json: async () => ({}),
 			});
 
 			await client.request("GET", "/dbs/testdb/colls/test/docs/doc1", undefined, "pk1");
 
-			const callArgs = (fetch as unknown as jest.Mock).mock.calls[0];
+			const callArgs = (fetch as unknown as Mock).mock.calls[0];
 			const headers = callArgs[1].headers as Record<string, string>;
 
 			expect(headers["x-ms-documentdb-partitionkey"]).toBe(JSON.stringify(["pk1"]));
@@ -240,14 +240,14 @@ describe("CosmosClient", () => {
 
 			const client = new CosmosClient(config);
 
-			(fetch as unknown as jest.Mock).mockResolvedValueOnce({
+			(fetch as unknown as Mock).mockResolvedValueOnce({
 				ok: true,
 				json: async () => ({}),
 			});
 
 			await client.request("GET", "/dbs/testdb/colls/test/docs/doc1", undefined, ["pk1", "pk2"]);
 
-			const callArgs = (fetch as unknown as jest.Mock).mock.calls[0];
+			const callArgs = (fetch as unknown as Mock).mock.calls[0];
 			const headers = callArgs[1].headers as Record<string, string>;
 
 			expect(headers["x-ms-documentdb-partitionkey"]).toBe(JSON.stringify(["pk1", "pk2"]));
@@ -262,7 +262,7 @@ describe("CosmosClient", () => {
 
 			const client = new CosmosClient(config);
 
-			(fetch as unknown as jest.Mock).mockResolvedValueOnce({
+			(fetch as unknown as Mock).mockResolvedValueOnce({
 				ok: true,
 				json: async () => ({}),
 			});
@@ -275,7 +275,7 @@ describe("CosmosClient", () => {
 				true, // enableCrossPartitionQuery
 			);
 
-			const callArgs = (fetch as unknown as jest.Mock).mock.calls[0];
+			const callArgs = (fetch as unknown as Mock).mock.calls[0];
 			const headers = callArgs[1].headers as Record<string, string>;
 
 			expect(headers["x-ms-documentdb-query-enablecrosspartition"]).toBe("true");
@@ -290,7 +290,7 @@ describe("CosmosClient", () => {
 
 			const client = new CosmosClient(config);
 
-			(fetch as unknown as jest.Mock).mockResolvedValueOnce({
+			(fetch as unknown as Mock).mockResolvedValueOnce({
 				ok: true,
 				json: async () => ({}),
 			});
@@ -303,7 +303,7 @@ describe("CosmosClient", () => {
 				false, // enableCrossPartitionQuery
 			);
 
-			const callArgs = (fetch as unknown as jest.Mock).mock.calls[0];
+			const callArgs = (fetch as unknown as Mock).mock.calls[0];
 			const headers = callArgs[1].headers as Record<string, string>;
 
 			expect(headers["x-ms-documentdb-query-enablecrosspartition"]).toBeUndefined();
@@ -318,7 +318,7 @@ describe("CosmosClient", () => {
 
 			const client = new CosmosClient(config);
 
-			(fetch as unknown as jest.Mock).mockResolvedValueOnce({
+			(fetch as unknown as Mock).mockResolvedValueOnce({
 				ok: true,
 				json: async () => ({}),
 			});
@@ -328,7 +328,7 @@ describe("CosmosClient", () => {
 				parameters: [],
 			});
 
-			const callArgs = (fetch as unknown as jest.Mock).mock.calls[0];
+			const callArgs = (fetch as unknown as Mock).mock.calls[0];
 			const headers = callArgs[1].headers as Record<string, string>;
 
 			expect(headers["x-ms-documentdb-query-enablecrosspartition"]).toBeUndefined();
@@ -343,14 +343,14 @@ describe("CosmosClient", () => {
 
 			const client = new CosmosClient(config);
 
-			(fetch as unknown as jest.Mock).mockResolvedValueOnce({
+			(fetch as unknown as Mock).mockResolvedValueOnce({
 				ok: true,
 				json: async () => ({}),
 			});
 
 			await client.request("GET", "/dbs/testdb/colls/test/docs/doc1", undefined, null);
 
-			const callArgs = (fetch as unknown as jest.Mock).mock.calls[0];
+			const callArgs = (fetch as unknown as Mock).mock.calls[0];
 			const headers = callArgs[1].headers as Record<string, string>;
 
 			expect(headers["x-ms-documentdb-partitionkey"]).toBeUndefined();
@@ -365,14 +365,14 @@ describe("CosmosClient", () => {
 
 			const client = new CosmosClient(config);
 
-			(fetch as unknown as jest.Mock).mockResolvedValueOnce({
+			(fetch as unknown as Mock).mockResolvedValueOnce({
 				ok: true,
 				json: async () => ({}),
 			});
 
 			await client.request("GET", "/dbs/testdb/colls/test/docs/doc1", undefined, undefined);
 
-			const callArgs = (fetch as unknown as jest.Mock).mock.calls[0];
+			const callArgs = (fetch as unknown as Mock).mock.calls[0];
 			const headers = callArgs[1].headers as Record<string, string>;
 
 			expect(headers["x-ms-documentdb-partitionkey"]).toBeUndefined();
@@ -387,7 +387,7 @@ describe("CosmosClient", () => {
 
 			const client = new CosmosClient(config);
 
-			(fetch as unknown as jest.Mock).mockResolvedValueOnce({
+			(fetch as unknown as Mock).mockResolvedValueOnce({
 				ok: true,
 				json: async () => ({}),
 			});
@@ -400,7 +400,7 @@ describe("CosmosClient", () => {
 				true, // enableCrossPartitionQuery
 			);
 
-			const callArgs = (fetch as unknown as jest.Mock).mock.calls[0];
+			const callArgs = (fetch as unknown as Mock).mock.calls[0];
 			const headers = callArgs[1].headers as Record<string, string>;
 
 			expect(headers["x-ms-documentdb-query-enablecrosspartition"]).toBe("true");
@@ -415,7 +415,7 @@ describe("CosmosClient", () => {
 
 			const client = new CosmosClient(config);
 
-			(fetch as unknown as jest.Mock).mockResolvedValueOnce({
+			(fetch as unknown as Mock).mockResolvedValueOnce({
 				ok: true,
 				json: async () => ({ Documents: [] }),
 			});
@@ -428,7 +428,7 @@ describe("CosmosClient", () => {
 				true, // enableCrossPartitionQuery
 			);
 
-			const callArgs = (fetch as unknown as jest.Mock).mock.calls[0];
+			const callArgs = (fetch as unknown as Mock).mock.calls[0];
 			const headers = callArgs[1].headers as Record<string, string>;
 
 			expect(headers["x-ms-documentdb-query-enablecrosspartition"]).toBe("true");
@@ -444,7 +444,7 @@ describe("CosmosClient", () => {
 
 			const client = new CosmosClient(config);
 
-			(fetch as unknown as jest.Mock).mockResolvedValueOnce({
+			(fetch as unknown as Mock).mockResolvedValueOnce({
 				ok: true,
 				json: async () => ({ Documents: [{ id: "1" }, { id: "2" }] }),
 			});
@@ -460,7 +460,7 @@ describe("CosmosClient", () => {
 				true, // enableCrossPartitionQuery
 			);
 
-			const callArgs = (fetch as unknown as jest.Mock).mock.calls[0];
+			const callArgs = (fetch as unknown as Mock).mock.calls[0];
 			const headers = callArgs[1].headers as Record<string, string>;
 
 			expect(headers["x-ms-documentdb-query-enablecrosspartition"]).toBe("true");
@@ -476,7 +476,7 @@ describe("CosmosClient", () => {
 
 			const client = new CosmosClient(config);
 
-			(fetch as unknown as jest.Mock).mockResolvedValueOnce({
+			(fetch as unknown as Mock).mockResolvedValueOnce({
 				ok: true,
 				json: async () => ({}),
 			});
@@ -484,7 +484,7 @@ describe("CosmosClient", () => {
 			// Manually call fetch to test header filtering behavior
 			await client.request("GET", "/dbs/testdb/colls/test/docs/doc1");
 
-			const callArgs = (fetch as unknown as jest.Mock).mock.calls[0];
+			const callArgs = (fetch as unknown as Mock).mock.calls[0];
 			const actualHeaders = callArgs[1].headers as Record<string, string>;
 
 			// Headers should not contain undefined or null values
@@ -504,14 +504,14 @@ describe("CosmosClient", () => {
 
 			const client = new CosmosClient(config);
 
-			(fetch as unknown as jest.Mock).mockResolvedValueOnce({
+			(fetch as unknown as Mock).mockResolvedValueOnce({
 				ok: true,
 				json: async () => ({}),
 			});
 
 			await client.request("GET", "/dbs/testdb/colls/test/docs/doc1");
 
-			const callArgs = (fetch as unknown as jest.Mock).mock.calls[0];
+			const callArgs = (fetch as unknown as Mock).mock.calls[0];
 			const headers = callArgs[1].headers as Record<string, string>;
 
 			expect(headers.authorization).toBeDefined();
@@ -529,7 +529,7 @@ describe("CosmosClient", () => {
 
 			const client = new CosmosClient(config);
 
-			(fetch as unknown as jest.Mock).mockResolvedValueOnce({
+			(fetch as unknown as Mock).mockResolvedValueOnce({
 				ok: false,
 				status: 404,
 				statusText: "Not Found",
@@ -564,14 +564,14 @@ describe("CosmosClient", () => {
 			const client = new CosmosClient(config);
 
 			// First call: rate limited
-			(fetch as unknown as jest.Mock).mockResolvedValueOnce({
+			(fetch as unknown as Mock).mockResolvedValueOnce({
 				ok: false,
 				status: 429,
 				statusText: "Too Many Requests",
 			});
 
 			// Second call: success
-			(fetch as unknown as jest.Mock).mockResolvedValueOnce({
+			(fetch as unknown as Mock).mockResolvedValueOnce({
 				ok: true,
 				json: async () => ({ id: "doc1" }),
 			});
@@ -597,7 +597,7 @@ describe("CosmosClient", () => {
 			const client = new CosmosClient(config);
 
 			// All calls: rate limited
-			(fetch as unknown as jest.Mock).mockResolvedValue({
+			(fetch as unknown as Mock).mockResolvedValue({
 				ok: false,
 				status: 429,
 				statusText: "Too Many Requests",
@@ -624,7 +624,7 @@ describe("CosmosClient", () => {
 			const client = new CosmosClient(config);
 
 			const networkError = new Error("Network error");
-			(fetch as unknown as jest.Mock).mockRejectedValueOnce(networkError);
+			(fetch as unknown as Mock).mockRejectedValueOnce(networkError);
 
 			try {
 				await client.request("GET", "/dbs/testdb/colls/test/docs/doc1");
@@ -644,7 +644,7 @@ describe("CosmosClient", () => {
 
 			const client = new CosmosClient(config);
 
-			(fetch as unknown as jest.Mock).mockResolvedValueOnce({
+			(fetch as unknown as Mock).mockResolvedValueOnce({
 				ok: false,
 				status: 500,
 				statusText: "Internal Server Error",
@@ -667,7 +667,7 @@ describe("CosmosClient", () => {
 
 			const client = new CosmosClient(config);
 
-			(fetch as unknown as jest.Mock).mockResolvedValueOnce({
+			(fetch as unknown as Mock).mockResolvedValueOnce({
 				ok: true,
 				json: async () => ({}),
 			});

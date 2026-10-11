@@ -1,18 +1,19 @@
 /** biome-ignore-all lint/suspicious/noExplicitAny: test code */
+import { beforeEach, describe, expect, type Mocked, test, vi } from "vitest";
 import type { CosmosClient } from "../../src/client/cosmos-client";
 import { AggregateOps } from "../../src/operations/aggregate";
 import { container, field } from "../../src/schema";
 
 describe("AggregateOps", () => {
-	let mockClient: jest.Mocked<CosmosClient>;
+	let mockClient: Mocked<CosmosClient>;
 	let schema: any;
 
 	beforeEach(() => {
-		jest.clearAllMocks();
+		vi.clearAllMocks();
 
 		mockClient = {
-			getDatabase: jest.fn().mockReturnValue("testdb"),
-			request: jest.fn(),
+			getDatabase: vi.fn().mockReturnValue("testdb"),
+			request: vi.fn(),
 		} as any;
 
 		schema = container("orders", {

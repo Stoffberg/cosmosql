@@ -15,9 +15,9 @@
  */
 
 // Import the necessary types and functions
-import { ContainerClient } from "./client/container-client";
-import { container, field } from "./schema";
-import type { InferSchema } from "./types";
+import { ContainerClient } from "../src/client/container-client";
+import { container, field } from "../src/schema";
+import type { InferSchema } from "../src/types";
 import type {
 	BulkUpdateOptions,
 	BulkUpdateResult,
@@ -25,7 +25,7 @@ import type {
 	BulkDeleteResult,
 	BulkProgressStats,
 	BulkError,
-} from "./types/bulk-operations";
+} from "../src/types/bulk-operations";
 import {
 	defineMigration,
 	type MigrationDefinition,
@@ -33,7 +33,7 @@ import {
 	type MigrationStatus,
 	type MigrationPlan,
 	type MigrationResult,
-} from "./migrations";
+} from "../src/migrations";
 import type {
 	DatabaseInfo,
 	DetailedDatabaseInfo,
@@ -41,7 +41,7 @@ import type {
 	ContainerHealthCheck,
 	SchemaDiff,
 	PruneContainersResult,
-} from "./types/management";
+} from "../src/types/management";
 
 // =============================================================================
 // SCHEMA DEFINITIONS - Test every possible field type and combination
@@ -521,7 +521,7 @@ function testErrorConditions() {
 // These tests ensure that the runtime behavior matches the type definitions
 function testRuntimeTypeValidation() {
 	const client = {
-		request: jest.fn().mockResolvedValue({
+		request: async () => ({
 			Documents: [
 				{
 					id: "test",
@@ -538,7 +538,7 @@ function testRuntimeTypeValidation() {
 				},
 			],
 		}),
-		getDatabase: jest.fn().mockReturnValue("testdb"),
+		getDatabase: () => "testdb",
 	} as any;
 
 	const containerClient = new ContainerClient(client, complexSchema);

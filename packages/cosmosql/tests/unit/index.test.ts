@@ -1,3 +1,4 @@
+import { describe, expect, test } from "vitest";
 import { container, createClient, field } from "../../src";
 import type { CosmosClientConfig } from "../../src/client/cosmos-client";
 

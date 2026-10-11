@@ -1,16 +1,17 @@
+import { beforeEach, describe, expect, type Mocked, test, vi } from "vitest";
 import { ContainerClient } from "../../src/client/container-client";
 import type { CosmosClient } from "../../src/client/cosmos-client";
 import { container, field } from "../../src/schema";
 
 describe("ContainerClient", () => {
-	let mockCosmosClient: jest.Mocked<CosmosClient>;
+	let mockCosmosClient: Mocked<CosmosClient>;
 
 	beforeEach(() => {
-		jest.clearAllMocks();
+		vi.clearAllMocks();
 
 		mockCosmosClient = {
-			getDatabase: jest.fn().mockReturnValue("testdb"),
-			request: jest.fn(),
+			getDatabase: vi.fn().mockReturnValue("testdb"),
+			request: vi.fn(),
 		} as any;
 	});
 

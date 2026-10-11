@@ -1,4 +1,4 @@
-import { afterAll, beforeAll, describe, expect, test } from "bun:test";
+import { afterAll, beforeAll, describe, expect, test } from "vitest";
 import { container, createClient, defineMigration, field } from "../../src";
 
 const TEST_DB = `migrations-test-${Date.now()}`;

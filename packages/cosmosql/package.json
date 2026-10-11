@@ -11,18 +11,18 @@
   ],
   "scripts": {
     "build": "tsc -p tsconfig.build.json && bun run scripts/minify.ts",
-    "test": "bun test",
-    "test:unit": "bun test tests/unit",
-    "test:integration": "bun test tests/integration",
-    "test:integration:parallel": "bun test tests/integration --parallel",
-    "test:integration:basic-crud": "bun test tests/integration/basic-crud.test.ts",
-    "test:integration:query-ops": "bun test tests/integration/query-operations.test.ts",
-    "test:integration:container-mgmt": "bun test tests/integration/container-management.test.ts",
-    "test:integration:edge-cases": "bun test tests/integration/edge-cases.test.ts",
+    "test": "vitest run",
+    "test:unit": "vitest run tests/unit",
+    "test:integration": "vitest run tests/integration --no-file-parallelism",
+    "test:integration:parallel": "vitest run tests/integration",
+    "test:integration:basic-crud": "vitest run tests/integration/basic-crud.test.ts",
+    "test:integration:query-ops": "vitest run tests/integration/query-operations.test.ts",
+    "test:integration:container-mgmt": "vitest run tests/integration/container-management.test.ts",
+    "test:integration:edge-cases": "vitest run tests/integration/edge-cases.test.ts",
     "lint": "biome lint src",
     "format": "biome format src --write",
     "prepublishOnly": "bun run build && bun run test:unit && bun run type-check && bun run lint && bun run format",
-    "type-check": "tsc --noEmit",
+    "type-check": "tsc --noEmit && tsc --noEmit -p tsconfig.type-tests.json",
     "deploy:patch": "bun x npm version patch && npm publish",
     "deploy:minor": "bun x npm version minor && npm publish",
     "deploy:major": "bun x npm version major && npm publish"
@@ -49,6 +49,7 @@
   "homepage": "https://cosmosql.dev",
   "devDependencies": {
     "@azure/cosmos": "^4.7.0",
+    "@types/bun": "latest",
     "@types/node": "^20.0.0",
     "@typescript-eslint/eslint-plugin": "^6.0.0",
     "@typescript-eslint/parser": "^6.0.0",
@@ -56,7 +57,7 @@
     "eslint": "^8.50.0",
     "prettier": "^3.0.0",
     "typescript": "^5.2.0",
-    "@types/bun": "latest"
+    "vitest": "^5.0.3"
   },
   "engines": {
     "node": ">=18.0.0",

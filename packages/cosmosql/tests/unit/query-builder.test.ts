@@ -1,4 +1,5 @@
 /** biome-ignore-all lint/suspicious/noExplicitAny: test code */
+import { describe, expect, test } from "vitest";
 import { QueryBuilder } from "../../src/query/query-builder";
 
 describe("QueryBuilder", () => {

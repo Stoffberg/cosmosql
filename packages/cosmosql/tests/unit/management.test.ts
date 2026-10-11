@@ -1,14 +1,14 @@
-import { describe, expect, test, beforeEach, mock } from "bun:test";
+import { beforeEach, describe, expect, test, vi } from "vitest";
 import { ManagementOperations } from "../../src/operations/management";
 import type { CosmosClient } from "../../src/client/cosmos-client";
 
 function createMockClient() {
 	return {
 		getDatabase: () => "test-db",
-		listContainers: mock(() =>
+		listContainers: vi.fn(() =>
 			Promise.resolve([{ id: "container1" }, { id: "container2" }, { id: "orphaned" }]),
 		),
-		getContainer: mock((name: string) =>
+		getContainer: vi.fn((name: string) =>
 			Promise.resolve({
 				id: name,
 				_self: "self",
@@ -27,8 +27,8 @@ function createMockClient() {
 				},
 			}),
 		),
-		request: mock(() => Promise.resolve({ Documents: [42] })),
-		deleteContainer: mock(() => Promise.resolve()),
+		request: vi.fn(() => Promise.resolve({ Documents: [42] })),
+		deleteContainer: vi.fn(() => Promise.resolve()),
 	} as unknown as CosmosClient;
 }
 
