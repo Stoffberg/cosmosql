@@ -76,9 +76,6 @@ export function createClient(config: CosmosClientConfig & { migrations?: Migrati
 	const mode = config.mode ?? "verify";
 	const managementOps = new ManagementOperations(client);
 
-	// Initialize migrations if provided
-	const migrations = config.migrations ? new MigrationClient(client, config.migrations) : undefined;
-
 	return {
 		async withContainers<T extends Record<string, ContainerSchema<any, any, any>>>(
 			containers: T,
@@ -139,8 +136,8 @@ export function createClient(config: CosmosClientConfig & { migrations?: Migrati
 			}
 
 			// Step 4: Add migrations and management
-			if (migrations) {
-				result.migrations = migrations;
+			if (config.migrations) {
+				result.migrations = new MigrationClient(client, config.migrations, result);
 			}
 			result.management = managementOps;
 

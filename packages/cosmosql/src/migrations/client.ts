@@ -1,3 +1,4 @@
+import type { CosmosClient } from "../client/cosmos-client";
 import { MigrationPlanner } from "./planner";
 import { MigrationRunner } from "./runner";
 import { MigrationTracker } from "./storage";
@@ -19,10 +20,7 @@ export class MigrationClient {
 	private planner: MigrationPlanner;
 	private migrations: Map<number, MigrationDefinition>;
 
-	constructor(
-		db: any, // CosmosClient
-		migrations: MigrationDefinition[],
-	) {
+	constructor(client: CosmosClient, migrations: MigrationDefinition[], db: any = client) {
 		// Validate migrations are sequential
 		this.migrations = new Map();
 		const sorted = [...migrations].sort((a, b) => a.version - b.version);
@@ -40,7 +38,7 @@ export class MigrationClient {
 			this.migrations.set(migration.version, migration);
 		}
 
-		this.tracker = new MigrationTracker(db);
+		this.tracker = new MigrationTracker(client);
 		this.runner = new MigrationRunner(db, this.tracker);
 		this.planner = new MigrationPlanner();
 	}
