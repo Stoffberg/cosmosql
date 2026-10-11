@@ -1,12 +1,12 @@
 /**
  * Query Operations Integration Test Suite for CosmosQL
  *
- * Run with: bun test tests/integration/query-operations.test.ts
+ * Run with: bun run test:integration tests/integration/query-operations.test.ts
  *
  * Tests query and find operations.
  */
 
-import { afterAll, beforeAll, describe, expect, test } from "bun:test";
+import { afterAll, beforeAll, describe, expect, test } from "vitest";
 import { CosmosClient as AzureCosmosClient } from "@azure/cosmos";
 import { createClient } from "../../src";
 import { container, field } from "../../src/schema";

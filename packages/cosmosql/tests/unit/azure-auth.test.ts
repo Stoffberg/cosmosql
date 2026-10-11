@@ -1,3 +1,4 @@
+import { beforeAll, describe, expect, it } from "vitest";
 import { container, createClient, field } from "../../src/index";
 
 /**

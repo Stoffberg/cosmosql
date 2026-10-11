@@ -1,12 +1,12 @@
 /**
  * Aggregation Integration Test Suite for CosmosQL
  *
- * Run with: bun test tests/integration/aggregate.test.ts
+ * Run with: bun run test:integration tests/integration/aggregate.test.ts
  *
  * Tests count, aggregate, groupBy, and convenience methods with real CosmosDB.
  */
 
-import { afterAll, beforeAll, describe, expect, test } from "bun:test";
+import { afterAll, beforeAll, describe, expect, test } from "vitest";
 import { CosmosClient as AzureCosmosClient } from "@azure/cosmos";
 import { createClient } from "../../src";
 import { container, field } from "../../src/schema";

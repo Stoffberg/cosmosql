@@ -3,6 +3,7 @@
  * These verify that the type definitions work correctly
  */
 
+import { describe, expect, test } from "vitest";
 import type { OrderByInput, SelectInput, SelectResult, WhereInput } from "../../src/types";
 
 describe("Operator Types", () => {

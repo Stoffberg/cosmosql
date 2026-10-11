@@ -1,12 +1,12 @@
 /**
  * Container Management Integration Test Suite for CosmosQL
  *
- * Run with: bun test tests/integration/container-management.test.ts
+ * Run with: bun run test:integration tests/integration/container-management.test.ts
  *
  * Tests container and database management operations.
  */
 
-import { afterAll, beforeAll, describe, expect, test } from "bun:test";
+import { afterAll, beforeAll, describe, expect, test } from "vitest";
 import { CosmosClient as AzureCosmosClient } from "@azure/cosmos";
 import { createClient } from "../../src";
 import { CosmosClient } from "../../src/client/cosmos-client";

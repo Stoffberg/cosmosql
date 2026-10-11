@@ -1,0 +1,8 @@
+{
+	"extends": "./tsconfig.json",
+	"compilerOptions": {
+		"rootDir": "."
+	},
+	"include": ["src/**/*", "tests/type-tests.ts", "tests/unit/type-inference.test.ts"],
+	"exclude": ["node_modules", "dist"]
+}

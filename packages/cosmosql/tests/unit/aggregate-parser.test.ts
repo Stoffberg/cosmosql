@@ -1,4 +1,5 @@
 /** biome-ignore-all lint/suspicious/noExplicitAny: test code */
+import { describe, expect, test } from "vitest";
 import { AggregateResultParser } from "../../src/query/aggregate-parser";
 
 describe("AggregateResultParser", () => {

@@ -1,4 +1,5 @@
 /** biome-ignore-all lint/suspicious/noExplicitAny: test code */
+import { describe, expect, test } from "vitest";
 import { AggregateQueryBuilder } from "../../src/query/aggregate-builder";
 
 describe("AggregateQueryBuilder", () => {

@@ -473,7 +473,7 @@ npm run dev
 ### Testing
 ```bash
 npm test
-npm run test:e2e  # Requires CosmosDB emulator
+npm run test:integration  # Requires CosmosDB emulator
 ```
 
 ## Community

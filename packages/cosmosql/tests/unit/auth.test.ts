@@ -1,3 +1,4 @@
+import { describe, expect, test } from "vitest";
 import { createHmac } from "node:crypto";
 import { CosmosAuth } from "../../src/client/auth";
 

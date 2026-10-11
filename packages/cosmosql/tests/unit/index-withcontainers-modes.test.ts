@@ -1,4 +1,4 @@
-import { afterEach, beforeEach, describe, expect, jest, test } from "bun:test";
+import { afterEach, beforeEach, describe, expect, type Mock, test, vi } from "vitest";
 import { container, createClient, field } from "../../src";
 import type { CosmosClientConfig } from "../../src/client/cosmos-client";
 
@@ -8,8 +8,8 @@ const realFetch = global.fetch;
 describe("withContainers Modes", () => {
 	beforeEach(() => {
 		// Mock fetch for each test
-		global.fetch = jest.fn() as any;
-		jest.clearAllMocks();
+		global.fetch = vi.fn() as any;
+		vi.clearAllMocks();
 	});
 
 	afterEach(() => {
@@ -70,7 +70,7 @@ describe("withContainers Modes", () => {
 
 	describe("verify mode", () => {
 		test("throws error when database does not exist", async () => {
-			(fetch as unknown as jest.Mock).mockResolvedValueOnce({
+			(fetch as unknown as Mock).mockResolvedValueOnce({
 				ok: false,
 				status: 404,
 				json: async () => ({ code: "NotFound" }),
@@ -96,7 +96,7 @@ describe("withContainers Modes", () => {
 		});
 
 		test("throws error when container does not exist", async () => {
-			(fetch as unknown as jest.Mock)
+			(fetch as unknown as Mock)
 				.mockResolvedValueOnce({
 					ok: true,
 					status: 200,
@@ -137,7 +137,7 @@ describe("withContainers Modes", () => {
 				_self: "/self",
 			};
 
-			(fetch as unknown as jest.Mock)
+			(fetch as unknown as Mock)
 				.mockResolvedValueOnce({
 					ok: true,
 					status: 200,
@@ -182,7 +182,7 @@ describe("withContainers Modes", () => {
 				_self: "/self",
 			};
 
-			(fetch as unknown as jest.Mock)
+			(fetch as unknown as Mock)
 				.mockResolvedValueOnce({
 					ok: true,
 					status: 200,
@@ -228,11 +228,11 @@ describe("withContainers Modes", () => {
 				_self: "/self",
 			};
 
-			const consoleWarnSpy = jest.spyOn(console, "warn").mockImplementation((message) => {
+			const consoleWarnSpy = vi.spyOn(console, "warn").mockImplementation((message) => {
 				console.log("console.warn called with:", message);
 			});
 
-			(fetch as unknown as jest.Mock)
+			(fetch as unknown as Mock)
 				.mockResolvedValueOnce({
 					ok: true,
 					status: 200,
@@ -280,7 +280,7 @@ describe("withContainers Modes", () => {
 
 	describe("auto-create mode", () => {
 		test("creates database if it does not exist", async () => {
-			(fetch as unknown as jest.Mock)
+			(fetch as unknown as Mock)
 				.mockResolvedValueOnce({
 					ok: false,
 					status: 404,
@@ -324,7 +324,7 @@ describe("withContainers Modes", () => {
 		});
 
 		test("creates container if it does not exist", async () => {
-			(fetch as unknown as jest.Mock)
+			(fetch as unknown as Mock)
 				.mockResolvedValueOnce({
 					ok: true,
 					status: 200,
@@ -370,7 +370,7 @@ describe("withContainers Modes", () => {
 				_self: "/self",
 			};
 
-			(fetch as unknown as jest.Mock)
+			(fetch as unknown as Mock)
 				.mockResolvedValueOnce({
 					ok: true,
 					status: 200,
@@ -430,7 +430,7 @@ describe("withContainers Modes", () => {
 				],
 			};
 
-			(fetch as unknown as jest.Mock)
+			(fetch as unknown as Mock)
 				.mockResolvedValueOnce({
 					ok: true,
 					status: 200,
@@ -474,7 +474,7 @@ describe("withContainers Modes", () => {
 		});
 
 		test("deleteContainers deletes specified containers", async () => {
-			(fetch as unknown as jest.Mock)
+			(fetch as unknown as Mock)
 				.mockResolvedValueOnce({
 					ok: true,
 					status: 200,
@@ -527,7 +527,7 @@ describe("withContainers Modes", () => {
 		});
 
 		test("pruneContainers requires confirmation", async () => {
-			(fetch as unknown as jest.Mock).mockResolvedValueOnce({
+			(fetch as unknown as Mock).mockResolvedValueOnce({
 				ok: true,
 				status: 200,
 				json: async () => ({ DocumentCollections: [] }),

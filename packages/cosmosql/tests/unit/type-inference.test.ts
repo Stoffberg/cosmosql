@@ -4,6 +4,7 @@
  * If types are incorrect, TypeScript will fail at compile time.
  */
 
+import { describe, expect, test } from "vitest";
 import { container, field } from "../../src/schema";
 import type {
 	AggregateResult,

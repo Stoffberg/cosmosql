@@ -1,4 +1,4 @@
-import { describe, expect, test, mock, beforeEach } from "bun:test";
+import { beforeEach, describe, expect, test, vi } from "vitest";
 import { BulkUpdateOperations } from "../../src/operations/bulk-update";
 import { BulkDeleteOperations } from "../../src/operations/bulk-delete";
 import type { CosmosClient } from "../../src/client/cosmos-client";
@@ -18,7 +18,7 @@ const testSchema = new ContainerSchema(
 );
 
 // Mock CosmosClient
-function createMockClient(mockRequest: any = mock(() => Promise.resolve({ Documents: [] }))) {
+function createMockClient(mockRequest: any = vi.fn(() => Promise.resolve({ Documents: [] }))) {
 	return {
 		getDatabase: () => "test-db",
 		request: mockRequest,
@@ -30,7 +30,7 @@ describe("BulkUpdateOperations", () => {
 	let mockRequest: any;
 
 	beforeEach(() => {
-		mockRequest = mock(() =>
+		mockRequest = vi.fn(() =>
 			Promise.resolve({
 				Documents: [
 					{ id: "1", email: "user1@example.com", name: "User 1", age: 25 },
@@ -113,7 +113,7 @@ describe("BulkDeleteOperations", () => {
 	let mockRequest: any;
 
 	beforeEach(() => {
-		mockRequest = mock(() => Promise.resolve({ Documents: [] }));
+		mockRequest = vi.fn(() => Promise.resolve({ Documents: [] }));
 		const mockClient = createMockClient(mockRequest);
 		bulkDeleteOps = new BulkDeleteOperations(mockClient, testSchema);
 	});

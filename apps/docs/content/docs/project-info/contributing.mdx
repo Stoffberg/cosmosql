@@ -45,13 +45,13 @@ npm run build
 
 ```bash
 # All tests
-bun test
+bun run test
 
 # Unit tests only
-bun test tests/unit
+bun run test
 
 # Integration tests only
-bun test tests/integration
+bun run --filter cosmosql test:integration
 ```
 
 **Note:** Integration tests require a real Azure CosmosDB account. Set up environment variables:
@@ -141,7 +141,7 @@ git checkout -b fix/your-bug-fix
 3. **Run tests and linting:**
 
 ```bash
-bun test
+bun run test
 bun run lint
 ```
 
