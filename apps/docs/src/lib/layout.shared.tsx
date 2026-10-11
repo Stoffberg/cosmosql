@@ -1,9 +1,18 @@
 import type { BaseLayoutProps } from "fumadocs-ui/layouts/shared";
+import { BrandMark } from "@/components/home/brand-mark";
+import { GITHUB_URL } from "@/lib/site";
 
 export function baseOptions(): BaseLayoutProps {
   return {
     nav: {
-      title: "CosmosQL",
+      title: (
+        <>
+          <BrandMark className="size-[18px]" />
+          <span className="font-display text-[15px] font-medium tracking-tight">
+            cosmosql
+          </span>
+        </>
+      ),
       url: "/",
     },
     links: [
@@ -21,6 +30,6 @@ export function baseOptions(): BaseLayoutProps {
         url: "/docs/reference/api-reference",
       },
     ],
-    githubUrl: "https://github.com/Stoffberg/cosmosql",
+    githubUrl: GITHUB_URL,
   };
 }

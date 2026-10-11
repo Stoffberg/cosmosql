@@ -4,6 +4,7 @@ import {
   frontmatterSchema,
   metaSchema,
 } from "fumadocs-mdx/config";
+import { codeTheme } from "./src/lib/code-theme";
 
 // You can customise Zod schemas for frontmatter and `meta.json` here
 // see https://fumadocs.dev/docs/mdx/collections
@@ -22,6 +23,11 @@ export const docs = defineDocs({
 
 export default defineConfig({
   mdxOptions: {
-    // MDX options
+    rehypeCodeOptions: {
+      themes: {
+        light: codeTheme,
+        dark: codeTheme,
+      },
+    },
   },
 });
