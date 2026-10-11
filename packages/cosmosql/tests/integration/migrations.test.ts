@@ -108,5 +108,23 @@ describe("Migrations Integration Tests", () => {
 		expect(plan).toHaveProperty("warnings");
 		expect(Array.isArray(plan.migrationsToApply)).toBe(true);
 	}, 30000);
+	test("should apply and roll back persisted document changes", async () => {
+		const applied = await db.migrations.apply({ target: 1, confirm: true });
+		expect(applied.success).toBe(true);
+		expect(applied.applied.map((migration: { version: number }) => migration.version)).toEqual([1]);
+
+		const where = { id: "test-1", email: "test@example.com" };
+		expect((await db.testContainer.findUnique({ where })).status).toBe("active");
+		expect((await db.migrations.status()).current.version).toBe(1);
+
+		const repeated = await db.migrations.apply({ target: 1, confirm: true });
+		expect(repeated.applied).toEqual([]);
+
+		const rolledBack = await db.migrations.rollback({ to: 0, confirm: true });
+		expect(rolledBack.success).toBe(true);
+		expect((await db.testContainer.findUnique({ where })).status).toBeUndefined();
+		expect((await db.migrations.status()).current).toBeNull();
+	});
+
 });
 
